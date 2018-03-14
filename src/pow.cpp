@@ -84,6 +84,8 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
         return false;
 
     // Check proof of work matches claimed amount
+    constexpr unsigned int picoBitPos=255;
+    hash.flip_bit(picoBitPos);
     if (UintToArith256(hash) > bnTarget)
         return false;
 

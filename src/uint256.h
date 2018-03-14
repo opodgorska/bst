@@ -18,6 +18,21 @@
 template<unsigned int BITS>
 class base_blob
 {
+private:
+    uint8_t get_bit_mask(unsigned int pos) const
+    {
+        unsigned int bit_pos = pos % 8;
+
+	uint8_t mask = 1;
+	mask <<= bit_pos;
+
+	return mask;
+    }
+
+    unsigned int get_byte_pos(unsigned int pos) const
+    {
+	return pos / 8;
+    }
 protected:
     static constexpr int WIDTH = BITS / 8;
     uint8_t data[WIDTH];
@@ -76,6 +91,14 @@ public:
     unsigned int size() const
     {
         return sizeof(data);
+    }
+
+    void flip_bit(unsigned int pos)
+    {
+	unsigned int byte_pos = get_byte_pos(pos);
+	uint8_t mask = get_bit_mask(pos);
+
+	data[byte_pos] ^= mask;
     }
 
     uint64_t GetUint64(int pos) const
