@@ -125,8 +125,11 @@ public:
         uint256 picoHash = uint256S("80000000720bb12a5a645d027a36385a99f64d6b9da84c94eae2a6ae0a0be032");
         assert(consensus.hashGenesisBlock == picoHash);
         assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
-        
+
         vSeeds.clear();      //DNS seeds.
+        vSeeds.emplace_back("seed.blockstamp.info");
+        vSeeds.emplace_back("85.10.197.15");
+
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
