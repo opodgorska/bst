@@ -119,10 +119,10 @@ public:
         nDefaultPort = 8333;
         nPruneAfterHeight = 100000;
 
-        genesis = CreateGenesisBlock(1231006506, 2014007750, 0x1d00ffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1521479476, 4249753455, 0x1d00ffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
         std::cout << consensus.hashGenesisBlock.ToString() << std::endl;
-        uint256 picoHash = uint256S("80000000720bb12a5a645d027a36385a99f64d6b9da84c94eae2a6ae0a0be032");
+        uint256 picoHash = uint256S("80000000c499117e14a35efef4ba8b940fc374a2e401ab321ae2228595ceacd3");
         assert(consensus.hashGenesisBlock == picoHash);
         assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
