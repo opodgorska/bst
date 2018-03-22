@@ -48,7 +48,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
  */
 static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
-    const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    const char* pszTimestamp = "22/Mar/2018  0000000000000000002b5a4791669f433a450ec8e5f2d62047312c4be6f85123";
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
@@ -123,12 +123,12 @@ public:
         nDefaultPort = 8446;
         nPruneAfterHeight = 100000;
 
-        genesis = CreateGenesisBlock(1521479476, 4249753455, 0x1d00ffff, 1, 50 * COIN);
+	genesis = CreateGenesisBlock(1521717929, 93837405, 0x1d00ffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
         std::cout << consensus.hashGenesisBlock.ToString() << std::endl;
-        uint256 picoHash = uint256S("80000000c499117e14a35efef4ba8b940fc374a2e401ab321ae2228595ceacd3");
+	uint256 picoHash = uint256S("8000000079da1801a4e947f95dae98f012a16f43519a5587bb8584ca84b160d4");
         assert(consensus.hashGenesisBlock == picoHash);
-        assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+	assert(genesis.hashMerkleRoot == uint256S("0xb2f63819a53936baa63d9f42bd2a5a63dbc8475e7e63d6d0b214d332aaeedc69"));
 
         vSeeds.clear();      //DNS seeds.
         vSeeds.emplace_back("seed.blockstamp.info");
