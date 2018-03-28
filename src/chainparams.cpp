@@ -76,10 +76,10 @@ public:
         strNetworkID = "main";
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Height = 0;
-        consensus.BIP34Height = 100000000;
-        consensus.BIP34Hash = uint256();
-        consensus.BIP65Height = 100000000;
-        consensus.BIP66Height = 100000000;
+        consensus.BIP34Height = 1024;
+        consensus.BIP34Hash = uint256S("80000000002dcd07c0c9d0bc726dcd43a84d00482a0abb2c4ec48c2ee671eab5");
+        consensus.BIP65Height = 1351;
+        consensus.BIP66Height = 1251;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60;
@@ -141,7 +141,7 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
         bech32_hrp = "bc";
-        
+
         vFixedSeeds.clear(); //fixed seeds.
 
         fDefaultConsistencyChecks = false;
