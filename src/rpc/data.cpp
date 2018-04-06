@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2017 The Bitcoin Core developers
+// Copyright (c) 2009-2018 Slawek Mozdzonek
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -69,7 +69,7 @@ private:
 	double amount;
 };
 
-UniValue callRPC(std::string args)
+static UniValue callRPC(std::string args)
 {
     std::vector<std::string> vArgs;
     boost::split(vArgs, args, boost::is_any_of(" \t"));
@@ -90,7 +90,7 @@ UniValue callRPC(std::string args)
     }
 }
 
-unsigned char hexval(unsigned char c)
+static unsigned char hexval(unsigned char c)
 {
     if ('0' <= c && c <= '9')
         return c - '0';
@@ -98,10 +98,10 @@ unsigned char hexval(unsigned char c)
         return c - 'a' + 10;
     else if ('A' <= c && c <= 'F')
         return c - 'A' + 10;
-    else abort();
+    else throw std::runtime_error("hexval decoding failed");
 }
 
-void hex2ascii(const std::string& in, std::string& out)
+static void hex2ascii(const std::string& in, std::string& out)
 {
     out.clear();
     out.reserve(in.length() / 2);
@@ -113,6 +113,16 @@ void hex2ascii(const std::string& in, std::string& out)
        c = (c << 4) + hexval(*p);
        out.push_back(c);
     }
+}
+
+static int hexStr2Int(const std::string& str)
+{
+	int ret;
+	std::stringstream ss;
+	ss << std::hex << str;
+	ss >> ret;
+
+	return ret;
 }
 
 UniValue retrievemessage(const JSONRPCRequest& request)
@@ -151,7 +161,8 @@ UniValue retrievemessage(const JSONRPCRequest& request)
 			{
 				int length=0;
 				int offset=0;
-				int order=std::stoi(vout[i][std::string("scriptPubKey")][std::string("hex")].get_str().substr(2,2));
+				std::string hexStr=vout[i][std::string("scriptPubKey")][std::string("hex")].get_str();
+				int order=hexStr2Int(hexStr.substr(2,2));
 				if(order<=0x4b)
 				{
 					length=order;
@@ -159,18 +170,18 @@ UniValue retrievemessage(const JSONRPCRequest& request)
 				}
 				else if(order==0x4c)
 				{
-					length=std::stoi(vout[i][std::string("scriptPubKey")][std::string("hex")].get_str().substr(4,2));
+					length=hexStr2Int(hexStr.substr(4,2));
 					offset=6;
 				}
 				else if(order==0x4d)
 				{
-					length=std::stoi(vout[i][std::string("scriptPubKey")][std::string("hex")].get_str().substr(4,4));
+					length=hexStr2Int(hexStr.substr(4,4));
 					offset=8;
 				}
 
-				std::string str;
-				hex2ascii(vout[i][std::string("scriptPubKey")][std::string("hex")].get_str().substr(offset, 2*length), str);				
-				return UniValue(UniValue::VSTR, std::string("\"")+str+std::string("\""));
+				std::string asciiStr;
+				hex2ascii(hexStr.substr(offset, 2*length), asciiStr);				
+				return UniValue(UniValue::VSTR, std::string("\"")+asciiStr+std::string("\""));
 			}
 		}
 	}
@@ -239,7 +250,7 @@ UniValue storemessage(const JSONRPCRequest& request)
 	}
 	else
 	{
-		throw std::runtime_error("listunspent returned empty list");
+		throw std::runtime_error("listunspent returned an empty list");
 	}
 
     return res;
