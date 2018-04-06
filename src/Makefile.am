@@ -217,6 +217,8 @@ libbitcoin_server_a_SOURCES = \
   rpc/rawtransaction.cpp \
   rpc/safemode.cpp \
   rpc/server.cpp \
+  rpc/client.cpp \
+  rpc/data.cpp \
   script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \
