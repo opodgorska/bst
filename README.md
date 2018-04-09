@@ -44,3 +44,8 @@ bstd-cli retrievemessage c04878b7bf26def16ee689863943da91f9e7dcce77250e1ca8b6390
 "user data string"
 ```
 
+```
+bstd-cli storefilehash /path/to/file/myfile
+0eec311afa6e8253c984d9bd57dadedd72848065160a093dc66a776388cfda13
+```
+
