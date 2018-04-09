@@ -31,8 +31,7 @@ Default settings for BST are following:
 - peer-to-peer network port:	8446
 - executable names:		bst*
 
-To store and retrieve data from the Block STamp blockchain RPC bitcoin commands should be used.
-For now following RPC user data commands are availlable:
+To store and retrieve data from the Block STamp blockchain following RPC commands are now availlable:
 
 ```
 bstd-cli storemessage "user data string"
