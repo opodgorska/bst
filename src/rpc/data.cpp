@@ -10,6 +10,7 @@
 #include <utilstrencodings.h>
 #include <stdint.h>
 #include <amount.h>
+#include <hash.h>
 
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
@@ -125,6 +126,19 @@ static int hexStr2Int(const std::string& str)
 	return ret;
 }
 
+static std::string byte2str(const unsigned char* binaryData, size_t size)
+{
+	const char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B','C','D','E','F'};
+	std::string str;
+	for (size_t i = 0; i < size; ++i) 
+	{
+		const unsigned char ch = binaryData[i];
+		str.append(&hex[(ch  & 0xF0) >> 4], 1);
+		str.append(&hex[ch & 0xF], 1);
+	}
+	return str;
+}
+
 UniValue retrievemessage(const JSONRPCRequest& request)
 {
 	RPCTypeCheck(request.params, {UniValue::VSTR});
@@ -165,22 +179,22 @@ UniValue retrievemessage(const JSONRPCRequest& request)
 				int order=hexStr2Int(hexStr.substr(2,2));
 				if(order<=0x4b)
 				{
-					length=order;
+					length=2*order;
 					offset=4;
 				}
 				else if(order==0x4c)
 				{
-					length=hexStr2Int(hexStr.substr(4,2));
+					length=2*hexStr2Int(hexStr.substr(4,2));
 					offset=6;
 				}
 				else if(order==0x4d)
 				{
-					length=hexStr2Int(hexStr.substr(4,4));
+					length=2*hexStr2Int(hexStr.substr(4,4));
 					offset=8;
 				}
 
 				std::string asciiStr;
-				hex2ascii(hexStr.substr(offset, 2*length), asciiStr);				
+				hex2ascii(hexStr.substr(offset, length), asciiStr);				
 				return UniValue(UniValue::VSTR, std::string("\"")+asciiStr+std::string("\""));
 			}
 		}
@@ -217,13 +231,14 @@ UniValue storemessage(const JSONRPCRequest& request)
     UniValue signedTx(UniValue::VARR);
 
     std::string msg=request.params[0].get_str();
-	std::string hexMsg=HexStr(msg.begin(), msg.end());
 
 
 	if(msg.size()>80)
 	{
 		throw std::runtime_error("message to long");
 	}
+
+	std::string hexMsg=HexStr(msg.begin(), msg.end());
 
 	double fee=static_cast<double>(::minRelayTxFee.GetFee(msg.size()))/1000;
 	res=callRPC(std::string("listunspent"));
@@ -256,12 +271,81 @@ UniValue storemessage(const JSONRPCRequest& request)
     return res;
 }
 
+class FileReader
+{
+public:
+	FileReader(const std::string& fileName_, std::vector<char>& binaryData) : file(fileName_.c_str(), std::ios::in|std::ios::binary|std::ios::ate)
+	{
+		if (file.is_open())
+		{
+			size = file.tellg();
+			binaryData.resize(size);
+			file.seekg(0, std::ios::beg);
+			file.read(binaryData.data(), size);
+		}		
+	}
+	
+	~FileReader()
+	{
+		if (file.is_open())
+		{
+			file.close();
+		}
+	}
+private:
+	std::ifstream file;
+	std::streampos size;
+};
+
+UniValue storefilehash(const JSONRPCRequest& request)
+{
+	RPCTypeCheck(request.params, {UniValue::VSTR});
+	
+	if (request.fHelp || request.params.size() != 1)
+	throw std::runtime_error(
+		"storefilehash \"string\" \n"
+		"\nStores a hash of a user file into a blockchain.\n"
+		"A transaction fee is computed as a (hash length)*(fee rate). \n"
+		"Before this command walletpassphrase is required. \n"
+
+		"\nArguments:\n"
+		"1. \"path to the file\"			(string, required) A path to the file\n"
+
+		"\nResult:\n"
+		"\"txid\"							(string) A hex-encoded transaction id\n"
+
+
+		"\nExamples:\n"
+		+ HelpExampleCli("storefilehash", "\"/home/myfile.txt\"")
+		+ HelpExampleRpc("storefilehash", "\"/home/myfile.txt\"")
+	);
+
+	UniValue res(UniValue::VARR);
+
+	std::string filePath=request.params[0].get_str();
+
+	std::vector<char> binaryData;
+	constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
+	unsigned char fileHash[hashSize];
+
+	FileReader fileReader(filePath, binaryData);
+
+	CHash256 fileHasher;
+	
+	fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
+	fileHasher.Finalize(fileHash);
+
+	res=callRPC(std::string("storemessage ")+byte2str(fileHash, hashSize));
+	
+    return res;
+}
 
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
     { "blockchain",         "storemessage",                	&storemessage,             	{"message"} },
     { "blockchain",         "retrievemessage",             	&retrievemessage,          	{"txid"} },
+    { "blockchain",         "storefilehash",             	&storefilehash,          	{"file_path"} },
 };
 
 void RegisterDataRPCCommands(CRPCTable &t)
