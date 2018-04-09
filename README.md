@@ -20,8 +20,9 @@ A working node you can connect with is available online.
 
 ## Installation
 
-To start using Block STamp you shoud build the project and run a node. The node default configuration contains build in addresses that let you connect to our working nodes.
-When you connect them, your node should start downloading blocks. After downloading process is done you can start working with Block STamp.
+To start using Block STamp you shoud build the project and run a node with option -txindex to enable blockchain transaction queries.
+The node default configuration contains build in addresses that let you connect to our working nodes.When you connect them, your node should start downloading blocks.
+After downloading process is done you can start working with Block STamp.
 
 Default settings for BST are following: 
 - working directory:		~/.bst 
