@@ -51,7 +51,7 @@ public:
 	bool process()
 	{
 		size_t size=getSize();
-		for(size_t i=0;i<size;++size)
+		for(size_t i=0;i<size;++i)
 		{
 			parse(listunspent[i]);
 			if(amount>=fee)
