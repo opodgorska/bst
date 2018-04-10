@@ -70,6 +70,65 @@ private:
 	double amount;
 };
 
+class FileReader
+{
+public:
+	FileReader(const std::string& fileName_) : file(fileName_.c_str(), std::ios::in|std::ios::binary|std::ios::ate)
+	{
+		if(file.is_open())
+		{
+			size = file.tellg();
+		}		
+	}
+	
+	~FileReader()
+	{
+		if(file.is_open())
+		{
+			file.close();
+		}
+	}
+	
+	void read(std::vector<char>& binaryData)
+	{
+		if(file.is_open())
+		{
+			binaryData.resize(size);
+			file.seekg(0, std::ios::beg);
+			file.read(binaryData.data(), size);
+		}
+	}
+
+private:
+	std::ifstream file;
+	std::streampos size;
+};
+
+class FileWriter
+{
+public:
+	FileWriter(const std::string& fileName_) : file(fileName_.c_str(), std::ios::out|std::ios::binary|std::ios::trunc) {}
+
+	~FileWriter()
+	{
+		if(file.is_open())
+		{
+			file.close();
+		}
+	}
+
+	void write(const std::vector<char>& binaryData)
+	{
+		if(file.is_open())
+		{
+			file.write(binaryData.data(), binaryData.size());
+		}
+	}
+
+private:
+	std::ofstream file;	
+};
+
 static UniValue callRPC(std::string args)
 {
     std::vector<std::string> vArgs;
@@ -116,7 +175,7 @@ static void hex2ascii(const std::string& in, std::string& out)
     }
 }
 
-static int hexStr2Int(const std::string& str)
+static int hexStr2int(const std::string& str)
 {
 	int ret;
 	std::stringstream ss;
@@ -137,6 +196,152 @@ static std::string byte2str(const unsigned char* binaryData, size_t size)
 		str.append(&hex[ch & 0xF], 1);
 	}
 	return str;
+}
+
+void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
+{
+        char hex_byte[3];
+        char *ep;
+
+        hex_byte[2] = '\0';
+        int i=0;
+        size_t len=hexstr.length();
+        for(size_t j=0; j<len; j+=2, i++) 
+        {
+                if(!hexstr[1]) 
+                {
+					std::runtime_error("hex2bin str truncated");
+                }
+                hex_byte[0] = hexstr[j];
+                hex_byte[1] = hexstr[j+1];
+                binaryData[i] = static_cast<char>(strtol(hex_byte, &ep, 16));
+                if(*ep) 
+                {
+					std::runtime_error("hex2bin failed");
+                }
+        }
+}
+
+static std::string getOPreturnData(const std::string& txid)
+{
+	UniValue tx(UniValue::VARR);
+	tx=callRPC(std::string("getrawtransaction ")+txid+std::string(" 1"));
+	if(tx.exists(std::string("vout")))
+	{		
+		UniValue vout=tx[std::string("vout")];
+
+		for(size_t i=0;i<vout.size();++i)
+		{
+			if(vout[i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
+			{
+				int length=0;
+				int offset=0;
+				std::string hexStr=vout[i][std::string("scriptPubKey")][std::string("hex")].get_str();
+				int order=hexStr2int(hexStr.substr(2,2));
+				if(order<=0x4b)
+				{
+					length=order;
+					offset=4;
+				}
+				else if(order==0x4c)
+				{
+					length=hexStr2int(hexStr.substr(4,2));
+					offset=6;
+				}
+				else if(order==0x4d)
+				{
+					length=hexStr2int(hexStr.substr(4,4));
+					offset=8;
+				}
+
+				length*=2;
+				return hexStr.substr(offset, length);
+			}
+		}
+		return std::string("");
+	}
+	return std::string("");
+}
+
+UniValue setOPreturnData(const std::string& hexMsg)
+{
+    UniValue res(UniValue::VARR);
+    UniValue unsignedTx(UniValue::VARR);
+    UniValue signedTx(UniValue::VARR);
+
+	double fee=static_cast<double>(::minRelayTxFee.GetFee(hexMsg.length()))/1000;
+	res=callRPC(std::string("listunspent"));
+
+	ProcessListunspent processListunspent(res);
+	processListunspent.setFee(fee);
+	if(processListunspent.process())
+	{
+		std::string txid=processListunspent.getTxid();
+		double change=processListunspent.getAmount()-fee;
+		int vout=processListunspent.getVout();
+		
+		res=callRPC(std::string("getrawchangeaddress"));
+
+		std::string tx=std::string("[{\"txid\":\"")+txid+std::string("\"")+
+					   std::string(",\"vout\":")+std::to_string(vout)+std::string("}]")+
+					   std::string(" {\"")+res.get_str()+std::string("\":")+std::to_string(change)+
+					   std::string(",\"data\":\"")+hexMsg+std::string("\"}");
+
+		unsignedTx=callRPC(std::string("createrawtransaction ")+tx);
+
+		signedTx=callRPC(std::string("signrawtransactionwithwallet ")+unsignedTx.get_str());
+
+		res=callRPC(std::string("sendrawtransaction ")+signedTx[std::string("hex")].get_str());
+	}
+	else
+	{
+		throw std::runtime_error("not enough funds or listunspent returned an empty list");
+	}
+
+    return res;
+}
+
+UniValue retrievedata(const JSONRPCRequest& request)
+{
+	RPCTypeCheck(request.params, {UniValue::VSTR});
+	
+	if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+	throw std::runtime_error(
+		"retrievedata \"txid\" \n"
+		"\nRetrieves user data from a blockchain.\n"
+
+		"\nArguments:\n"
+		"1. \"txid\"						(string, required) A hex-encoded transaction id string\n"
+		"2. \"path to the file\"			(string, optional) A path to the file\n"
+
+		"\nResult:\n"
+		"\"string\"							(string) A retrieved user data string\n"
+
+
+		"\nExamples:\n"
+		+ HelpExampleCli("retrievedata", "\"txid\"")
+		+ HelpExampleRpc("retrievedata", "\"txid\"")
+		+ HelpExampleCli("retrievedata", "\"txid\" \"/home/myfile.bin\"")
+		+ HelpExampleRpc("retrievedata", "\"txid\" \"/home/myfile.bin\"")
+	);
+
+	std::string txid=request.params[0].get_str();
+	std::string OPreturnData=getOPreturnData(txid);
+
+	if(!request.params[1].isNull())
+	{
+		std::string filePath=request.params[1].get_str();
+		std::vector<char> OPreturnBinaryData;
+		OPreturnBinaryData.resize(OPreturnData.length()/2);
+		hex2bin(OPreturnBinaryData, OPreturnData);
+		
+		FileWriter fileWriter(filePath);
+		fileWriter.write(OPreturnBinaryData);
+
+		return UniValue(UniValue::VSTR);
+	}
+	
+	return UniValue(UniValue::VSTR, std::string("\"")+OPreturnData+std::string("\""));
 }
 
 UniValue retrievemessage(const JSONRPCRequest& request)
@@ -160,44 +365,13 @@ UniValue retrievemessage(const JSONRPCRequest& request)
 		+ HelpExampleRpc("retrievemessage", "\"txid\"")
 	);
 
-	UniValue tx(UniValue::VARR);
-
 	std::string txid=request.params[0].get_str();
-	tx=callRPC(std::string("getrawtransaction ")+txid+std::string(" 1"));
-	
-	if(tx.exists(std::string("vout")))
-	{		
-		UniValue vout=tx[std::string("vout")];
-
-		for(size_t i=0;i<vout.size();++i)
-		{
-			if(vout[i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
-			{
-				int length=0;
-				int offset=0;
-				std::string hexStr=vout[i][std::string("scriptPubKey")][std::string("hex")].get_str();
-				int order=hexStr2Int(hexStr.substr(2,2));
-				if(order<=0x4b)
-				{
-					length=2*order;
-					offset=4;
-				}
-				else if(order==0x4c)
-				{
-					length=2*hexStr2Int(hexStr.substr(4,2));
-					offset=6;
-				}
-				else if(order==0x4d)
-				{
-					length=2*hexStr2Int(hexStr.substr(4,4));
-					offset=8;
-				}
-
-				std::string asciiStr;
-				hex2ascii(hexStr.substr(offset, length), asciiStr);				
-				return UniValue(UniValue::VSTR, std::string("\"")+asciiStr+std::string("\""));
-			}
-		}
+	std::string OPreturnData=getOPreturnData(txid);
+	if(!OPreturnData.empty())
+	{
+		std::string asciiStr;
+		hex2ascii(OPreturnData, asciiStr);				
+		return UniValue(UniValue::VSTR, std::string("\"")+asciiStr+std::string("\""));
 	}
 	
 	return UniValue(UniValue::VSTR, std::string("\"\""));
@@ -226,84 +400,25 @@ UniValue storemessage(const JSONRPCRequest& request)
 		+ HelpExampleRpc("storemessage", "\"mystring\"")
 	);
 
-    UniValue res(UniValue::VARR);
-    UniValue unsignedTx(UniValue::VARR);
-    UniValue signedTx(UniValue::VARR);
-
     std::string msg=request.params[0].get_str();
 
-
-	if(msg.size()>80)
+	if(msg.length()>80)
 	{
-		throw std::runtime_error("message to long");
+		throw std::runtime_error("message length is grater than 80 bytes");
 	}
 
 	std::string hexMsg=HexStr(msg.begin(), msg.end());
-
-	double fee=static_cast<double>(::minRelayTxFee.GetFee(msg.size()))/1000;
-	res=callRPC(std::string("listunspent"));
-
-	ProcessListunspent processListunspent(res);
-	processListunspent.setFee(fee);
-	if(processListunspent.process())
-	{
-		std::string txid=processListunspent.getTxid();
-		double change=processListunspent.getAmount()-fee;
-		int vout=processListunspent.getVout();
-		res=callRPC(std::string("getrawchangeaddress"));
-
-		std::string tx=std::string("[{\"txid\":\"")+txid+std::string("\"")+
-					   std::string(",\"vout\":")+std::to_string(vout)+std::string("}]")+
-					   std::string(" {\"")+res.get_str()+std::string("\":")+std::to_string(change)+
-					   std::string(",\"data\":\"")+hexMsg+std::string("\"}");
-
-		unsignedTx=callRPC(std::string("createrawtransaction ")+tx);
-
-		signedTx=callRPC(std::string("signrawtransactionwithwallet ")+unsignedTx.get_str());
-
-		res=callRPC(std::string("sendrawtransaction ")+signedTx[std::string("hex")].get_str());
-	}
-	else
-	{
-		throw std::runtime_error("listunspent returned an empty list");
-	}
-
-    return res;
+	
+	return setOPreturnData(hexMsg);
 }
 
-class FileReader
-{
-public:
-	FileReader(const std::string& fileName_, std::vector<char>& binaryData) : file(fileName_.c_str(), std::ios::in|std::ios::binary|std::ios::ate)
-	{
-		if (file.is_open())
-		{
-			size = file.tellg();
-			binaryData.resize(size);
-			file.seekg(0, std::ios::beg);
-			file.read(binaryData.data(), size);
-		}		
-	}
-	
-	~FileReader()
-	{
-		if (file.is_open())
-		{
-			file.close();
-		}
-	}
-private:
-	std::ifstream file;
-	std::streampos size;
-};
-
-UniValue storefilehash(const JSONRPCRequest& request)
+UniValue storesignature(const JSONRPCRequest& request)
 {
 	RPCTypeCheck(request.params, {UniValue::VSTR});
 	
 	if (request.fHelp || request.params.size() != 1)
 	throw std::runtime_error(
-		"storefilehash \"string\" \n"
+		"storesignature \"string\" \n"
 		"\nStores a hash of a user file into a blockchain.\n"
 		"A transaction fee is computed as a (hash length)*(fee rate). \n"
 		"Before this command walletpassphrase is required. \n"
@@ -316,8 +431,8 @@ UniValue storefilehash(const JSONRPCRequest& request)
 
 
 		"\nExamples:\n"
-		+ HelpExampleCli("storefilehash", "\"/home/myfile.txt\"")
-		+ HelpExampleRpc("storefilehash", "\"/home/myfile.txt\"")
+		+ HelpExampleCli("storesignature", "\"/home/myfile.txt\"")
+		+ HelpExampleRpc("storesignature", "\"/home/myfile.txt\"")
 	);
 
 	UniValue res(UniValue::VARR);
@@ -328,16 +443,55 @@ UniValue storefilehash(const JSONRPCRequest& request)
 	constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
 	unsigned char fileHash[hashSize];
 
-	FileReader fileReader(filePath, binaryData);
+	FileReader fileReader(filePath);
+	fileReader.read(binaryData);
 
 	CHash256 fileHasher;
 	
 	fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
 	fileHasher.Finalize(fileHash);
 
-	res=callRPC(std::string("storemessage ")+byte2str(fileHash, hashSize));
+	return setOPreturnData(byte2str(fileHash, hashSize));
+}
+
+UniValue storedata(const JSONRPCRequest& request)
+{
+	RPCTypeCheck(request.params, {UniValue::VSTR});
 	
-    return res;
+	if (request.fHelp || request.params.size() != 1)
+	throw std::runtime_error(
+		"storedata \"string\" \n"
+		"\nStores content of a user file into a blockchain.\n"
+		"A transaction fee is computed as a (file size)*(fee rate). \n"
+		"Before this command walletpassphrase is required. \n"
+
+		"\nArguments:\n"
+		"1. \"path to the file\"			(string, required) A path to the file\n"
+
+		"\nResult:\n"
+		"\"txid\"							(string) A hex-encoded transaction id\n"
+
+
+		"\nExamples:\n"
+		+ HelpExampleCli("storedata", "\"/home/myfile.txt\"")
+		+ HelpExampleRpc("storedata", "\"/home/myfile.txt\"")
+	);
+
+	UniValue res(UniValue::VARR);
+
+	std::string filePath=request.params[0].get_str();
+
+	std::vector<char> binaryData;
+
+	FileReader fileReader(filePath);
+	fileReader.read(binaryData);
+	
+	if(binaryData.size()>80)
+	{
+		throw std::runtime_error("data size is grater than 80 bytes");
+	}
+
+	return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()));
 }
 
 static const CRPCCommand commands[] =
@@ -345,7 +499,9 @@ static const CRPCCommand commands[] =
   //  --------------------- ------------------------        -----------------------     ----------
     { "blockchain",         "storemessage",                	&storemessage,             	{"message"} },
     { "blockchain",         "retrievemessage",             	&retrievemessage,          	{"txid"} },
-    { "blockchain",         "storefilehash",             	&storefilehash,          	{"file_path"} },
+    { "blockchain",         "retrievedata",             	&retrievedata,          	{"txid"} },
+    { "blockchain",         "storesignature",             	&storesignature,          	{"file_path"} },
+    { "blockchain",         "storedata",             		&storedata,          		{"file_path"} },
 };
 
 void RegisterDataRPCCommands(CRPCTable &t)
