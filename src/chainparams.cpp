@@ -124,7 +124,6 @@ public:
 
 	genesis = CreateGenesisBlock(1521717929, 93837405, 0x1d00ffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-        std::cout << consensus.hashGenesisBlock.ToString() << std::endl;
 	uint256 picoHash = uint256S("8000000079da1801a4e947f95dae98f012a16f43519a5587bb8584ca84b160d4");
         assert(consensus.hashGenesisBlock == picoHash);
 	assert(genesis.hashMerkleRoot == uint256S("0xb2f63819a53936baa63d9f42bd2a5a63dbc8475e7e63d6d0b214d332aaeedc69"));
