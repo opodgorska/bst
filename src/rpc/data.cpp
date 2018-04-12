@@ -14,6 +14,11 @@
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
 
+constexpr size_t maxDataSize=995999;
+//maxDataSize must cause the below conditions to be met
+//GetTransactionWeight(tx) < MAX_STANDARD_TX_WEIGHT
+//(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR) <= MAX_BLOCK_WEIGHT
+
 class ProcessListunspent
 {
 private:
@@ -201,6 +206,10 @@ static void reverseEndianess(std::string& str)
 {
 	std::string tmp=str;
 	size_t length=str.length();
+	if(length%2)
+	{
+		std::runtime_error("reverseEndianess input must have even length");
+	}
 	for(size_t i=0; i<length; i+=2)
 	{
 		tmp[i]=str[length-i-2];
@@ -291,7 +300,8 @@ UniValue setOPreturnData(const std::string& hexMsg)
 
 	size_t dataSize=hexMsg.length()/2;
 	constexpr size_t txEmptySize=145;
-	double fee=static_cast<double>(txEmptySize+(::minRelayTxFee.GetFee(dataSize)*10))/COIN;
+	constexpr CAmount feeRate=10;
+	double fee=static_cast<double>(txEmptySize+(::minRelayTxFee.GetFee(dataSize)*feeRate))/COIN;
 	res=callRPC(std::string("listunspent"));
 
 	ProcessListunspent processListunspent(res);
@@ -424,9 +434,9 @@ UniValue storemessage(const JSONRPCRequest& request)
 
     std::string msg=request.params[0].get_str();
 
-	if(msg.length()>995999)
+	if(msg.length()>maxDataSize)
 	{
-		throw std::runtime_error("message length is grater than 995999 bytes");
+		throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
 	}
 
 	std::string hexMsg=HexStr(msg.begin(), msg.end());
@@ -508,9 +518,9 @@ UniValue storedata(const JSONRPCRequest& request)
 	FileReader fileReader(filePath);
 	fileReader.read(binaryData);
 	
-	if(binaryData.size()>995999)
+	if(binaryData.size()>maxDataSize)
 	{
-		throw std::runtime_error("data size is grater than 995999 bytes");
+		throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
 	}
 
 	return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()));
