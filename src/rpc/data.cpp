@@ -209,7 +209,7 @@ static void reverseEndianess(std::string& str)
 	str.swap(tmp);
 }
 
-void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
+static void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
 {
         char hex_byte[3];
         char *ep;
@@ -292,7 +292,6 @@ UniValue setOPreturnData(const std::string& hexMsg)
 	size_t dataSize=hexMsg.length()/2;
 	constexpr size_t txEmptySize=145;
 	double fee=static_cast<double>(txEmptySize+(::minRelayTxFee.GetFee(dataSize)*10))/COIN;
-	std::cout<<"fee: "<<fee<<std::endl;
 	res=callRPC(std::string("listunspent"));
 
 	ProcessListunspent processListunspent(res);
