@@ -1,5 +1,4 @@
-// Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 Slawek Mozdzonek
+// Copyright (c) 2018 Slawek Mozdzonek
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -198,6 +197,18 @@ static std::string byte2str(const unsigned char* binaryData, size_t size)
 	return str;
 }
 
+static void reverseEndianess(std::string& str)
+{
+	std::string tmp=str;
+	size_t length=str.length();
+	for(size_t i=0; i<length; i+=2)
+	{
+		tmp[i]=str[length-i-2];
+		tmp[i+1]=str[length-i-1];
+	}
+	str.swap(tmp);
+}
+
 void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
 {
         char hex_byte[3];
@@ -250,8 +261,17 @@ static std::string getOPreturnData(const std::string& txid)
 				}
 				else if(order==0x4d)
 				{
-					length=hexStr2int(hexStr.substr(4,4));
+					std::string strLength=hexStr.substr(4,4);
+					reverseEndianess(strLength);
+					length=hexStr2int(strLength);
 					offset=8;
+				}
+				else if(order==0x4e)
+				{
+					std::string strLength=hexStr.substr(4,8);
+					reverseEndianess(strLength);
+					length=hexStr2int(strLength);
+					offset=12;
 				}
 
 				length*=2;
@@ -269,7 +289,10 @@ UniValue setOPreturnData(const std::string& hexMsg)
     UniValue unsignedTx(UniValue::VARR);
     UniValue signedTx(UniValue::VARR);
 
-	double fee=static_cast<double>(::minRelayTxFee.GetFee(hexMsg.length()))/1000;
+	size_t dataSize=hexMsg.length()/2;
+	constexpr size_t txEmptySize=145;
+	double fee=static_cast<double>(txEmptySize+(::minRelayTxFee.GetFee(dataSize)*10))/COIN;
+	std::cout<<"fee: "<<fee<<std::endl;
 	res=callRPC(std::string("listunspent"));
 
 	ProcessListunspent processListunspent(res);
@@ -402,9 +425,9 @@ UniValue storemessage(const JSONRPCRequest& request)
 
     std::string msg=request.params[0].get_str();
 
-	if(msg.length()>80)
+	if(msg.length()>995999)
 	{
-		throw std::runtime_error("message length is grater than 80 bytes");
+		throw std::runtime_error("message length is grater than 995999 bytes");
 	}
 
 	std::string hexMsg=HexStr(msg.begin(), msg.end());
@@ -486,9 +509,9 @@ UniValue storedata(const JSONRPCRequest& request)
 	FileReader fileReader(filePath);
 	fileReader.read(binaryData);
 	
-	if(binaryData.size()>80)
+	if(binaryData.size()>995999)
 	{
-		throw std::runtime_error("data size is grater than 80 bytes");
+		throw std::runtime_error("data size is grater than 995999 bytes");
 	}
 
 	return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()));
