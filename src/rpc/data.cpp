@@ -14,7 +14,7 @@
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
 
-constexpr size_t maxDataSize=MAX_OP_RETURN_RELAY-6;
+static constexpr size_t maxDataSize=MAX_OP_RETURN_RELAY-6;
 
 class ProcessListunspent
 {
