@@ -14,10 +14,7 @@
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
 
-constexpr size_t maxDataSize=995999;
-//maxDataSize must cause the below conditions to be met
-//GetTransactionWeight(tx) < MAX_STANDARD_TX_WEIGHT
-//(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR) <= MAX_BLOCK_WEIGHT
+constexpr size_t maxDataSize=MAX_OP_RETURN_RELAY-6;
 
 class ProcessListunspent
 {
