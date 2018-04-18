@@ -340,11 +340,11 @@ UniValue retrievedata(const JSONRPCRequest& request)
 		"\nRetrieves user data from a blockchain.\n"
 
 		"\nArguments:\n"
-		"1. \"txid\"						(string, required) A hex-encoded transaction id string\n"
-		"2. \"path to the file\"			(string, optional) A path to the file\n"
+		"1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+		"2. \"path to the file\"            (string, optional) A path to the file\n"
 
 		"\nResult:\n"
-		"\"string\"							(string) A retrieved user data string\n"
+		"\"string\"                         (string) A retrieved user data string\n"
 
 
 		"\nExamples:\n"
@@ -383,10 +383,10 @@ UniValue retrievemessage(const JSONRPCRequest& request)
 		"\nRetrieves user data string from a blockchain.\n"
 
 		"\nArguments:\n"
-		"1. \"txid\"						(string, required) A hex-encoded transaction id string\n"
+		"1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
 
 		"\nResult:\n"
-		"\"string\"							(string) A retrieved user data string\n"
+		"\"string\"                         (string) A retrieved user data string\n"
 
 
 		"\nExamples:\n"
@@ -418,10 +418,10 @@ UniValue storemessage(const JSONRPCRequest& request)
 		"Before this command walletpassphrase is required. \n"
 
 		"\nArguments:\n"
-		"1. \"string\"						(string, required) A user data string\n"
+		"1. \"string\"                      (string, required) A user data string\n"
 
 		"\nResult:\n"
-		"\"txid\"							(string) A hex-encoded transaction id\n"
+		"\"txid\"                           (string) A hex-encoded transaction id\n"
 
 
 		"\nExamples:\n"
@@ -453,10 +453,10 @@ UniValue storesignature(const JSONRPCRequest& request)
 		"Before this command walletpassphrase is required. \n"
 
 		"\nArguments:\n"
-		"1. \"path to the file\"			(string, required) A path to the file\n"
+		"1. \"path to the file\"            (string, required) A path to the file\n"
 
 		"\nResult:\n"
-		"\"txid\"							(string) A hex-encoded transaction id\n"
+		"\"txid\"                           (string) A hex-encoded transaction id\n"
 
 
 		"\nExamples:\n"
@@ -495,10 +495,10 @@ UniValue storedata(const JSONRPCRequest& request)
 		"Before this command walletpassphrase is required. \n"
 
 		"\nArguments:\n"
-		"1. \"path to the file\"			(string, required) A path to the file\n"
+		"1. \"path to the file\"            (string, required) A path to the file\n"
 
 		"\nResult:\n"
-		"\"txid\"							(string) A hex-encoded transaction id\n"
+		"\"txid\"                           (string) A hex-encoded transaction id\n"
 
 
 		"\nExamples:\n"
