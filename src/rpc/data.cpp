@@ -32,7 +32,7 @@ private:
 	}
 
 public:
-	ProcessListunspent(UniValue listunspent_) : listunspent(listunspent_), fee(0.0) {}
+	ProcessListunspent(UniValue listunspent_) : listunspent(listunspent_), fee(0.0), txid(""), vout(0), amount(0.0) {}
 	void setFee(double fee_) {fee=fee_;}
 	std::string getTxid() const
 	{
@@ -205,7 +205,7 @@ static void reverseEndianess(std::string& str)
 	size_t length=str.length();
 	if(length%2)
 	{
-		std::runtime_error("reverseEndianess input must have even length");
+            throw std::runtime_error("reverseEndianess input must have even length");
 	}
 	for(size_t i=0; i<length; i+=2)
 	{
@@ -227,14 +227,14 @@ static void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
         {
                 if(!hexstr[1]) 
                 {
-					std::runtime_error("hex2bin str truncated");
+                    throw std::runtime_error("hex2bin str truncated");
                 }
                 hex_byte[0] = hexstr[j];
                 hex_byte[1] = hexstr[j+1];
                 binaryData[i] = static_cast<char>(strtol(hex_byte, &ep, 16));
                 if(*ep) 
                 {
-					std::runtime_error("hex2bin failed");
+                    throw std::runtime_error("hex2bin failed");
                 }
         }
 }
@@ -433,7 +433,7 @@ UniValue storemessage(const JSONRPCRequest& request)
 
 	if(msg.length()>maxDataSize)
 	{
-		throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
+            throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
 	}
 
 	std::string hexMsg=HexStr(msg.begin(), msg.end());
@@ -517,7 +517,7 @@ UniValue storedata(const JSONRPCRequest& request)
 	
 	if(binaryData.size()>maxDataSize)
 	{
-		throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
+            throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
 	}
 
 	return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()));
