@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="retrieveTab">
       <attribute name="title">
@@ -36,9 +36,9 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_8">
             <item>
-             <widget class="QRadioButton" name="hexRadioButton">
+             <widget class="QRadioButton" name="stringRadioButton">
               <property name="text">
-               <string>Hex</string>
+               <string>String</string>
               </property>
               <property name="icon">
                <iconset resource="../bitcoin.qrc">
@@ -47,9 +47,9 @@
              </widget>
             </item>
             <item>
-             <widget class="QRadioButton" name="stringRadioButton">
+             <widget class="QRadioButton" name="hexRadioButton">
               <property name="text">
-               <string>String</string>
+               <string>Hex</string>
               </property>
               <property name="icon">
                <iconset resource="../bitcoin.qrc">
