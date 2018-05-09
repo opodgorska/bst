@@ -13,6 +13,7 @@
 #include <qt/overviewpage.h>
 #include <qt/platformstyle.h>
 #include <qt/receivecoinsdialog.h>
+#include <qt/datapage.h>
 #include <qt/sendcoinsdialog.h>
 #include <qt/signverifymessagedialog.h>
 #include <qt/transactiontablemodel.h>
@@ -58,11 +59,14 @@ WalletView::WalletView(const PlatformStyle *_platformStyle, QWidget *parent):
 
     usedSendingAddressesPage = new AddressBookPage(platformStyle, AddressBookPage::ForEditing, AddressBookPage::SendingTab, this);
     usedReceivingAddressesPage = new AddressBookPage(platformStyle, AddressBookPage::ForEditing, AddressBookPage::ReceivingTab, this);
+    
+    dataPage = new DataPage(platformStyle);
 
     addWidget(overviewPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
+    addWidget(dataPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
@@ -128,6 +132,7 @@ void WalletView::setWalletModel(WalletModel *_walletModel)
     overviewPage->setWalletModel(_walletModel);
     receiveCoinsPage->setModel(_walletModel);
     sendCoinsPage->setModel(_walletModel);
+    dataPage->setModel(_walletModel);
     usedReceivingAddressesPage->setModel(_walletModel ? _walletModel->getAddressTableModel() : nullptr);
     usedSendingAddressesPage->setModel(_walletModel ? _walletModel->getAddressTableModel() : nullptr);
 
@@ -196,6 +201,11 @@ void WalletView::gotoSendCoinsPage(QString addr)
 
     if (!addr.isEmpty())
         sendCoinsPage->setAddress(addr);
+}
+
+void WalletView::gotoDataPage()
+{
+	setCurrentWidget(dataPage);
 }
 
 void WalletView::gotoSignMessageTab(QString addr)

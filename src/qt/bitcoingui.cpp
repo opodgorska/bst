@@ -91,6 +91,8 @@ BitcoinGUI::BitcoinGUI(const PlatformStyle *_platformStyle, const NetworkStyle *
     overviewAction(0),
     historyAction(0),
     quitAction(0),
+    dataAction(0),
+    dataMenuAction(0),
     sendCoinsAction(0),
     sendCoinsMenuAction(0),
     usedSendingAddressesAction(0),
@@ -312,6 +314,17 @@ void BitcoinGUI::createActions()
     historyAction->setCheckable(true);
     historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(historyAction);
+    
+    dataAction = new QAction(platformStyle->SingleColorIcon(":/icons/history"), tr("&Data"), this);
+    dataAction->setStatusTip(tr("Retrieve or store an user data or message"));
+    dataAction->setToolTip(dataAction->statusTip());
+    dataAction->setCheckable(true);
+    dataAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
+    tabGroup->addAction(dataAction);
+    
+    dataMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/history"), dataAction->text(), this);
+    dataMenuAction->setStatusTip(dataAction->statusTip());
+    dataMenuAction->setToolTip(dataMenuAction->statusTip());
 
 #ifdef ENABLE_WALLET
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
@@ -322,6 +335,12 @@ void BitcoinGUI::createActions()
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
     connect(sendCoinsMenuAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(sendCoinsMenuAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
+
+    connect(dataAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(dataAction, SIGNAL(triggered()), this, SLOT(gotoDataPage()));
+    connect(dataAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(dataMenuAction, SIGNAL(triggered()), this, SLOT(gotoDataPage()));
+
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));
     connect(receiveCoinsMenuAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
@@ -461,6 +480,7 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(overviewAction);
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
+        toolbar->addAction(dataAction);
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
     }
@@ -558,6 +578,8 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     overviewAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
     sendCoinsMenuAction->setEnabled(enabled);
+    dataAction->setEnabled(enabled);
+    dataMenuAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
     receiveCoinsMenuAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
@@ -608,6 +630,8 @@ void BitcoinGUI::createTrayIconMenu()
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(sendCoinsMenuAction);
     trayIconMenu->addAction(receiveCoinsMenuAction);
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(dataAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(signMessageAction);
     trayIconMenu->addAction(verifyMessageAction);
@@ -701,6 +725,12 @@ void BitcoinGUI::gotoSendCoinsPage(QString addr)
 {
     sendCoinsAction->setChecked(true);
     if (walletFrame) walletFrame->gotoSendCoinsPage(addr);
+}
+
+void BitcoinGUI::gotoDataPage()
+{
+    dataAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoDataPage();
 }
 
 void BitcoinGUI::gotoSignMessageTab(QString addr)
