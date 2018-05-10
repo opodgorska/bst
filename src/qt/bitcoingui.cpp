@@ -315,7 +315,7 @@ void BitcoinGUI::createActions()
     historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(historyAction);
     
-    dataAction = new QAction(platformStyle->SingleColorIcon(":/icons/history"), tr("&Data"), this);
+    dataAction = new QAction(platformStyle->SingleColorIcon(":/icons/binary-code"), tr("&Data"), this);
     dataAction->setStatusTip(tr("Retrieve or store an user data or message"));
     dataAction->setToolTip(dataAction->statusTip());
     dataAction->setCheckable(true);
