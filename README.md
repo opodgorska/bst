@@ -61,3 +61,12 @@ bst-cli retrievedata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654f
 
 bst-cli retrievedata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654fa3323 /path/to/file/outfile
 ```
+
+```
+bst-cli listtransactions
+Among other parameters returns "datasize" field informing about the size of the data stored in the blockchain.
+```
+
+Along with RPC commands also Qt client was developed to provide the same data manipulation functionality. A 'Data' page embedded into bst-qt application
+contains two tabs that enable data to store into or retrieve from the blockchain. A dialog with transaction details also informs about "Data size" for a
+given transaction.
