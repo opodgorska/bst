@@ -14,62 +14,13 @@
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
 
+#include <data/datautils.h>
+#include <data/processunspent.h>
+#include <data/retrievedatatxs.h>
+#include <data/storedatatxs.h>
+
 static constexpr size_t maxDataSize=MAX_OP_RETURN_RELAY-6;
-
-class ProcessListunspent
-{
-private:
-	void parse(const UniValue& arg)
-	{
-		txid=arg[std::string("txid")].get_str();
-		vout=arg[std::string("vout")].get_int();
-		amount=arg[std::string("amount")].get_real();
-	}
-	
-	size_t getSize()
-	{
-		return listunspent.size();
-	}
-
-public:
-	ProcessListunspent(UniValue listunspent_) : listunspent(listunspent_), fee(0.0), txid(""), vout(0), amount(0.0) {}
-	void setFee(double fee_) {fee=fee_;}
-	std::string getTxid() const
-	{
-		return txid;
-	}
-	
-	int getVout() const
-	{
-		return vout;
-	}
-	
-	double getAmount() const
-	{
-		return amount;
-	}
-	
-	bool process()
-	{
-		size_t size=getSize();
-		for(size_t i=0;i<size;++i)
-		{
-			parse(listunspent[i]);
-			if(amount>=fee)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-private:
-	UniValue listunspent;
-	double fee;
-	std::string txid;
-	int vout;
-	double amount;
-};
+static std::string changeAddress("");
 
 class FileReader
 {
@@ -151,183 +102,42 @@ static UniValue callRPC(std::string args)
     }
 }
 
-static unsigned char hexval(unsigned char c)
-{
-    if ('0' <= c && c <= '9')
-        return c - '0';
-    else if ('a' <= c && c <= 'f')
-        return c - 'a' + 10;
-    else if ('A' <= c && c <= 'F')
-        return c - 'A' + 10;
-    else throw std::runtime_error("hexval decoding failed");
-}
-
-static void hex2ascii(const std::string& in, std::string& out)
-{
-    out.clear();
-    out.reserve(in.length() / 2);
-    for (std::string::const_iterator p = in.begin(); p != in.end(); p++)
-    {
-       unsigned char c = hexval(*p);
-       p++;
-       if (p == in.end()) break;
-       c = (c << 4) + hexval(*p);
-       out.push_back(c);
-    }
-}
-
-static int hexStr2int(const std::string& str)
-{
-	int ret;
-	std::stringstream ss;
-	ss << std::hex << str;
-	ss >> ret;
-
-	return ret;
-}
-
-static std::string byte2str(const unsigned char* binaryData, size_t size)
-{
-	const char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B','C','D','E','F'};
-	std::string str;
-	for (size_t i = 0; i < size; ++i) 
-	{
-		const unsigned char ch = binaryData[i];
-		str.append(&hex[(ch  & 0xF0) >> 4], 1);
-		str.append(&hex[ch & 0xF], 1);
-	}
-	return str;
-}
-
-static void reverseEndianess(std::string& str)
-{
-	std::string tmp=str;
-	size_t length=str.length();
-	if(length%2)
-	{
-            throw std::runtime_error("reverseEndianess input must have even length");
-	}
-	for(size_t i=0; i<length; i+=2)
-	{
-		tmp[i]=str[length-i-2];
-		tmp[i+1]=str[length-i-1];
-	}
-	str.swap(tmp);
-}
-
-static void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
-{
-        char hex_byte[3];
-        char *ep;
-
-        hex_byte[2] = '\0';
-        int i=0;
-        size_t len=hexstr.length();
-        for(size_t j=0; j<len; j+=2, i++) 
-        {
-                if(!hexstr[1]) 
-                {
-                    throw std::runtime_error("hex2bin str truncated");
-                }
-                hex_byte[0] = hexstr[j];
-                hex_byte[1] = hexstr[j+1];
-                binaryData[i] = static_cast<char>(strtol(hex_byte, &ep, 16));
-                if(*ep) 
-                {
-                    throw std::runtime_error("hex2bin failed");
-                }
-        }
-}
-
 static std::string getOPreturnData(const std::string& txid)
 {
-	UniValue tx(UniValue::VARR);
-	tx=callRPC(std::string("getrawtransaction ")+txid+std::string(" 1"));
-	if(tx.exists(std::string("vout")))
-	{		
-		UniValue vout=tx[std::string("vout")];
-
-		for(size_t i=0;i<vout.size();++i)
-		{
-			if(vout[i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
-			{
-				int length=0;
-				int offset=0;
-				std::string hexStr=vout[i][std::string("scriptPubKey")][std::string("hex")].get_str();
-				int order=hexStr2int(hexStr.substr(2,2));
-				if(order<=0x4b)
-				{
-					length=order;
-					offset=4;
-				}
-				else if(order==0x4c)
-				{
-					length=hexStr2int(hexStr.substr(4,2));
-					offset=6;
-				}
-				else if(order==0x4d)
-				{
-					std::string strLength=hexStr.substr(4,4);
-					reverseEndianess(strLength);
-					length=hexStr2int(strLength);
-					offset=8;
-				}
-				else if(order==0x4e)
-				{
-					std::string strLength=hexStr.substr(4,8);
-					reverseEndianess(strLength);
-					length=hexStr2int(strLength);
-					offset=12;
-				}
-
-				length*=2;
-				return hexStr.substr(offset, length);
-			}
-		}
-		return std::string("");
-	}
-	return std::string("");
+    RetrieveDataTxs retrieveDataTxs(txid);
+    return retrieveDataTxs.getTxData();
 }
 
 UniValue setOPreturnData(const std::string& hexMsg)
 {
     UniValue res(UniValue::VARR);
-    UniValue unsignedTx(UniValue::VARR);
-    UniValue signedTx(UniValue::VARR);
+    
+    double fee=computeFee(hexMsg.length());
+    
+    const CWalletRef pwallet=vpwallets[0];
+    std::vector<std::string> addresses;
+    ProcessUnspent processUnspent(pwallet, addresses);
 
-	size_t dataSize=hexMsg.length()/2;
-	constexpr size_t txEmptySize=145;
-	constexpr CAmount feeRate=10;
-	double fee=static_cast<double>(txEmptySize+(::minRelayTxFee.GetFee(dataSize)*feeRate))/COIN;
-	res=callRPC(std::string("listunspent"));
+    UniValue inputs(UniValue::VARR);
+    if(!processUnspent.getUtxForAmount(inputs, fee))
+    {
+        throw std::runtime_error(std::string("Insufficient funds"));
+    }
 
-	ProcessListunspent processListunspent(res);
-	processListunspent.setFee(fee);
-	if(processListunspent.process())
-	{
-		std::string txid=processListunspent.getTxid();
-		double change=processListunspent.getAmount()-fee;
-		int vout=processListunspent.getVout();
-		
-		res=callRPC(std::string("getrawchangeaddress"));
+    if(changeAddress.empty())
+    {
+        changeAddress=getChangeAddress(pwallet);
+    }
 
-		std::string tx=std::string("[{\"txid\":\"")+txid+std::string("\"")+
-					   std::string(",\"vout\":")+std::to_string(vout)+std::string("}]")+
-					   std::string(" {\"")+res.get_str()+std::string("\":")+std::to_string(change)+
-					   std::string(",\"data\":\"")+hexMsg+std::string("\"}");
+    UniValue sendTo(UniValue::VOBJ);                
+    sendTo.pushKV(changeAddress, computeChange(inputs, fee));
+    sendTo.pushKV("data", hexMsg);
 
-		unsignedTx=callRPC(std::string("createrawtransaction ")+tx);
+    StoreDataTxs storeDataTxs(pwallet, inputs, sendTo);
+    storeDataTxs.signTx();
+    std::string txid=storeDataTxs.sendTx().get_str();
 
-		signedTx=callRPC(std::string("signrawtransactionwithwallet ")+unsignedTx.get_str());
-
-		res=callRPC(std::string("sendrawtransaction ")+signedTx[std::string("hex")].get_str());
-	}
-	else
-	{
-		throw std::runtime_error("not enough funds or listunspent returned an empty list");
-	}
-
-    return res;
+    return UniValue(UniValue::VSTR, txid);
 }
 
 UniValue retrievedata(const JSONRPCRequest& request)
@@ -433,7 +243,7 @@ UniValue storemessage(const JSONRPCRequest& request)
 
 	if(msg.length()>maxDataSize)
 	{
-            throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
+        throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
 	}
 
 	std::string hexMsg=HexStr(msg.begin(), msg.end());
@@ -517,7 +327,7 @@ UniValue storedata(const JSONRPCRequest& request)
 	
 	if(binaryData.size()>maxDataSize)
 	{
-            throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
+        throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
 	}
 
 	return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()));

@@ -41,13 +41,8 @@ private:
     QString fileToStoreName;
 
     void displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize);
-    void hex2bin(const QString& hex, QByteArray& bin);
     void unlockWallet();
-    std::string byte2str(const QByteArray& binaryData);
     std::string getHexStr();
-    double computeFee(size_t dataSize);
-    std::string double2str(double val);
-    std::string computeChange(const UniValue& inputs, double fee);
 
 private Q_SLOTS:
     void retrieve();

@@ -2,8 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <sstream>
-#include <iomanip>
 #include <QMessageBox>
 #include <QFileDialog>
 #include <qt/datapage.h>
@@ -15,12 +13,14 @@
 #include <validation.h>
 #ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
-#include <wallet/fees.h>
 #endif
 
-#include "../data/processunspent.h"
-#include "../data/retrievedatatxs.h"
-#include "../data/storedatatxs.h"
+#include <data/datautils.h>
+#include <data/processunspent.h>
+#include <data/retrievedatatxs.h>
+#include <data/storedatatxs.h>
+
+static constexpr int maxDataSize=MAX_OP_RETURN_RELAY-6;
 
 DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent),
@@ -49,6 +49,7 @@ DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
     connect(ui->stringRadioButton, SIGNAL(clicked()), this, SLOT(stringRadioClicked()));
     connect(ui->fileRetrieveButton, SIGNAL(clicked()), this, SLOT(fileRetrieveClicked()));
 
+    ui->fileStoreButton->setEnabled(false);
     ui->fileStoreEdit->setEnabled(false);
     ui->txidStoreEdit->setReadOnly(true);
     ui->storeMessageRadioButton->setChecked(true);    
@@ -94,11 +95,6 @@ void DataPage::displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, i
     textEdit->setTextCursor(textCursor);
 }
 
-void DataPage::hex2bin(const QString& hex, QByteArray& bin)
-{
-    bin=QByteArray::fromHex(hex.toUtf8());    
-}
-
 void DataPage::hexRadioClicked()
 {
     displayInBlocks(ui->messageRetrieveEdit, hexaValue, blockSizeDisplay);
@@ -126,12 +122,17 @@ void DataPage::retrieve()
         }
         else
         {
+            if(QByteArray::fromHex(hexaValue.toLatin1()).contains((char)0x00))
+            {
+                QMessageBox msgBox;
+                msgBox.setText("This message may be truncated. Please use a Hex type view");
+                msgBox.exec();
+            }
             ui->messageRetrieveEdit->setPlainText(textValue);
         }
-        
-        QByteArray data;
-        hex2bin(hexaValue, data);
-        
+
+        QByteArray data=QByteArray::fromHex(hexaValue.toUtf8());
+
         FileWriter fileWriter(ui->fileRetrieveEdit->text());
         fileWriter.write(data);
     }
@@ -156,19 +157,6 @@ void DataPage::fileStoreClicked()
     ui->fileStoreEdit->setText(fileToStoreName);
 }
 
-std::string DataPage::byte2str(const QByteArray& binaryData)
-{
-	const char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B','C','D','E','F'};
-	std::string str;
-	for (int i = 0; i < binaryData.size(); ++i) 
-	{
-		const unsigned char ch = binaryData[i];
-		str.append(&hex[(ch  & 0xF0) >> 4], 1);
-		str.append(&hex[ch & 0xF], 1);
-	}
-	return str;
-}
-
 std::string DataPage::getHexStr()
 {
     std::string retStr;
@@ -176,6 +164,12 @@ std::string DataPage::getHexStr()
     {
         QString qs=ui->messageStoreEdit->toPlainText();
         std::string str=qs.toUtf8().constData();
+        
+        if(str.length()>maxDataSize)
+        {
+            throw std::runtime_error(strprintf("Data size is grater than %d bytes", maxDataSize));
+        }
+
         retStr = HexStr(str.begin(), str.end());
     }
     else if(ui->storeFileRadioButton->isChecked() || ui->storeFileHashRadioButton->isChecked())
@@ -183,10 +177,15 @@ std::string DataPage::getHexStr()
         QByteArray binaryData;
         FileReader fileReader(ui->fileStoreEdit->text());
         fileReader.read(binaryData);
-        
+
         if(ui->storeFileRadioButton->isChecked())
         {
-            retStr = byte2str(binaryData);
+            if(binaryData.size()>maxDataSize)
+            {
+                throw std::runtime_error(strprintf("Data size is grater than %d bytes", maxDataSize));
+            }
+
+            retStr = byte2str(reinterpret_cast<const unsigned char* >(binaryData.data()), binaryData.size());
         }
         else if(ui->storeFileHashRadioButton->isChecked())
         {
@@ -197,8 +196,8 @@ std::string DataPage::getHexStr()
             
             fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
             fileHasher.Finalize(fileHash);
-            
-            retStr = byte2str(QByteArray(reinterpret_cast<char*>(&fileHash[0]), static_cast<int>(hashSize)));
+
+            retStr = byte2str(&fileHash[0], static_cast<int>(hashSize));
         }
     }
     
@@ -207,28 +206,23 @@ std::string DataPage::getHexStr()
 
 void DataPage::storeMessageRadioClicked()
 {
+    ui->fileStoreButton->setEnabled(false);
     ui->messageStoreEdit->setEnabled(true);
     ui->fileStoreEdit->setEnabled(false);
 }
 
 void DataPage::storeFileRadioClicked()
 {
+    ui->fileStoreButton->setEnabled(true);
     ui->messageStoreEdit->setEnabled(false);
     ui->fileStoreEdit->setEnabled(true);
 }
 
 void DataPage::storeFileHashRadioClicked()
 {
+    ui->fileStoreButton->setEnabled(true);
     ui->messageStoreEdit->setEnabled(false);
     ui->fileStoreEdit->setEnabled(true);
-}
-
-double DataPage::computeFee(size_t dataSize)
-{
-    dataSize/=2;
-	constexpr size_t txEmptySize=145;
-	constexpr CAmount feeRate=10;
-    return static_cast<double>(txEmptySize+(GetRequiredFee(dataSize)*feeRate))/COIN;
 }
 
 void DataPage::unlockWallet()
@@ -239,24 +233,6 @@ void DataPage::unlockWallet()
         dlg.setModel(walletModel);
         dlg.exec();
     }
-}
-
-std::string DataPage::double2str(double val)
-{
-    std::ostringstream strs;
-    strs << std::setprecision(9) << val;
-    return strs.str();
-}
-
-std::string DataPage::computeChange(const UniValue& inputs, double fee)
-{
-    double amount=0.0;
-    for(size_t i=0; i<inputs.size(); ++i)
-    {
-        amount+=inputs[i][std::string("amount")].get_real();
-    }
-
-    return double2str(amount-fee);
 }
 
 void DataPage::store()
