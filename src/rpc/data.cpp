@@ -134,6 +134,7 @@ UniValue setOPreturnData(const std::string& hexMsg)
     sendTo.pushKV("data", hexMsg);
 
     StoreDataTxs storeDataTxs(pwallet, inputs, sendTo);
+    EnsureWalletIsUnlocked(pwallet);
     storeDataTxs.signTx();
     std::string txid=storeDataTxs.sendTx().get_str();
 
