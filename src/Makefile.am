@@ -397,7 +397,7 @@ bstd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bstd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-# bitcoind_SOURCES += bitcoind-res.rc
+ bstd_SOURCES += bitcoind-res.rc
 endif
 
 bstd_LDADD = \
@@ -423,7 +423,7 @@ bst_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bst_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-# bitcoin_cli_SOURCES += bitcoin-cli-res.rc
+ bst_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
 bst_cli_LDADD = \
@@ -442,7 +442,7 @@ bst_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bst_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-# bitcoin_tx_SOURCES += bitcoin-tx-res.rc
+ bst_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
 bst_tx_LDADD = \
