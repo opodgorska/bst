@@ -34,7 +34,7 @@ std::string FormatScript(const CScript& script)
     while (it != script.end()) {
         CScript::const_iterator it2 = it;
         std::vector<unsigned char> vch;
-        if (script.GetOp2(it, op, &vch)) {
+        if (script.GetOp(it, op, vch)) {
             if (op == OP_0) {
                 ret += "0 ";
                 continue;
@@ -161,6 +161,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("size", (int)::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
     entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
+    entry.pushKV("weight", GetTransactionWeight(tx));
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
     UniValue vin(UniValue::VARR);
@@ -209,6 +210,6 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         entry.pushKV("blockhash", hashBlock.GetHex());
 
     if (include_hex) {
-        entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // the hex-encoded transaction. used the name "hex" to be consistent with the verbose output of "getrawtransaction".
+        entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
     }
 }

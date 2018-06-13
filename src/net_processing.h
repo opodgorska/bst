@@ -35,7 +35,12 @@ static constexpr int64_t EXTRA_PEER_CHECK_INTERVAL = 45;
 /** Minimum time an outbound-peer-eviction candidate must be connected for, in order to evict, in seconds */
 static constexpr int64_t MINIMUM_CONNECT_TIME = 30;
 
-class PeerLogicValidation : public CValidationInterface, public NetEventsInterface {
+/** Default for BIP61 (sending reject messages) */
+static constexpr bool DEFAULT_ENABLE_BIP61 = true;
+/** Enable BIP61 (sending reject messages) */
+extern bool g_enable_bip61;
+
+class PeerLogicValidation final : public CValidationInterface, public NetEventsInterface {
 private:
     CConnman* const connman;
 
@@ -86,9 +91,9 @@ private:
 };
 
 struct CNodeStateStats {
-    int nMisbehavior;
-    int nSyncHeight;
-    int nCommonHeight;
+    int nMisbehavior = 0;
+    int nSyncHeight = -1;
+    int nCommonHeight = -1;
     std::vector<int> vHeightInFlight;
 };
 

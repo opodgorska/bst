@@ -20,6 +20,11 @@
 class QValidatedLineEdit;
 class SendCoinsRecipient;
 
+namespace interfaces
+{
+    class Node;
+}
+
 QT_BEGIN_NAMESPACE
 class QAbstractItemView;
 class QDateTime;
@@ -40,9 +45,8 @@ namespace GUIUtil
     // Return a monospace font
     QFont fixedPitchFont();
 
-    // Set up widgets for address and amounts
+    // Set up widget for address
     void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent);
-    void setupAmountWidget(QLineEdit *widget, QWidget *parent);
 
     // Parse "bitcoin:" URI into recipient object, return true on successful parsing
     bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out);
@@ -50,7 +54,7 @@ namespace GUIUtil
     QString formatBitcoinURI(const SendCoinsRecipient &info);
 
     // Returns true if given address+amount meets "dust" definition
-    bool isDust(const QString& address, const CAmount& amount);
+    bool isDust(interfaces::Node& node, const QString& address, const CAmount& amount);
 
     // HTML escaping for rich text controls
     QString HtmlEscape(const QString& str, bool fMultiLine=false);
@@ -141,7 +145,7 @@ namespace GUIUtil
      * Makes a QTableView last column feel as if it was being resized from its left border.
      * Also makes sure the column widths are never larger than the table's viewport.
      * In Qt, all columns are resizable from the right, but it's not intuitive resizing the last column from the right.
-     * Usually our second to last columns behave as if stretched, and when on strech mode, columns aren't resizable
+     * Usually our second to last columns behave as if stretched, and when on stretch mode, columns aren't resizable
      * interactively or programmatically.
      *
      * This helper object takes care of this issue.

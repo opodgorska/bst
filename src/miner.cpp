@@ -14,7 +14,6 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <hash.h>
-#include <validation.h>
 #include <net.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
@@ -68,9 +67,7 @@ BlockAssembler::BlockAssembler(const CChainParams& params, const Options& option
 static BlockAssembler::Options DefaultOptions(const CChainParams& params)
 {
     // Block resource limits
-    // If neither -blockmaxsize or -blockmaxweight is given, limit to DEFAULT_BLOCK_MAX_*
-    // If only one is given, only restrict the specified resource.
-    // If both are given, restrict both.
+    // If -blockmaxweight is not given, limit to DEFAULT_BLOCK_MAX_WEIGHT
     BlockAssembler::Options options;
     options.nBlockMaxWeight = gArgs.GetArg("-blockmaxweight", DEFAULT_BLOCK_MAX_WEIGHT);
     if (gArgs.IsArgSet("-blockmintxfee")) {
@@ -282,7 +279,7 @@ bool BlockAssembler::SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_tran
     return mapModifiedTx.count(it) || inBlock.count(it) || failedTx.count(it);
 }
 
-void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, CTxMemPool::txiter entry, std::vector<CTxMemPool::txiter>& sortedEntries)
+void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::vector<CTxMemPool::txiter>& sortedEntries)
 {
     // Sort package by ancestor count
     // If a transaction A depends on transaction B, then A's ancestor count
@@ -418,7 +415,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Package can be added. Sort the entries in a valid order.
         std::vector<CTxMemPool::txiter> sortedEntries;
-        SortForBlock(ancestors, iter, sortedEntries);
+        SortForBlock(ancestors, sortedEntries);
 
         for (size_t i=0; i<sortedEntries.size(); ++i) {
             AddToBlock(sortedEntries[i]);

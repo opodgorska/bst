@@ -56,7 +56,16 @@ void SyncWithValidationInterfaceQueue();
 class CValidationInterface {
 protected:
     /**
-     * Notifies listeners of updated block chain tip
+     * Protected destructor so that instances can only be deleted by derived classes.
+     * If that restriction is no longer desired, this should be made public and virtual.
+     */
+    ~CValidationInterface() = default;
+    /**
+     * Notifies listeners when the block chain tip advances.
+     *
+     * When multiple blocks are connected at once, UpdatedBlockTip will be called on the final tip
+     * but may not be called on every intermediate tip. If the latter behavior is desired,
+     * subscribe to BlockConnected() instead.
      *
      * Called on a background thread.
      */
@@ -94,9 +103,20 @@ protected:
     /**
      * Notifies listeners of the new active block chain on-disk.
      *
+     * Prior to this callback, any updates are not guaranteed to persist on disk
+     * (ie clients need to handle shutdown/restart safety by being able to
+     * understand when some updates were lost due to unclean shutdown).
+     *
+     * When this callback is invoked, the validation changes done by any prior
+     * callback are guaranteed to exist on disk and survive a restart, including
+     * an unclean shutdown.
+     *
+     * Provides a locator describing the best chain, which is likely useful for
+     * storing current state on disk in client DBs.
+     *
      * Called on a background thread.
      */
-    virtual void SetBestChain(const CBlockLocator &locator) {}
+    virtual void ChainStateFlushed(const CBlockLocator &locator) {}
     /**
      * Notifies listeners about an inventory item being seen on the network.
      *
@@ -152,7 +172,7 @@ public:
     void TransactionAddedToMempool(const CTransactionRef &);
     void BlockConnected(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::shared_ptr<const std::vector<CTransactionRef>> &);
     void BlockDisconnected(const std::shared_ptr<const CBlock> &);
-    void SetBestChain(const CBlockLocator &);
+    void ChainStateFlushed(const CBlockLocator &);
     void Inventory(const uint256 &);
     void Broadcast(int64_t nBestBlockTime, CConnman* connman);
     void BlockChecked(const CBlock&, const CValidationState&);

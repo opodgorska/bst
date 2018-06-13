@@ -339,7 +339,7 @@ CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator) :
     nCheckFrequency = 0;
 }
 
-bool CTxMemPool::isSpent(const COutPoint& outpoint)
+bool CTxMemPool::isSpent(const COutPoint& outpoint) const
 {
     LOCK(cs);
     return mapNextTx.count(outpoint);
@@ -447,7 +447,7 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
 // Also assumes that if an entry is in setDescendants already, then all
 // in-mempool descendants of it are already in setDescendants as well, so that we
 // can save time by not iterating over those entries.
-void CTxMemPool::CalculateDescendants(txiter entryit, setEntries &setDescendants)
+void CTxMemPool::CalculateDescendants(txiter entryit, setEntries& setDescendants) const
 {
     setEntries stage;
     if (setDescendants.count(entryit) == 0) {
@@ -618,6 +618,7 @@ static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& m
 
 void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 {
+    LOCK(cs);
     if (nCheckFrequency == 0)
         return;
 
@@ -632,7 +633,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
     const int64_t spendheight = GetSpendHeight(mempoolDuplicate);
 
-    LOCK(cs);
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
@@ -693,18 +693,18 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         // Check children against mapNextTx
         CTxMemPool::setEntries setChildrenCheck;
         auto iter = mapNextTx.lower_bound(COutPoint(it->GetTx().GetHash(), 0));
-        int64_t childSizes = 0;
+        uint64_t child_sizes = 0;
         for (; iter != mapNextTx.end() && iter->first->hash == it->GetTx().GetHash(); ++iter) {
             txiter childit = mapTx.find(iter->second->GetHash());
             assert(childit != mapTx.end()); // mapNextTx points to in-mempool transactions
             if (setChildrenCheck.insert(childit).second) {
-                childSizes += childit->GetTxSize();
+                child_sizes += childit->GetTxSize();
             }
         }
         assert(setChildrenCheck == GetMemPoolChildren(it));
         // Also check to make sure size is greater than sum with immediate children.
         // just a sanity check, not definitive that this calc is correct...
-        assert(it->GetSizeWithDescendants() >= childSizes + it->GetTxSize());
+        assert(it->GetSizeWithDescendants() >= child_sizes + it->GetTxSize());
 
         if (fDependsWait)
             waitingOnDependants.push_back(&(*it));
@@ -1055,11 +1055,36 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
     }
 }
 
-bool CTxMemPool::TransactionWithinChainLimit(const uint256& txid, size_t chainLimit) const {
+uint64_t CTxMemPool::CalculateDescendantMaximum(txiter entry) const {
+    // find parent with highest descendant count
+    std::vector<txiter> candidates;
+    setEntries counted;
+    candidates.push_back(entry);
+    uint64_t maximum = 0;
+    while (candidates.size()) {
+        txiter candidate = candidates.back();
+        candidates.pop_back();
+        if (!counted.insert(candidate).second) continue;
+        const setEntries& parents = GetMemPoolParents(candidate);
+        if (parents.size() == 0) {
+            maximum = std::max(maximum, candidate->GetCountWithDescendants());
+        } else {
+            for (txiter i : parents) {
+                candidates.push_back(i);
+            }
+        }
+    }
+    return maximum;
+}
+
+void CTxMemPool::GetTransactionAncestry(const uint256& txid, size_t& ancestors, size_t& descendants) const {
     LOCK(cs);
     auto it = mapTx.find(txid);
-    return it == mapTx.end() || (it->GetCountWithAncestors() < chainLimit &&
-       it->GetCountWithDescendants() < chainLimit);
+    ancestors = descendants = 0;
+    if (it != mapTx.end()) {
+        ancestors = it->GetCountWithAncestors();
+        descendants = CalculateDescendantMaximum(it);
+    }
 }
 
 SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}

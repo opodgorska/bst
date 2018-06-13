@@ -42,12 +42,13 @@
 // We add a random period time (0 to 1 seconds) to feeler connections to prevent synchronization.
 #define FEELER_SLEEP_WINDOW 1
 
-#if !defined(HAVE_MSG_NOSIGNAL)
+// MSG_NOSIGNAL is not available on some platforms, if it doesn't exist define it as 0
+#if !defined(MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
 #endif
 
 // MSG_DONTWAIT is not available on some platforms, if it doesn't exist define it as 0
-#if !defined(HAVE_MSG_DONTWAIT)
+#if !defined(MSG_DONTWAIT)
 #define MSG_DONTWAIT 0
 #endif
 
@@ -123,7 +124,7 @@ bool GetLocal(CService& addr, const CNetAddr *paddrPeer)
     return nBestScore >= 0;
 }
 
-//! Convert the pnSeeds6 array into usable address objects.
+//! Convert the pnSeed6 array into usable address objects.
 static std::vector<CAddress> convertSeed6(const std::vector<SeedSpec6> &vSeedsIn)
 {
     // It'll only connect to one or two seed nodes because once it connects,
@@ -159,7 +160,7 @@ CAddress GetLocalAddress(const CNetAddr *paddrPeer, ServiceFlags nLocalServices)
     return ret;
 }
 
-int GetnScore(const CService& addr)
+static int GetnScore(const CService& addr)
 {
     LOCK(cs_mapLocalHost);
     if (mapLocalHost.count(addr) == LOCAL_NONE)
@@ -367,7 +368,7 @@ static CAddress GetBindAddress(SOCKET sock)
     return addr_bind;
 }
 
-CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure)
+CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure, bool manual_connection)
 {
     if (pszDest == nullptr) {
         if (IsLocal(addrConnect))
@@ -394,7 +395,7 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
         if (Lookup(pszDest, resolved,  default_port, fNameLookup && !HaveNameProxy(), 256) && !resolved.empty()) {
             addrConnect = CAddress(resolved[GetRand(resolved.size())], NODE_NONE);
             if (!addrConnect.IsValid()) {
-                LogPrint(BCLog::NET, "Resolver returned invalid address %s for %s", addrConnect.ToString(), pszDest);
+                LogPrint(BCLog::NET, "Resolver returned invalid address %s for %s\n", addrConnect.ToString(), pszDest);
                 return nullptr;
             }
             // It is possible that we already have a connection to the IP/port pszDest resolved to.
@@ -431,7 +432,7 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
             if (hSocket == INVALID_SOCKET) {
                 return nullptr;
             }
-            connected = ConnectSocketDirectly(addrConnect, hSocket, nConnectTimeout);
+            connected = ConnectSocketDirectly(addrConnect, hSocket, nConnectTimeout, manual_connection);
         }
         if (!proxyConnectionFailed) {
             // If a connection to the node was attempted, and failure (if any) is not caused by a problem connecting to
@@ -1465,7 +1466,7 @@ void CConnman::WakeMessageHandler()
 #ifdef USE_UPNP
 static CThreadInterrupt g_upnp_interrupt;
 static std::thread g_upnp_thread;
-void ThreadMapPort()
+static void ThreadMapPort()
 {
     std::string port = strprintf("%u", GetListenPort());
     const char * multicastif = nullptr;
@@ -1631,7 +1632,8 @@ void CConnman::ThreadDNSAddressSeed()
             if (!resolveSource.SetInternal(host)) {
                 continue;
             }
-            if (LookupHost(host.c_str(), vIPs, 0, true))
+            unsigned int nMaxIPs = 256; // Limits number of IPs learned from a DNS seed
+            if (LookupHost(host.c_str(), vIPs, nMaxIPs, true))
             {
                 for (const CNetAddr& ip : vIPs)
                 {
@@ -1921,23 +1923,25 @@ std::vector<AddedNodeInfo> CConnman::GetAddedNodeInfo()
 
     for (const std::string& strAddNode : lAddresses) {
         CService service(LookupNumeric(strAddNode.c_str(), Params().GetDefaultPort()));
+        AddedNodeInfo addedNode{strAddNode, CService(), false, false};
         if (service.IsValid()) {
             // strAddNode is an IP:port
             auto it = mapConnected.find(service);
             if (it != mapConnected.end()) {
-                ret.push_back(AddedNodeInfo{strAddNode, service, true, it->second});
-            } else {
-                ret.push_back(AddedNodeInfo{strAddNode, CService(), false, false});
+                addedNode.resolvedAddress = service;
+                addedNode.fConnected = true;
+                addedNode.fInbound = it->second;
             }
         } else {
             // strAddNode is a name
             auto it = mapConnectedByName.find(strAddNode);
             if (it != mapConnectedByName.end()) {
-                ret.push_back(AddedNodeInfo{strAddNode, it->second.second, true, it->second.first});
-            } else {
-                ret.push_back(AddedNodeInfo{strAddNode, CService(), false, false});
+                addedNode.resolvedAddress = it->second.second;
+                addedNode.fConnected = true;
+                addedNode.fInbound = it->second.first;
             }
         }
+        ret.emplace_back(std::move(addedNode));
     }
 
     return ret;
@@ -1953,7 +1957,7 @@ void CConnman::ThreadOpenAddedConnections()
         for (const AddedNodeInfo& info : vInfo) {
             if (!info.fConnected) {
                 if (!grant.TryAcquire()) {
-                    // If we've used up our semaphore and need a new one, lets not wait here since while we are waiting
+                    // If we've used up our semaphore and need a new one, let's not wait here since while we are waiting
                     // the addednodeinfo state might change.
                     break;
                 }
@@ -1990,7 +1994,7 @@ void CConnman::OpenNetworkConnection(const CAddress& addrConnect, bool fCountFai
     } else if (FindNode(std::string(pszDest)))
         return;
 
-    CNode* pnode = ConnectNode(addrConnect, pszDest, fCountFailure);
+    CNode* pnode = ConnectNode(addrConnect, pszDest, fCountFailure, manual_connection);
 
     if (!pnode)
         return;
@@ -2086,23 +2090,16 @@ bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, b
         LogPrintf("%s\n", strError);
         return false;
     }
-#ifndef WIN32
+
     // Allow binding if the port is still in TIME_WAIT state after
     // the program was closed and restarted.
-    setsockopt(hListenSocket, SOL_SOCKET, SO_REUSEADDR, (void*)&nOne, sizeof(int));
-#else
-    setsockopt(hListenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&nOne, sizeof(int));
-#endif
+    setsockopt(hListenSocket, SOL_SOCKET, SO_REUSEADDR, (sockopt_arg_type)&nOne, sizeof(int));
 
     // some systems don't have IPV6_V6ONLY but are always v6only; others do have the option
     // and enable it by default or not. Try to enable it, if possible.
     if (addrBind.IsIPv6()) {
 #ifdef IPV6_V6ONLY
-#ifdef WIN32
-        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&nOne, sizeof(int));
-#else
-        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
-#endif
+        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (sockopt_arg_type)&nOne, sizeof(int));
 #endif
 #ifdef WIN32
         int nProtLevel = PROTECTION_LEVEL_UNRESTRICTED;
@@ -2794,7 +2791,7 @@ void CNode::AskFor(const CInv& inv)
         nRequestTime = it->second;
     else
         nRequestTime = 0;
-    LogPrint(BCLog::NET, "askfor %s  %d (%s) peer=%d\n", inv.ToString(), nRequestTime, DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000), id);
+    LogPrint(BCLog::NET, "askfor %s  %d (%s) peer=%d\n", inv.ToString(), nRequestTime, FormatISO8601Time(nRequestTime/1000000), id);
 
     // Make sure not to reuse time indexes to keep things in the same order
     int64_t nNow = GetTimeMicros() - 1000000;

@@ -338,7 +338,7 @@ private:
     CNode* FindNode(const CService& addr);
 
     bool AttemptToEvictConnection();
-    CNode* ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure);
+    CNode* ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure, bool manual_connection);
     bool IsWhitelistedRange(const CNetAddr &addr);
 
     void DeleteNode(CNode* pnode);
@@ -469,6 +469,13 @@ public:
     virtual bool SendMessages(CNode* pnode, std::atomic<bool>& interrupt) = 0;
     virtual void InitializeNode(CNode* pnode) = 0;
     virtual void FinalizeNode(NodeId id, bool& update_connection_time) = 0;
+
+protected:
+    /**
+     * Protected destructor so that instances can only be deleted by derived classes.
+     * If that restriction is no longer desired, this should be made public and virtual.
+     */
+    ~NetEventsInterface() = default;
 };
 
 enum

@@ -17,16 +17,15 @@ bench_bench_bst_SOURCES = \
   bench/bench.h \
   bench/checkblock.cpp \
   bench/checkqueue.cpp \
-  bench/Examples.cpp \
+  bench/examples.cpp \
   bench/rollingbloom.cpp \
   bench/crypto_hash.cpp \
   bench/ccoins_caching.cpp \
+  bench/merkle_root.cpp \
   bench/mempool_eviction.cpp \
   bench/verify_script.cpp \
   bench/base58.cpp \
   bench/lockedpool.cpp \
-  bench/perf.cpp \
-  bench/perf.h \
   bench/prevector.cpp
 
 nodist_bench_bench_bst_SOURCES = $(GENERATED_BENCH_FILES)

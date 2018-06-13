@@ -75,11 +75,13 @@ public:
     CMainParams() {
         strNetworkID = "main";
         consensus.nSubsidyHalvingInterval = 210000;
+
         consensus.BIP16Height = 0;
         consensus.BIP34Height = 1024;
         consensus.BIP34Hash = uint256S("80000000002dcd07c0c9d0bc726dcd43a84d00482a0abb2c4ec48c2ee671eab5");
         consensus.BIP65Height = 1351;
         consensus.BIP66Height = 1251;
+
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60;
@@ -122,16 +124,15 @@ public:
         nDefaultPort = 8446;
         nPruneAfterHeight = 100000;
 
-	genesis = CreateGenesisBlock(1521717929, 93837405, 0x1d00ffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1521717929, 93837405, 0x1d00ffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-	uint256 picoHash = uint256S("8000000079da1801a4e947f95dae98f012a16f43519a5587bb8584ca84b160d4");
+        uint256 picoHash = uint256S("8000000079da1801a4e947f95dae98f012a16f43519a5587bb8584ca84b160d4");
         assert(consensus.hashGenesisBlock == picoHash);
-	assert(genesis.hashMerkleRoot == uint256S("0xb2f63819a53936baa63d9f42bd2a5a63dbc8475e7e63d6d0b214d332aaeedc69"));
+        assert(genesis.hashMerkleRoot == uint256S("0xb2f63819a53936baa63d9f42bd2a5a63dbc8475e7e63d6d0b214d332aaeedc69"));
 
         vSeeds.clear();      //DNS seeds.
         vSeeds.emplace_back("seed.blockstamp.info");
         vSeeds.emplace_back("85.10.197.15");
-
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
@@ -173,7 +174,7 @@ public:
     CTestNetParams() {
         strNetworkID = "test";
         consensus.nSubsidyHalvingInterval = 210000;
-        consensus.BIP16Height = 514; // 00000000040b4e986385315e14bee30ad876d8b47f748025b26683116d21aa65
+        consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 21111;
         consensus.BIP34Hash = uint256S("0x0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8");
         consensus.BIP65Height = 581885; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
@@ -267,7 +268,7 @@ public:
     CRegTestParams() {
         strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
-        consensus.BIP16Height = 0; // always enforce P2SH BIP16 on regtest
+        consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
