@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DataPage</class>
+ <widget class="QWidget" name="DataPage">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>841</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_10">
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="retrieveTab">
+      <attribute name="title">
+       <string>Retrieve</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_12">
+       <item>
+        <widget class="QPlainTextEdit" name="messageRetrieveEdit"/>
+       </item>
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_3">
+         <item>
+          <widget class="QGroupBox" name="viewTypeGroupBox">
+           <property name="title">
+            <string>View type:</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_8">
+            <item>
+             <widget class="QRadioButton" name="stringRadioButton">
+              <property name="text">
+               <string>String</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../bitcoin.qrc">
+                <normaloff>:/icons/transaction_confirmed</normaloff>:/icons/transaction_confirmed</iconset>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="hexRadioButton">
+              <property name="text">
+               <string>Hex</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../bitcoin.qrc">
+                <normaloff>:/icons/transaction_confirmed</normaloff>:/icons/transaction_confirmed</iconset>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_10">
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_11">
+           <item>
+            <widget class="QPushButton" name="fileRetrieveButton">
+             <property name="text">
+              <string>File</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../bitcoin.qrc">
+               <normaloff>:/icons/open</normaloff>:/icons/open</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="retrieveButton">
+             <property name="text">
+              <string>Retrieve</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../bitcoin.qrc">
+               <normaloff>:/icons/filesave</normaloff>:/icons/filesave</iconset>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_9">
+             <item>
+              <widget class="QLabel" name="fileRetrieveLabel">
+               <property name="text">
+                <string>File:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="fileRetrieveEdit"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QLabel" name="txidLabel">
+               <property name="text">
+                <string>Transaction:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="txidRetrieveEdit"/>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="storeTab">
+      <attribute name="title">
+       <string>Store</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_6">
+       <item>
+        <widget class="QTextEdit" name="messageStoreEdit"/>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_7">
+           <item>
+            <widget class="QGroupBox" name="dataSrcGroupBox">
+             <property name="title">
+              <string>Data source:</string>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_4">
+              <item>
+               <widget class="QRadioButton" name="storeMessageRadioButton">
+                <property name="text">
+                 <string>Store Message</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../bitcoin.qrc">
+                  <normaloff>:/icons/transaction_confirmed</normaloff>:/icons/transaction_confirmed</iconset>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="storeFileRadioButton">
+                <property name="text">
+                 <string>Store File</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../bitcoin.qrc">
+                  <normaloff>:/icons/transaction_confirmed</normaloff>:/icons/transaction_confirmed</iconset>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="storeFileHashRadioButton">
+                <property name="text">
+                 <string>Store File Signature</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../bitcoin.qrc">
+                  <normaloff>:/icons/transaction_confirmed</normaloff>:/icons/transaction_confirmed</iconset>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_8">
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <widget class="QPushButton" name="fileStoreButton">
+             <property name="text">
+              <string>File</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../bitcoin.qrc">
+               <normaloff>:/icons/open</normaloff>:/icons/open</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="storeButton">
+             <property name="text">
+              <string>Store</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../bitcoin.qrc">
+               <normaloff>:/icons/send</normaloff>:/icons/send</iconset>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_7">
+             <item>
+              <widget class="QLabel" name="fileStoreLabel">
+               <property name="text">
+                <string>File:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="fileStoreEdit"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_6">
+             <item>
+              <widget class="QLabel" name="txidStoreLabel">
+               <property name="text">
+                <string>Transaction:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="txidStoreEdit"/>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="../bitcoin.qrc"/>
+ </resources>
+ <connections/>
+</ui>

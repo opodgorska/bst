@@ -356,6 +356,16 @@ public:
         }
         return false;
     }
+
+    size_t GetOP_ReturnSize() const
+    {
+        size_t size=0;
+        for(size_t i=0;i<vout.size();++i)
+        {
+            size+=vout[i].scriptPubKey.GetOP_ReturnSize();
+        }
+        return size;
+    }
 };
 
 /** A mutable version of CTransaction. */

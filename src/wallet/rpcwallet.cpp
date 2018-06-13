@@ -4,12 +4,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
-#include <base58.h>
 #include <chain.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <httpserver.h>
 #include <validation.h>
+#include <key_io.h>
 #include <net.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
@@ -1648,7 +1648,11 @@ void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const std::s
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
+            {
                 WalletTxToJSON(wtx, entry);
+                size_t dataSize=wtx.tx->GetOP_ReturnSize();
+                entry.pushKV("datasize", dataSize);
+            }
             entry.pushKV("abandoned", wtx.isAbandoned());
             ret.push_back(entry);
         }
@@ -1690,7 +1694,11 @@ void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const std::s
                 }
                 entry.pushKV("vout", r.vout);
                 if (fLong)
+                {
                     WalletTxToJSON(wtx, entry);
+                    size_t dataSize=wtx.tx->GetOP_ReturnSize();
+                    entry.pushKV("datasize", dataSize);
+                }
                 ret.push_back(entry);
             }
         }
@@ -1767,6 +1775,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "                                          negative amounts).\n"
             "    \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
             "                                                     may be unknown for unconfirmed transactions not in the mempool\n"
+            "    \"datasize\": xxx,          (numeric) Size of user data in bytes\n"
             "    \"abandoned\": xxx          (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
             "                                         'send' category of transactions.\n"
             "  }\n"

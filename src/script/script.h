@@ -667,6 +667,33 @@ public:
         CScriptBase::clear();
         shrink_to_fit();
     }
+
+    size_t GetOP_ReturnSize() const
+    {
+        auto it=begin();
+
+        if(size() > 0 && *it == OP_RETURN)
+        {
+            ++it;
+            if(*it<=0x4b)
+            {
+                return size()-2;
+            }
+            else if(*it==0x4c)
+            {
+                return size()-3;
+            }
+            else if(*it==0x4d)
+            {
+                return size()-4;
+            }
+            else if(*it==0x4e)
+            {
+                return size()-6;
+            }
+        }
+        return 0;
+    }
 };
 
 struct CScriptWitness

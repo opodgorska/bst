@@ -1,82 +1,72 @@
-Bitcoin Core integration/staging tree
-=====================================
+# BlockStamp
 
-[![Build Status](https://travis-ci.org/bitcoin/bitcoin.svg?branch=master)](https://travis-ci.org/bitcoin/bitcoin)
+BlockStamp (BST) is a new digital currency intended to store user data in blockchain. It is based on Bitcon peer-to-peer technolgy to operate with no central authority.
+To distinguish from Bitcoin, BlockStamp uses hashes of blocks begining with the most significant bit set to one (0x80000000.... instead of 0x00000000...).
 
-https://bitcoincore.org
 
-What is Bitcoin?
-----------------
+## Details
 
-Bitcoin is an experimental digital currency that enables instant payments to
-anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate
-with no central authority: managing transactions and issuing money are carried
-out collectively by the network. Bitcoin Core is the name of open source
-software which enables the use of this currency.
+The blockchain will be used to offer cheap transactions for time-stamping of documents. The BST-client will enable the submission of the hash of a document
+or the whole document in a transaction to be recorded on the blockchain. A BlockStamp project is a clone of Bitcoin which is very well documented.
+Most of the Bitcoin documentation refers directly to BlockStamp as well. 
+Here you can find same useful links:
+- https://en.bitcoin.it/wiki/Main_Page
+- https://bitcoin.org/en/developer-documentation
 
-For more information, as well as an immediately useable, binary version of
-the Bitcoin Core software, see https://bitcoin.org/en/download, or read the
-[original whitepaper](https://bitcoincore.org/bitcoin.pdf).
 
-License
--------
+## Current status
 
-Bitcoin Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
-information or see https://opensource.org/licenses/MIT.
+BlockStamp project is under development and new features are continously added. Especially new RPC commands facilitating data manipulation are under development.
+A working node you can connect with is available online.
 
-Development Process
--------------------
 
-The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/bitcoin/bitcoin/tags) are created
-regularly to indicate new official, stable release versions of Bitcoin Core.
+## Installation
 
-The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
+To start using BlockStamp you shoud build the project and run a node with option -txindex to enable blockchain transaction queries.
+The node default configuration let you connect to our working nodes. When you connect them, your node should start downloading blocks.
+After downloading process is done you can start working with BlockStamp.
 
-The developer [mailing list](https://lists.linuxfoundation.org/mailman/listinfo/bitcoin-dev)
-should be used to discuss complicated or controversial changes before working
-on a patch set.
+Default settings for BST are following: 
+- working directory:		~/.bst 
+- config file:			bst.conf
+- RPC port:			8445
+- peer-to-peer network port:	8446
+- executable names:		bst*
 
-Developer IRC can be found on Freenode at #bitcoin-core-dev.
+To store and retrieve data from the blockchain following RPC commands are now availlable:
 
-Testing
--------
+```
+bst-cli storemessage "user data string"
+c04878b7bf26def16ee689863943da91f9e7dcce77250e1ca8b6390549356006
+```
 
-Testing and code review is the bottleneck for development; we get more pull
-requests than we can review and test on short notice. Please be patient and help out by testing
-other people's pull requests, and remember this is a security-critical project where any mistake might cost people
-lots of money.
+```
+bst-cli retrievemessage c04878b7bf26def16ee689863943da91f9e7dcce77250e1ca8b6390549356006
+"user data string"
+```
 
-### Automated Testing
+```
+bst-cli storesignature /path/to/file/myfile
+0eec311afa6e8253c984d9bd57dadedd72848065160a093dc66a776388cfda13
+```
 
-Developers are strongly encouraged to write [unit tests](src/test/README.md) for new code, and to
-submit new unit tests for old code. Unit tests can be compiled and run
-(assuming they weren't disabled in configure) with: `make check`. Further details on running
-and extending unit tests can be found in [/src/test/README.md](/src/test/README.md).
+```
+bst-cli storedata /path/to/file/myfile
+ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654fa3323
+```
 
-There are also [regression and integration tests](/test), written
-in Python, that are run automatically on the build server.
-These tests can be run (if the [test dependencies](/test) are installed) with: `test/functional/test_runner.py`
+```
+bst-cli retrievedata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654fa3323
+"content of a myfile as a string"
 
-The Travis CI system makes sure that every pull request is built for Windows, Linux, and OS X, and that unit/sanity tests are run automatically.
+bst-cli retrievedata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654fa3323 /path/to/file/outfile
+```
 
-### Manual Quality Assurance (QA) Testing
+```
+bst-cli listtransactions
+Among other parameters returns "datasize" field informing about the size of the data stored in the blockchain.
+```
 
-Changes should be tested by somebody other than the developer who wrote the
-code. This is especially important for large or high-risk changes. It is useful
-to add a test plan to the pull request description if testing the changes is
-not straightforward.
-
-Translations
-------------
-
-Changes to translations as well as new translations can be submitted to
-[Bitcoin Core's Transifex page](https://www.transifex.com/projects/p/bitcoin/).
-
-Translations are periodically pulled from Transifex and merged into the git repository. See the
-[translation process](doc/translation_process.md) for details on how this works.
-
-**Important**: We do not accept translation changes as GitHub pull requests because the next
-pull from Transifex would automatically overwrite them again.
-
-Translators should also subscribe to the [mailing list](https://groups.google.com/forum/#!forum/bitcoin-translators).
+Along with RPC commands also Qt client was developed to provide the same data manipulation functionality. A 'Data' page embedded into bst-qt application
+contains two tabs that enable data to store into or retrieve from the blockchain. A dialog with transaction details also informs about "Data size" for a
+given transaction.
