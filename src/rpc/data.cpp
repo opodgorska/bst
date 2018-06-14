@@ -112,9 +112,11 @@ UniValue setOPreturnData(const std::string& hexMsg)
 {
     UniValue res(UniValue::VARR);
     
-    double fee=computeFee(hexMsg.length());
+    //const CWalletRef pwallet=vpwallets[0];
+    std::shared_ptr<CWallet> wallet = GetWallet(std::string("wallet"));
+    CWallet* const pwallet=wallet.get();
+    double fee=computeFee(*pwallet, hexMsg.length());
     
-    const CWalletRef pwallet=vpwallets[0];
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
 

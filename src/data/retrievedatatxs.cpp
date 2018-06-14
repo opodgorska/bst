@@ -9,7 +9,8 @@
 #include <net.h>
 
 #include <rpc/rawtransaction.h>
-#include <rpc/safemode.h>
+//#include <rpc/safemode.h>
+#include <index/txindex.h>
 #include <rpc/server.h>
 #include <validation.h>
 #include "retrievedatatxs.h"
@@ -33,13 +34,18 @@ RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blo
     if (!blockHash.empty()) 
     {
         uint256 blockhash = uint256S(blockHash);
-        BlockMap::iterator it = mapBlockIndex.find(blockhash);
-        if (it == mapBlockIndex.end()) 
+        blockindex = LookupBlockIndex(blockhash);
+        if (!blockindex) 
         {
             throw std::runtime_error(std::string("Block hash not found"));
         }
-        blockindex = it->second;
         in_active_chain = chainActive.Contains(blockindex);
+    }
+
+    bool f_txindex_ready = false;
+    if (g_txindex && !blockindex) 
+    {
+        f_txindex_ready = g_txindex->BlockUntilSyncedToCurrentChain();
     }
 
     CTransactionRef tx;
@@ -54,12 +60,12 @@ RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blo
                 throw std::runtime_error(std::string("Block not available"));
             }
             errmsg = "No such transaction found in the provided block";
-        } 
-        else 
-        {
-            errmsg = fTxIndex
-              ? "No such mempool or blockchain transaction"
-              : "No such mempool transaction. Use -txindex to enable blockchain transaction queries";
+        } else if (!g_txindex) {
+            errmsg = "No such mempool transaction. Use -txindex to enable blockchain transaction queries";
+        } else if (!f_txindex_ready) {
+            errmsg = "No such mempool transaction. Blockchain transactions are still in the process of being indexed";
+        } else {
+            errmsg = "No such mempool or blockchain transaction";
         }
         throw std::runtime_error(errmsg + std::string(". Use gettransaction for wallet transactions."));
     }
@@ -70,6 +76,7 @@ RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blo
     }
     TxToJSON(*tx, hash_block, transaction);
 }
+
 
 RetrieveDataTxs::~RetrieveDataTxs() {}
 

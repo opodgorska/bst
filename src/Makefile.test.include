@@ -2,10 +2,8 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-TESTS += test/test_bst
 bin_PROGRAMS += test/test_bst
 noinst_PROGRAMS += test/test_bst_fuzzy
-
 TEST_SRCDIR = test
 TEST_BINARY=test/test_bst$(EXEEXT)
 
@@ -105,10 +103,9 @@ BITCOIN_TEST_SUITE += \
   wallet/test/wallet_test_fixture.h
 endif
 
-test_test_bst_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
+test_test_bst_SOURCES = $(BITCOIN_TEST_SUITE) $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
 test_test_bst_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(TESTDEFS) $(EVENT_CFLAGS)
 test_test_bst_LDADD =
-
 if ENABLE_WALLET
 test_test_bst_LDADD += $(LIBBITCOIN_WALLET)
 endif

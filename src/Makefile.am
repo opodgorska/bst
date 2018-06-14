@@ -8,7 +8,6 @@ AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LD
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS) $(HARDENED_CXXFLAGS) $(WARN_CXXFLAGS) $(NOWARN_CXXFLAGS) $(ERROR_CXXFLAGS) $(GPROF_CXXFLAGS) $(SANITIZER_CXXFLAGS)
 AM_CPPFLAGS = $(DEBUG_CPPFLAGS) $(HARDENED_CPPFLAGS)
 AM_LIBTOOLFLAGS = --preserve-dup-deps
-
 EXTRA_LIBRARIES =
 
 if EMBEDDED_UNIVALUE
@@ -434,7 +433,7 @@ bstd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bstd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
- bstd_SOURCES += bitcoind-res.rc
+bstd_SOURCES += bitcoind-res.rc
 endif
 
 bstd_LDADD = \
@@ -460,7 +459,7 @@ bst_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bst_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
- bst_cli_SOURCES += bitcoin-cli-res.rc
+bst_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
 bst_cli_LDADD = \
@@ -479,7 +478,7 @@ bst_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bst_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
- bst_tx_SOURCES += bitcoin-tx-res.rc
+bst_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
 bst_tx_LDADD = \
@@ -496,7 +495,7 @@ bst_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 # bitcoinconsensus library #
 if BUILD_BITCOIN_LIBS
 include_HEADERS = script/bstconsensus.h
-libbstconsensus_la_SOURCES = $(crypto_libbitcoin_crypto_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
+libbstconsensus_la_SOURCES = $(crypto_libbitcoin_crypto_base_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
 
 if GLIBC_BACK_COMPAT
   libbstconsensus_la_SOURCES += compat/glibc_compat.cpp

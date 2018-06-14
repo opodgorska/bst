@@ -9,12 +9,12 @@
 #include <net.h>
 #include <policy/rbf.h>
 #include <rpc/rawtransaction.h>
-#include <rpc/safemode.h>
+//#include <rpc/safemode.h>
 #include <rpc/server.h>
 #include <validation.h>
 #include "storedatatxs.h"
 
-StoreDataTxs::StoreDataTxs(const CWalletRef pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
+StoreDataTxs::StoreDataTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
                           : pwallet(pwallet_), nLockTime(nLockTime_), rbfOptIn(rbfOptIn_), allowhighfees(allowhighfees_)
 {
     createDataTx(inputs, sendTo);
@@ -139,7 +139,7 @@ UniValue StoreDataTxs::signTx()
 
 UniValue StoreDataTxs::sendTx()
 {
-    ObserveSafeMode();
+    //ObserveSafeMode();
 
     std::promise<void> promise;
 

@@ -242,15 +242,17 @@ void DataPage::store()
     {
         try
         {
-            if(!vpwallets.empty())
+            std::shared_ptr<CWallet> wallet = GetWallet(std::string("wallet"));
+            if(wallet != nullptr)
             {
-                const CWalletRef pwallet=vpwallets[0];
+                //const CWalletRef pwallet=vpwallets[0];
+                CWallet* const pwallet=wallet.get();
 
                 std::vector<std::string> addresses;
                 ProcessUnspent processUnspent(pwallet, addresses);
 
                 std::string hexStr=getHexStr();
-                double fee=computeFee(hexStr.length());
+                double fee=computeFee(*pwallet, hexStr.length());
 
                 UniValue inputs(UniValue::VARR);
                 if(!processUnspent.getUtxForAmount(inputs, fee))

@@ -6,7 +6,6 @@
 #include <iomanip>
 
 #include <data/datautils.h>
-#include <wallet/fees.h>
 
 static unsigned char hexval(unsigned char c)
 {
@@ -88,10 +87,10 @@ std::string computeChange(const UniValue& inputs, double fee)
     return double2str(amount-fee);
 }
 
-double computeFee(size_t dataSize)
+double computeFee(const CWallet& wallet, size_t dataSize)
 {
     dataSize/=2;
 	constexpr size_t txEmptySize=145;
 	constexpr CAmount feeRate=10;
-    return static_cast<double>(txEmptySize+(GetRequiredFee(dataSize)*feeRate))/COIN;
+    return static_cast<double>(txEmptySize+(GetRequiredFee(wallet, dataSize)*feeRate))/COIN;
 }

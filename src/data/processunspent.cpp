@@ -7,7 +7,7 @@
 #include <key_io.h>
 #include "processunspent.h"
 
-ProcessUnspent::ProcessUnspent(const CWalletRef pwallet, const std::vector<std::string>& addresses, bool include_unsafe, 
+ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::string>& addresses, bool include_unsafe, 
                                int nMinDepth, int nMaxDepth, CAmount nMinimumAmount, CAmount nMaximumAmount,
                                CAmount nMinimumSumAmount, uint64_t nMaximumCount) : entryArray(UniValue::VARR)
 {
@@ -102,7 +102,7 @@ bool ProcessUnspent::getUtxForAmount(UniValue& utx, double requiredAmount)
     return isEnoughAmount;
 }
 
-std::string getChangeAddress(const CWalletRef pwallet, OutputType output_type)
+std::string getChangeAddress(CWallet* const pwallet, OutputType output_type)
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -111,9 +111,9 @@ std::string getChangeAddress(const CWalletRef pwallet, OutputType output_type)
         pwallet->TopUpKeyPool();
     }
 
-    if (output_type != OUTPUT_TYPE_LEGACY &&
-        output_type != OUTPUT_TYPE_P2SH_SEGWIT &&
-        output_type != OUTPUT_TYPE_BECH32)
+    if (output_type != OutputType::LEGACY &&
+        output_type != OutputType::P2SH_SEGWIT &&
+        output_type != OutputType::BECH32)
     {
         throw std::runtime_error(std::string("Unknown address type"));
     }

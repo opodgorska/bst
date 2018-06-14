@@ -11,7 +11,7 @@
 class StoreDataTxs
 {
 public:
-    StoreDataTxs(const CWalletRef pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
+    StoreDataTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
     ~StoreDataTxs();
 
     UniValue createDataTx(const UniValue& inputs, const UniValue& sendTo);
@@ -20,7 +20,7 @@ public:
 
 private:
     CMutableTransaction mtx;
-    const CWalletRef pwallet;
+    CWallet* const pwallet;
     int64_t nLockTime;
     bool rbfOptIn;
     bool allowhighfees;
