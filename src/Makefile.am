@@ -130,6 +130,7 @@ BITCOIN_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  lottery/lotterytxs.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -226,6 +227,7 @@ libbitcoin_server_a_SOURCES = \
   index/base.cpp \
   index/txindex.cpp \
   init.cpp \
+  lottery/lotterytxs.cpp \
   dbwrapper.cpp \
   merkleblock.cpp \
   miner.cpp \
@@ -245,6 +247,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   rpc/client.cpp \
   rpc/data.cpp \
+  rpc/lottery.cpp \
   script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \

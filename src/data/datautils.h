@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include <univalue.h>
 #include <wallet/fees.h>
@@ -14,7 +15,29 @@
 void hex2ascii(const std::string& in, std::string& out);
 std::string byte2str(const unsigned char* binaryData, size_t size);
 void hex2bin(std::vector<char>& binaryData, const std::string& hexstr);
+void hex2bin(std::vector<unsigned char>& binaryData, const std::string& hexstr);
 std::string computeChange(const UniValue& inputs, double fee);
 double computeFee(const CWallet& wallet, size_t dataSize);
+std::string double2str(double val);
 
+template<typename T, typename Q>
+void type2array(T in, std::vector<Q>& array)
+{
+    array.resize(sizeof(T));
+    memcpy(array.data(), reinterpret_cast<Q*>(&in), sizeof(T));
+}
+
+template<typename T, typename Q>
+void array2type(const std::vector<Q>& array, T& in)
+{
+    memcpy(reinterpret_cast<Q*>(&in), array.data(), sizeof(T));
+}
+
+template<typename T, typename Q>
+void array2typeRev(const std::vector<Q>& array, T& in)
+{
+    std::vector<Q> a=array;
+    std::reverse(a.begin(), a.end());
+    memcpy(reinterpret_cast<Q*>(&in), a.data(), sizeof(T));
+}
 #endif

@@ -8,6 +8,7 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <lottery/lotterytxs.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -234,13 +235,25 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     }
 
     const CAmount value_out = tx.GetValueOut();
-    if (nValueIn < value_out) {
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-            strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+    bool correctBetTx=false;
+    if (nValueIn < value_out)
+    {
+        correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out);
+        if(!correctBetTx)
+        {
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+                strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+        }
     }
 
     // Tally transaction fees
-    const CAmount txfee_aux = nValueIn - value_out;
+    CAmount txfee_aux = nValueIn - value_out;
+    if(correctBetTx)
+    {
+        txfee_aux = value_out*0.1;
+        //std::cout<<"txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
+    }
+    
     if (!MoneyRange(txfee_aux)) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
     }
