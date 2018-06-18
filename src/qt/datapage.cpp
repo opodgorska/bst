@@ -242,10 +242,9 @@ void DataPage::store()
     {
         try
         {
-            std::shared_ptr<CWallet> wallet = GetWallet(std::string("wallet"));
+            std::shared_ptr<CWallet> wallet = GetWallets()[0];
             if(wallet != nullptr)
             {
-                //const CWalletRef pwallet=vpwallets[0];
                 CWallet* const pwallet=wallet.get();
 
                 std::vector<std::string> addresses;
