@@ -735,48 +735,32 @@ UniValue GetBetTxs::findTx(const std::string& txid)
     bool in_active_chain = true;
     uint256 hash = ParseHashV(txid, "parameter 1");
     CBlockIndex* blockindex = nullptr;
-
-    if (hash == Params().GenesisBlock().hashMerkleRoot)
-    {
-        // Special exception for the genesis block coinbase transaction
-        throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
-    }
-
-    bool f_txindex_ready = false;
-    if (g_txindex && !blockindex) 
-    {
-        f_txindex_ready = g_txindex->BlockUntilSyncedToCurrentChain();
-    }
-
     CTransactionRef tx;
     uint256 hash_block;
-    if (!GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
+    UniValue result(UniValue::VOBJ);
+
+    for(int i=chainActive.Height();i>=0;--i)
     {
-        std::string errmsg;
-        if (blockindex) 
+        blockindex = chainActive[i];
+
+        if (hash == Params().GenesisBlock().hashMerkleRoot)
         {
-            if (!(blockindex->nStatus & BLOCK_HAVE_DATA)) 
-            {
-                throw std::runtime_error(std::string("Block not available"));
-            }
-            errmsg = "No such transaction found in the provided block";
-        } else if (!g_txindex) {
-            errmsg = "No such mempool transaction. Use -txindex to enable blockchain transaction queries";
-        } else if (!f_txindex_ready) {
-            errmsg = "No such mempool transaction. Blockchain transactions are still in the process of being indexed";
-        } else {
-            errmsg = "No such mempool or blockchain transaction";
+            // Special exception for the genesis block coinbase transaction
+            throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
         }
-        throw std::runtime_error(errmsg + std::string(". Use gettransaction for wallet transactions."));
+
+        if (GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
+        {
+            if(blockindex)
+            {
+                result.pushKV("in_active_chain", in_active_chain);
+            }
+            TxToJSON(*tx, hash_block, result);
+            result.pushKV("blockhash", hash_block.ToString());
+            break;
+        }
     }
 
-    UniValue result(UniValue::VOBJ);
-    if(blockindex)
-    {
-        result.pushKV("in_active_chain", in_active_chain);
-    }
-    TxToJSON(*tx, hash_block, result);
-    result.pushKV("blockhash", hash_block.ToString());
     return result;
 }
 
