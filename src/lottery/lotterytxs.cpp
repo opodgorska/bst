@@ -111,8 +111,8 @@ static UniValue getnewaddress(CWallet* const pwallet, CTxDestination& dest, Outp
 }
 
 
-MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
-                          : pwallet(pwallet_), nLockTime(nLockTime_), rbfOptIn(rbfOptIn_), allowhighfees(allowhighfees_)
+MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_, int32_t txVersion_) 
+                      : mtx(txVersion_), pwallet(pwallet_), nLockTime(nLockTime_), rbfOptIn(rbfOptIn_), allowhighfees(allowhighfees_)
 {
     createTx(inputs, sendTo);
 }
@@ -358,6 +358,34 @@ UniValue MakeBetTxs::getRedeemScriptAsm()
 UniValue MakeBetTxs::getRedeemScriptHex()
 {
     return HexStr(redeemScript.begin(), redeemScript.end());
+}
+
+bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx)
+{
+    int32_t txMakeBetVersion=(tx.nVersion ^ MAKE_BET_INDICATOR);
+    if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)
+    {
+        UniValue amount(UniValue::VNUM);
+        amount=ValueFromAmount(tx.vout[0].nValue);
+        std::cout<<"vin.betAmount: "<<amount.get_real()<<std::endl;
+
+        int reward=0;
+        char* rewardPtr=reinterpret_cast<char*>(&reward);
+        for(size_t i=2;i<tx.vout[1].scriptPubKey.size();++i)
+        {
+            *rewardPtr=tx.vout[1].scriptPubKey[i];
+            ++rewardPtr;
+        }
+        std::cout<<"reward: "<<reward<<std::endl;
+        rewardAcc+=(reward*amount.get_real());
+        std::cout<<"rewardAcc: "<<rewardAcc<<std::endl;
+        if(rewardAcc>ACCUMULATED_BET_REWARD_FOR_BLOCK)
+        {
+            std::cout<<"rewardAcc reached the limit\n";
+            return false;
+        }
+    }
+    return true;
 }
 
 /***********************************************************************/
@@ -766,6 +794,8 @@ UniValue GetBetTxs::findTx(const std::string& txid)
 
 bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
 {
+    //dodaj sprawdzenie pola op_return reward z transakcji makeBet <-----
+    //dodaj sprawdzenie czy wygrana nie przekracza limitu <-----
     UniValue txPrev(UniValue::VOBJ);
     txPrev=GetBetTxs::findTx(tx.vin[0].prevout.hash.GetHex());
     std::string blockhash=txPrev["blockhash"].get_str();

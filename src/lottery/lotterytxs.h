@@ -12,7 +12,9 @@
 class MakeBetTxs
 {
 public:
-    MakeBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
+    static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.4;
+
+    MakeBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false, int32_t txVersion=(MAKE_BET_INDICATOR | CTransaction::CURRENT_VERSION));
     ~MakeBetTxs();
 
     UniValue createTx(const UniValue& inputs, const UniValue& sendTo);
@@ -22,6 +24,7 @@ public:
     UniValue getTx();
     UniValue getRedeemScriptAsm();
     UniValue getRedeemScriptHex();
+    static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx);
 
 private:
     CMutableTransaction mtx;

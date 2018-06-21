@@ -238,6 +238,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     bool correctBetTx=false;
     if (nValueIn < value_out)
     {
+        std::cout<<"nValueIn < value_out\n";
         correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out);
         if(!correctBetTx)
         {
@@ -251,7 +252,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     if(correctBetTx)
     {
         txfee_aux = value_out*0.1;
-        //std::cout<<"txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
+        std::cout<<"txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
     }
     
     if (!MoneyRange(txfee_aux)) {

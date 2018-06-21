@@ -76,6 +76,8 @@ UniValue makebet(const JSONRPCRequest& request)
     int mask = getMask(betNumber);
     double fee = 0.0001;
 
+//dodac sprawdzenie czy potencjalna nagroda jest nie wieksza niz ustalony limit <-----
+
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
 
@@ -97,7 +99,14 @@ UniValue makebet(const JSONRPCRequest& request)
     bet.pushKV("betAmount", betAmount);
     bet.pushKV("mask", mask);
     sendTo.push_back(bet);
+
+    int reward=maskToReward(mask);
+    std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward)));
     
+    UniValue betReward(UniValue::VOBJ);
+    betReward.pushKV("data", msg);
+    sendTo.push_back(betReward);
+
     UniValue change(UniValue::VOBJ);
     change.pushKV(changeAddress, computeChange(inputs, betAmount+fee));
     sendTo.push_back(change);
