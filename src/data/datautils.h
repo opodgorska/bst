@@ -19,6 +19,7 @@ void hex2bin(std::vector<unsigned char>& binaryData, const std::string& hexstr);
 std::string computeChange(const UniValue& inputs, double fee);
 double computeFee(const CWallet& wallet, size_t dataSize);
 std::string double2str(double val);
+void reverseEndianess(std::string& str);
 
 template<typename T, typename Q>
 void type2array(T in, std::vector<Q>& array)

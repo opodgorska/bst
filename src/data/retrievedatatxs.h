@@ -17,8 +17,6 @@ public:
 
 private:
     UniValue transaction;
-    int hexStr2int(const std::string& str);
-    void reverseEndianess(std::string& str);
 };
 
 #endif

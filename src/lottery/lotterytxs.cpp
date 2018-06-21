@@ -10,7 +10,6 @@
 #include <net.h>
 #include <policy/rbf.h>
 #include <rpc/rawtransaction.h>
-//#include <rpc/safemode.h>
 #include <index/txindex.h>
 #include <rpc/server.h>
 #include <script/interpreter.h>
@@ -794,11 +793,17 @@ UniValue GetBetTxs::findTx(const std::string& txid)
 
 bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
 {
-    //dodaj sprawdzenie pola op_return reward z transakcji makeBet <-----
     //dodaj sprawdzenie czy wygrana nie przekracza limitu <-----
     UniValue txPrev(UniValue::VOBJ);
     txPrev=GetBetTxs::findTx(tx.vin[0].prevout.hash.GetHex());
     std::string blockhash=txPrev["blockhash"].get_str();
+    
+    //std::cout<<"op_return hex: "<<txPrev["vout"][1]["scriptPubKey"]["hex"].get_str()<<std::endl;
+    std::string op_return_data=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
+    reverseEndianess(op_return_data);
+    
+    int opReturnReward = std::stoi(op_return_data,nullptr,16);
+    std::cout<< "opReturnReward: " << opReturnReward <<std::endl;
 
     std::vector<unsigned char> blockhashInScript(tx.vin[0].scriptSig.end()-42, tx.vin[0].scriptSig.end()-38);
     std::reverse(blockhashInScript.begin(), blockhashInScript.end());
@@ -820,7 +825,13 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     
     if(out > maskToReward(mask)*in)
     {
-        std::cout<<"maskToReward\n";
+        std::cout<<"out > maskToReward(mask)*in\n";
+        return false;
+    }
+    
+    if(opReturnReward != maskToReward(mask))
+    {
+        std::cout<<"opReturnReward != maskToReward(mask)\n";
         return false;
     }
 

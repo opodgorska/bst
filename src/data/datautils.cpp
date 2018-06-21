@@ -118,3 +118,19 @@ double computeFee(const CWallet& wallet, size_t dataSize)
     constexpr CAmount feeRate=10;
     return static_cast<double>(txEmptySize+(GetRequiredFee(wallet, dataSize)*feeRate))/COIN;
 }
+
+void reverseEndianess(std::string& str)
+{
+	std::string tmp=str;
+	size_t length=str.length();
+	if(length%2)
+	{
+        throw std::runtime_error("reverseEndianess input must have even length");
+	}
+	for(size_t i=0; i<length; i+=2)
+	{
+		tmp[i]=str[length-i-2];
+		tmp[i+1]=str[length-i-1];
+	}
+	str.swap(tmp);
+}
