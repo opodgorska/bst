@@ -424,7 +424,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         {
             const CTransaction& tx = *(sortedEntries[i]->GetSharedTx());
             // Prevent from including in block bet transactions giving total potential reward greater than a limit
-            if(!MakeBetTxs::checkBetRewardSum(rewardAcc, tx))
+            if(!MakeBetTxs::checkBetRewardSum(rewardAcc, tx, chainparams.GetConsensus()))
             {
                 continue;
             }

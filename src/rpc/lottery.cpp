@@ -74,7 +74,11 @@ UniValue makebet(const JSONRPCRequest& request)
     int betNumber = request.params[0].get_int();
     double betAmount = request.params[1].get_real();
     int mask = getMask(betNumber);
-    double fee = 0.0001;
+    
+    constexpr size_t txEmptySize=183;
+    constexpr size_t dataSize=sizeof(int);
+    constexpr CAmount feeRate=10;
+    double fee = static_cast<double>(txEmptySize+(GetRequiredFee(*pwallet, dataSize)*feeRate))/COIN;
 
 //dodac sprawdzenie czy potencjalna nagroda jest nie wieksza niz ustalony limit <-----
 

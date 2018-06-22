@@ -359,8 +359,9 @@ UniValue MakeBetTxs::getRedeemScriptHex()
     return HexStr(redeemScript.begin(), redeemScript.end());
 }
 
-bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx)
+bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params)
 {
+    double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
     int32_t txMakeBetVersion=(tx.nVersion ^ MAKE_BET_INDICATOR);
     if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)
     {
@@ -368,6 +369,8 @@ bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx)
         amount=ValueFromAmount(tx.vout[0].nValue);
         std::cout<<"vin.betAmount: "<<amount.get_real()<<std::endl;
 
+//to control the potential reward use below commented code
+/*
         int reward=0;
         char* rewardPtr=reinterpret_cast<char*>(&reward);
         for(size_t i=2;i<tx.vout[1].scriptPubKey.size();++i)
@@ -377,8 +380,10 @@ bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx)
         }
         std::cout<<"reward: "<<reward<<std::endl;
         rewardAcc+=(reward*amount.get_real());
+*/
+        rewardAcc+=amount.get_real();
         std::cout<<"rewardAcc: "<<rewardAcc<<std::endl;
-        if(rewardAcc>ACCUMULATED_BET_REWARD_FOR_BLOCK)
+        if(rewardAcc>ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)
         {
             std::cout<<"rewardAcc reached the limit\n";
             return false;
@@ -766,7 +771,8 @@ UniValue GetBetTxs::findTx(const std::string& txid)
     uint256 hash_block;
     UniValue result(UniValue::VOBJ);
 
-    for(int i=chainActive.Height();i>=0;--i)
+    int i;
+    for(i=chainActive.Height();i>=0;--i)
     {
         blockindex = chainActive[i];
 
@@ -787,7 +793,12 @@ UniValue GetBetTxs::findTx(const std::string& txid)
             break;
         }
     }
-
+    
+    if(i==0)
+    {
+        throw std::runtime_error(std::string("GetBetTxs::findTx failed"));
+    }
+    
     return result;
 }
 

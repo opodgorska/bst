@@ -5,6 +5,7 @@
 #ifndef LOTTERY_H
 #define LOTTERY_H
 
+#include <consensus/params.h>
 #include <wallet/wallet.h>
 #include <univalue.h>
 #include <data/datautils.h>
@@ -12,7 +13,7 @@
 class MakeBetTxs
 {
 public:
-    static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.4;
+    static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.5;
 
     MakeBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false, int32_t txVersion=(MAKE_BET_INDICATOR | CTransaction::CURRENT_VERSION));
     ~MakeBetTxs();
@@ -24,7 +25,7 @@ public:
     UniValue getTx();
     UniValue getRedeemScriptAsm();
     UniValue getRedeemScriptHex();
-    static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx);
+    static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params);
 
 private:
     CMutableTransaction mtx;
@@ -106,7 +107,7 @@ T maskToReward(T in)
         div<<=1;
     }
 
-   return i+1;
+    return 1<<i;
 }
 
 template<typename T>

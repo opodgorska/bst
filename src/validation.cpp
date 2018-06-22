@@ -3150,7 +3150,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     double rewardAcc=0.0;
     for (const auto& tx : block.vtx)
     {
-        if(!MakeBetTxs::checkBetRewardSum(rewardAcc, *tx))
+        if(!MakeBetTxs::checkBetRewardSum(rewardAcc, *tx, consensusParams))
         {
             std::cout<<"Check block failed\n";
             return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
