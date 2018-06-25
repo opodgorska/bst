@@ -9,15 +9,12 @@
 #include <utilstrencodings.h>
 #include <stdint.h>
 #include <amount.h>
-#include <hash.h>
 
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
 
 #include <data/datautils.h>
 #include <data/processunspent.h>
-#include <data/retrievedatatxs.h>
-#include <data/storedatatxs.h>
 
 #include <lottery/lotterytxs.h>
 
@@ -51,12 +48,11 @@ UniValue makebet(const JSONRPCRequest& request)
 	if (request.fHelp || request.params.size() != 2)
 	throw std::runtime_error(
 		"makebet \n"
-		"\nCreates a bet.\n"
-		"A transaction fee is computed as a (string length)*(fee rate). \n"
+		"\nCreates a bet transaction.\n"
 		"Before this command walletpassphrase is required. \n"
 
 		"\nArguments:\n"
-		"1. \"number\"                      (numeric, required) A number to be drown in range from 0 to 2^31 - 1\n"
+		"1. \"number\"                      (numeric, required) A number to be drown in range from 0 to 1023 \n"
         "2. \"amount\"                      (numeric, required) Amount of money to be multiplied if you win or lose in other case\n"
 
 		"\nResult:\n"
@@ -69,18 +65,19 @@ UniValue makebet(const JSONRPCRequest& request)
 	);
 
     std::shared_ptr<CWallet> wallet = GetWallets()[0];
+    if(wallet==nullptr)
+    {
+        throw std::runtime_error(std::string("No wallet found"));
+    }
     CWallet* const pwallet=wallet.get();
 
     int betNumber = request.params[0].get_int();
     double betAmount = request.params[1].get_real();
     int mask = getMask(betNumber);
     
-    constexpr size_t txEmptySize=183;
-    constexpr size_t dataSize=sizeof(int);
+    constexpr size_t dataSize=265;
     constexpr CAmount feeRate=10;
-    double fee = static_cast<double>(txEmptySize+(GetRequiredFee(*pwallet, dataSize)*feeRate))/COIN;
-
-//dodac sprawdzenie czy potencjalna nagroda jest nie wieksza niz ustalony limit <-----
+    double fee = static_cast<double>((GetRequiredFee(*pwallet, dataSize)*feeRate))/COIN;
 
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
@@ -105,6 +102,10 @@ UniValue makebet(const JSONRPCRequest& request)
     sendTo.push_back(bet);
 
     int reward=maskToReward(mask);
+    if(reward>MAX_BET_REWARD)
+    {
+        throw std::runtime_error(strprintf("Potential reward is greater than %d", MAX_BET_REWARD));
+    }
     std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward)));
     
     UniValue betReward(UniValue::VOBJ);
@@ -121,9 +122,6 @@ UniValue makebet(const JSONRPCRequest& request)
     std::string txid=tx.sendTx().get_str();
 
     return UniValue(UniValue::VSTR, txid);
-
-	//return tx.getTx();
-    //return tx.getRedeemScriptHex();
 }
 
 UniValue getbet(const JSONRPCRequest& request)
@@ -134,7 +132,6 @@ UniValue getbet(const JSONRPCRequest& request)
 	throw std::runtime_error(
 		"getbet \n"
 		"\nTry to redeem a reward from the transaction created by makebet.\n"
-		"A transaction fee is computed as a (string length)*(fee rate). \n"
 		"Before this command walletpassphrase is required. \n"
 
 		"\nArguments:\n"
@@ -151,6 +148,10 @@ UniValue getbet(const JSONRPCRequest& request)
 	);
 
     std::shared_ptr<CWallet> wallet = GetWallets()[0];
+    if(wallet==nullptr)
+    {
+        throw std::runtime_error(std::string("No wallet found"));
+    }
     CWallet* const pwallet=wallet.get();
     
     std::string txidIn = request.params[0].get_str();
@@ -184,9 +185,6 @@ UniValue getbet(const JSONRPCRequest& request)
     std::string txid=tx.sendTx().get_str();
 
     return UniValue(UniValue::VSTR, txid);
-
-	//return tx.getTx();
-    //return tx.getRedeemScriptHex();
 }
 
 

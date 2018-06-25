@@ -2,64 +2,60 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef LOTTERY_H
-#define LOTTERY_H
+#ifndef LOTTERYTXS_H
+#define LOTTERYTXS_H
 
 #include <consensus/params.h>
 #include <wallet/wallet.h>
 #include <univalue.h>
 #include <data/datautils.h>
+#include <data/txs.h>
 
-class MakeBetTxs
+static constexpr int MAX_BET_REWARD=1024;
+static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.5;
+
+class MakeBetTxs : public Txs
 {
 public:
-    static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.5;
-
     MakeBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false, int32_t txVersion=(MAKE_BET_INDICATOR | CTransaction::CURRENT_VERSION));
     ~MakeBetTxs();
 
-    UniValue createTx(const UniValue& inputs, const UniValue& sendTo);
-    UniValue signTx();
-    UniValue sendTx();
-
     UniValue getTx();
-    UniValue getRedeemScriptAsm();
-    UniValue getRedeemScriptHex();
     static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params);
 
 private:
-    CMutableTransaction mtx;
-    CWallet* const pwallet;
-    int64_t nLockTime;
-    bool rbfOptIn;
-    bool allowhighfees;
     CScript redeemScript;
+
+private:
+    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo);
+    UniValue signTxImp();
+
+    UniValue getnewaddress(CTxDestination& dest, OutputType output_type = OutputType::LEGACY);
+    void getOpReturnAccReward(double& rewardAcc, const CTransaction& tx, const UniValue& amount);
 };
 
 
-class GetBetTxs
+class GetBetTxs : public Txs
 {
+    typedef std::vector<unsigned char> valtype;
 public:
     GetBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, const UniValue& prevTxBlockHash, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
     ~GetBetTxs();
-
-    UniValue createTx(const UniValue& inputs, const UniValue& sendTo);
-    UniValue signTx();
-    UniValue sendTx();
     
     UniValue getTx();
     static UniValue findTx(const std::string& txid);
     static bool txVerify(const CTransaction& tx, CAmount in, CAmount out);
 
 private:
-    CMutableTransaction mtx;
-    CWallet* const pwallet;
     UniValue prevTxBlockHash;
-    int64_t nLockTime;
-    bool rbfOptIn;
-    bool allowhighfees;
-    
+
+private:
+    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo);
+    UniValue signTxImp();
+
     UniValue SignRedeemBetTransaction(const UniValue hashType);
+    bool Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion);
+    CScript PushAll(const std::vector<valtype>& values);
     bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata);
 };
 

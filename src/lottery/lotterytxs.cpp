@@ -4,10 +4,8 @@
 
 #include <consensus/validation.h>
 #include <core_io.h>
-#include <future>
 #include <key_io.h>
 #include <lottery/lotterytxs.h>
-#include <net.h>
 #include <policy/rbf.h>
 #include <rpc/rawtransaction.h>
 #include <index/txindex.h>
@@ -24,7 +22,6 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
-
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 
@@ -51,8 +48,7 @@ public:
         std::vector<unsigned char> betNumberArray;
         type2array(mask, maskArray);
         type2array(betNumber, betNumberArray);
-        
-        //*script << static_cast<char>(mask) << OP_AND << static_cast<char>(betNumber) << OP_EQUALVERIFY << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+
         *script << maskArray << OP_AND << betNumberArray << OP_EQUALVERIFY << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
         return true;
     }
@@ -86,7 +82,7 @@ CScript GetScriptForBetDest(const CTxDestination& dest, int mask, int betNumber)
     return script;
 }
 
-static UniValue getnewaddress(CWallet* const pwallet, CTxDestination& dest, OutputType output_type = OutputType::LEGACY)
+UniValue MakeBetTxs::getnewaddress(CTxDestination& dest, OutputType output_type)
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -111,14 +107,14 @@ static UniValue getnewaddress(CWallet* const pwallet, CTxDestination& dest, Outp
 
 
 MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_, int32_t txVersion_) 
-                      : mtx(txVersion_), pwallet(pwallet_), nLockTime(nLockTime_), rbfOptIn(rbfOptIn_), allowhighfees(allowhighfees_)
+                      : Txs(txVersion_, pwallet_, nLockTime_, rbfOptIn_, allowhighfees_)
 {
-    createTx(inputs, sendTo);
+    createTxImp(inputs, sendTo);
 }
 
 MakeBetTxs::~MakeBetTxs() {}
 
-UniValue MakeBetTxs::createTx(const UniValue& inputs, const UniValue& sendTo)
+UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
 {
     CMutableTransaction& rawTx=mtx;
 
@@ -186,7 +182,6 @@ UniValue MakeBetTxs::createTx(const UniValue& inputs, const UniValue& sendTo)
     {
         const UniValue& sendToObj = sendTo[idx].get_obj();
 
-        //std::set<CTxDestination> destinations;
         std::vector<std::string> addrList = sendToObj.getKeys();
 
         if (addrList[0] == "data") 
@@ -210,9 +205,9 @@ UniValue MakeBetTxs::createTx(const UniValue& inputs, const UniValue& sendTo)
 
             //we generate a new address type of OUTPUT_TYPE_LEGACY
             CTxDestination dest;
-            getnewaddress(pwallet, dest);
+            //getnewaddress(pwallet, dest);
+            getnewaddress(dest);
 
-            //CScript redeemScript = GetScriptForBetDest(dest, betNumber);
             redeemScript = GetScriptForBetDest(dest, mask, betNumber);
             pwallet->AddCScript(redeemScript);
 
@@ -248,7 +243,7 @@ UniValue MakeBetTxs::createTx(const UniValue& inputs, const UniValue& sendTo)
     return EncodeHexTx(rawTx);
 }
 
-UniValue MakeBetTxs::signTx()
+UniValue MakeBetTxs::signTxImp()
 {
     // Sign the transaction
     UniValue prevTxsUnival;
@@ -259,106 +254,25 @@ UniValue MakeBetTxs::signTx()
     return SignTransaction(mtx, prevTxsUnival, pwallet, false, hashType);
 }
 
-UniValue MakeBetTxs::sendTx()
-{
-    //ObserveSafeMode();
-
-    std::promise<void> promise;
-
-    CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& hashTx = tx->GetHash();
-
-    CAmount nMaxRawTxFee = maxTxFee;
-    if(allowhighfees)
-    {
-        nMaxRawTxFee = 0;
-    }
-
-    { // cs_main scope
-    LOCK(cs_main);
-    CCoinsViewCache &view = *pcoinsTip;
-    bool fHaveChain = false;
-    for (size_t o = 0; !fHaveChain && o < tx->vout.size(); o++) 
-    {
-        const Coin& existingCoin = view.AccessCoin(COutPoint(hashTx, o));
-        fHaveChain = !existingCoin.IsSpent();
-    }
-    bool fHaveMempool = mempool.exists(hashTx);
-    if (!fHaveMempool && !fHaveChain) 
-    {
-        // push to local node and sync with wallets
-        CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptToMemoryPool(mempool, state, std::move(tx), &fMissingInputs,
-                                nullptr /* plTxnReplaced */, false /* bypass_limits */, nMaxRawTxFee)) 
-        {
-            if (state.IsInvalid()) 
-            {
-                throw std::runtime_error(FormatStateMessage(state));
-            } 
-            else 
-            {
-                if (fMissingInputs) 
-                {
-                    throw std::runtime_error(std::string("Missing inputs"));
-                }
-                throw std::runtime_error(FormatStateMessage(state));
-            }
-        } 
-        else 
-        {
-            // If wallet is enabled, ensure that the wallet has been made aware
-            // of the new transaction prior to returning. This prevents a race
-            // where a user might call sendrawtransaction with a transaction
-            // to/from their wallet, immediately call some wallet RPC, and get
-            // a stale result because callbacks have not yet been processed.
-            CallFunctionInValidationInterfaceQueue([&promise] {
-                promise.set_value();
-            });
-        }
-    } 
-    else if (fHaveChain) 
-    {
-        throw std::runtime_error(std::string("transaction already in block chain"));
-    } 
-    else 
-    {
-        // Make sure we don't block forever if re-sending
-        // a transaction already in mempool.
-        promise.set_value();
-    }
-
-    } // cs_main
-
-    promise.get_future().wait();
-
-    if(!g_connman)
-        throw std::runtime_error(std::string("Error: Peer-to-peer functionality missing or disabled"));
-
-    CInv inv(MSG_TX, hashTx);
-    g_connman->ForEachNode([&inv](CNode* pnode)
-    {
-        pnode->PushInventory(inv);
-    });
-
-    return hashTx.GetHex();
-}
-
 UniValue MakeBetTxs::getTx()
 {
     return EncodeHexTx(mtx);
 }
 
-UniValue MakeBetTxs::getRedeemScriptAsm()
+void MakeBetTxs::getOpReturnAccReward(double& rewardAcc, const CTransaction& tx, const UniValue& amount)
 {
-    return ScriptToAsmStr(redeemScript, true);
+    int reward=0;
+    char* rewardPtr=reinterpret_cast<char*>(&reward);
+    for(size_t i=2;i<tx.vout[1].scriptPubKey.size();++i)
+    {
+        *rewardPtr=tx.vout[1].scriptPubKey[i];
+        ++rewardPtr;
+    }
+    //std::cout<<"reward: "<<reward<<std::endl;
+    rewardAcc+=(reward*amount.get_real());
 }
 
-UniValue MakeBetTxs::getRedeemScriptHex()
-{
-    return HexStr(redeemScript.begin(), redeemScript.end());
-}
-
+//#define USE_POTENTIAL_REWARD 1
 bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params)
 {
     double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
@@ -370,18 +284,11 @@ bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, co
         std::cout<<"vin.betAmount: "<<amount.get_real()<<std::endl;
 
 //to control the potential reward use below commented code
-/*
-        int reward=0;
-        char* rewardPtr=reinterpret_cast<char*>(&reward);
-        for(size_t i=2;i<tx.vout[1].scriptPubKey.size();++i)
-        {
-            *rewardPtr=tx.vout[1].scriptPubKey[i];
-            ++rewardPtr;
-        }
-        std::cout<<"reward: "<<reward<<std::endl;
-        rewardAcc+=(reward*amount.get_real());
-*/
+#if defined(USE_POTENTIAL_REWARD)
+        getOpReturnAccReward(rewardAcc, tx);
+#else
         rewardAcc+=amount.get_real();
+#endif
         std::cout<<"rewardAcc: "<<rewardAcc<<std::endl;
         if(rewardAcc>ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)
         {
@@ -396,14 +303,14 @@ bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, co
 //redeeming a lottery transaction
 
 GetBetTxs::GetBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, const UniValue& prevTxBlockHash_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
-                          : pwallet(pwallet_), prevTxBlockHash(prevTxBlockHash_), nLockTime(nLockTime_), rbfOptIn(rbfOptIn_), allowhighfees(allowhighfees_)
+                    : Txs(pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), prevTxBlockHash(prevTxBlockHash_)
 {
-    createTx(inputs, sendTo);
+    createTxImp(inputs, sendTo);
 }
 
 GetBetTxs::~GetBetTxs() {}
 
-UniValue GetBetTxs::createTx(const UniValue& input, const UniValue& sendTo)
+UniValue GetBetTxs::createTxImp(const UniValue& input, const UniValue& sendTo)
 {
     CMutableTransaction& rawTx=mtx;
 
@@ -416,7 +323,6 @@ UniValue GetBetTxs::createTx(const UniValue& input, const UniValue& sendTo)
     //unsigned int idx = 0;
     //for (unsigned int idx = 0; idx < inputs.size(); idx++)
     {
-        //const UniValue& input = inputs[idx];
         const UniValue& o = input.get_obj();
 
         uint256 txid = ParseHashO(o, "txid");
@@ -490,96 +396,9 @@ UniValue GetBetTxs::createTx(const UniValue& input, const UniValue& sendTo)
     }
     
     return EncodeHexTx(rawTx);
-    
-    
 }
 
-UniValue GetBetTxs::sendTx()
-{
-    //ObserveSafeMode();
-
-    std::promise<void> promise;
-
-    CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& hashTx = tx->GetHash();
-
-    CAmount nMaxRawTxFee = maxTxFee;
-    if(allowhighfees)
-    {
-        nMaxRawTxFee = 0;
-    }
-
-    { // cs_main scope
-    LOCK(cs_main);
-    CCoinsViewCache &view = *pcoinsTip;
-    bool fHaveChain = false;
-    for (size_t o = 0; !fHaveChain && o < tx->vout.size(); o++) 
-    {
-        const Coin& existingCoin = view.AccessCoin(COutPoint(hashTx, o));
-        fHaveChain = !existingCoin.IsSpent();
-    }
-    bool fHaveMempool = mempool.exists(hashTx);
-    if (!fHaveMempool && !fHaveChain) 
-    {
-        // push to local node and sync with wallets
-        CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptToMemoryPool(mempool, state, std::move(tx), &fMissingInputs,
-                                nullptr /* plTxnReplaced */, false /* bypass_limits */, nMaxRawTxFee)) 
-        {
-            if (state.IsInvalid()) 
-            {
-                throw std::runtime_error(FormatStateMessage(state));
-            } 
-            else 
-            {
-                if (fMissingInputs) 
-                {
-                    throw std::runtime_error(std::string("Missing inputs"));
-                }
-                throw std::runtime_error(FormatStateMessage(state));
-            }
-        } 
-        else 
-        {
-            // If wallet is enabled, ensure that the wallet has been made aware
-            // of the new transaction prior to returning. This prevents a race
-            // where a user might call sendrawtransaction with a transaction
-            // to/from their wallet, immediately call some wallet RPC, and get
-            // a stale result because callbacks have not yet been processed.
-            CallFunctionInValidationInterfaceQueue([&promise] {
-                promise.set_value();
-            });
-        }
-    } 
-    else if (fHaveChain) 
-    {
-        throw std::runtime_error(std::string("transaction already in block chain"));
-    } 
-    else 
-    {
-        // Make sure we don't block forever if re-sending
-        // a transaction already in mempool.
-        promise.set_value();
-    }
-
-    } // cs_main
-
-    promise.get_future().wait();
-
-    if(!g_connman)
-        throw std::runtime_error(std::string("Error: Peer-to-peer functionality missing or disabled"));
-
-    CInv inv(MSG_TX, hashTx);
-    g_connman->ForEachNode([&inv](CNode* pnode)
-    {
-        pnode->PushInventory(inv);
-    });
-
-    return hashTx.GetHex();
-}
-
-UniValue GetBetTxs::signTx()
+UniValue GetBetTxs::signTxImp()
 {
     // Sign the transaction
     const UniValue hashType(std::string("ALL"));
@@ -618,8 +437,10 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
         std::string strHashType = hashType.get_str();
         if (mapSigHashValues.count(strHashType)) {
             nHashType = mapSigHashValues[strHashType];
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid sighash param");
+        } 
+        else
+        {
+            throw std::runtime_error(std::string("Invalid sighash param"));
         }
     }
 
@@ -648,13 +469,11 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) 
         {
-            ProduceSignature(MutableTransactionSignatureCreator(/*pwallet,*/ &mtx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
         }
 
-        //UpdateTransaction(mtx, i, sigdata);
         UpdateInput(txin, sigdata);
 
-        //if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS/*(STANDARD_SCRIPT_VERIFY_FLAGS & (~SCRIPT_VERIFY_MINIMALDATA))*/, TransactionSignatureChecker(&txConst, i, amount), &serror)) 
         ScriptError serror = SCRIPT_ERR_OK;
         if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) 
         {
@@ -664,7 +483,6 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
                 throw std::runtime_error(std::string("Unable to sign input, invalid stack size (possibly missing key)"));
             } else 
             {
-                //throw std::runtime_error(std::string("Unable to sign input"));
                 throw std::runtime_error(ScriptErrorString(serror));
             }
         }
@@ -685,9 +503,7 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
     // scriptSig:    <sig> <sig...> <serialized_script>
     // scriptPubKey: HASH160 <hash> EQUAL
 
-typedef std::vector<unsigned char> valtype;
-
-static bool Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion)
+bool GetBetTxs::Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion)
 {
     std::vector<unsigned char> vchSig;
     if (!creator.CreateSig(provider, vchSig, address, scriptCode, sigversion))
@@ -696,7 +512,7 @@ static bool Sign1(const SigningProvider& provider, const CKeyID& address, const 
     return true;
 }
 
-static CScript PushAll(const std::vector<valtype>& values)
+CScript GetBetTxs::PushAll(const std::vector<valtype>& values)
 {
     CScript result;
     for (const valtype& v : values) {
@@ -751,7 +567,7 @@ bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScr
 
     sigdata.scriptSig = PushAll(result);
 
-    // Test solution <-----    
+    // Test solution
     return VerifyScript(sigdata.scriptSig, scriptPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker());
 }
 
@@ -804,12 +620,17 @@ UniValue GetBetTxs::findTx(const std::string& txid)
 
 bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
 {
-    //dodaj sprawdzenie czy wygrana nie przekracza limitu <-----
     UniValue txPrev(UniValue::VOBJ);
-    txPrev=GetBetTxs::findTx(tx.vin[0].prevout.hash.GetHex());
+    try
+    {
+        txPrev=GetBetTxs::findTx(tx.vin[0].prevout.hash.GetHex());
+    }
+    catch(...)
+    {
+        return false;
+    }
     std::string blockhash=txPrev["blockhash"].get_str();
-    
-    //std::cout<<"op_return hex: "<<txPrev["vout"][1]["scriptPubKey"]["hex"].get_str()<<std::endl;
+
     std::string op_return_data=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
     reverseEndianess(op_return_data);
     
@@ -844,6 +665,12 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     {
         std::cout<<"opReturnReward != maskToReward(mask)\n";
         return false;
+    }
+    
+    if(opReturnReward>MAX_BET_REWARD || maskToReward(mask)>MAX_BET_REWARD)
+    {
+        std::cout<<"MAX_REWARD exceeded\n";
+        return false;        
     }
 
     int betNumber=0;

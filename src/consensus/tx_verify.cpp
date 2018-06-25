@@ -251,7 +251,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount txfee_aux = nValueIn - value_out;
     if(correctBetTx)
     {
-        txfee_aux = value_out*0.1;
+        txfee_aux = value_out*0.02;
         std::cout<<"txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
     }
     

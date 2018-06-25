@@ -114,6 +114,7 @@ BITCOIN_CORE_H = \
   data/processunspent.h \
   data/retrievedatatxs.h \
   data/storedatatxs.h \
+  data/txs.h \
   fs.h \
   httprpc.h \
   httpserver.h \
@@ -222,6 +223,7 @@ libbitcoin_server_a_SOURCES = \
   data/processunspent.cpp \
   data/retrievedatatxs.cpp \
   data/storedatatxs.cpp \
+  data/txs.cpp \
   httprpc.cpp \
   httpserver.cpp \
   index/base.cpp \
