@@ -251,10 +251,12 @@ void DataPage::store()
                 ProcessUnspent processUnspent(pwallet, addresses);
 
                 std::string hexStr=getHexStr();
-                double fee=computeFee(*pwallet, hexStr.length());
+                constexpr size_t txEmptySize=145;
+                size_t txSize=txEmptySize+hexStr.length();
+                double fee=computeFee(*pwallet, txSize);
 
                 UniValue inputs(UniValue::VARR);
-                if(!processUnspent.getUtxForAmount(inputs, fee))
+                if(!processUnspent.getUtxForAmount(inputs, txSize, 0.0, fee))
                 {
                     throw std::runtime_error(std::string("Insufficient funds"));
                 }

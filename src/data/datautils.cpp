@@ -111,14 +111,6 @@ std::string computeChange(const UniValue& inputs, double fee)
     return double2str(amount-fee);
 }
 
-double computeFee(const CWallet& wallet, size_t dataSize)
-{
-    dataSize/=2;
-    constexpr size_t txEmptySize=145;
-    constexpr CAmount feeRate=10;
-    return static_cast<double>(txEmptySize+(GetRequiredFee(wallet, dataSize)*feeRate))/COIN;
-}
-
 void reverseEndianess(std::string& str)
 {
 	std::string tmp=str;
