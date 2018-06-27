@@ -12,15 +12,15 @@ class ProcessUnspent
 {
 public:
 	ProcessUnspent(CWallet* const pwallet, const std::vector<std::string>& addresses, bool include_unsafe = true, 
-				   int nMinDepth = 1, int nMaxDepth = 9999999, CAmount nMinimumAmount = 0, CAmount nMaximumAmount = MAX_MONEY,
+				   int nMinDepth = 0, int nMaxDepth = 9999999, CAmount nMinimumAmount = 0, CAmount nMaximumAmount = MAX_MONEY,
 				   CAmount nMinimumSumAmount = MAX_MONEY, uint64_t nMaximumCount = 0);
 	~ProcessUnspent();
-	bool getUtxForAmount(UniValue& utx, double requiredAmount);
+	bool getUtxForAmount(UniValue& utx, double& requiredAmount);
 	
 private:
-	UniValue entryArray;
+	std::vector<UniValue> entryArray;
 };
 
-std::string getChangeAddress(CWallet* const pwallet, OutputType type=OutputType::LEGACY);
+std::string getChangeAddress(CWallet* const pwallet, OutputType type=OutputType::P2SH_SEGWIT);
 
 #endif

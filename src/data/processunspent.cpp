@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <algorithm>
 #include <core_io.h>
 #include <validation.h>
 #include <key_io.h>
@@ -9,7 +10,7 @@
 
 ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::string>& addresses, bool include_unsafe, 
                                int nMinDepth, int nMaxDepth, CAmount nMinimumAmount, CAmount nMaximumAmount,
-                               CAmount nMinimumSumAmount, uint64_t nMaximumCount) : entryArray(UniValue::VARR)
+                               CAmount nMinimumSumAmount, uint64_t nMaximumCount)
 {
     std::set<CTxDestination> destinations;
     for (unsigned int idx = 0; idx < addresses.size(); idx++)
@@ -75,11 +76,16 @@ ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::st
         entry.pushKV("safe", out.fSafe);
         entryArray.push_back(entry);
     }
+    std::sort(entryArray.begin(), entryArray.end(),
+    [](UniValue a, UniValue b)
+    {
+        return a["confirmations"].get_int()> b["confirmations"].get_int();
+    });
 }
 
 ProcessUnspent::~ProcessUnspent() {}
 
-bool ProcessUnspent::getUtxForAmount(UniValue& utx, double requiredAmount)
+bool ProcessUnspent::getUtxForAmount(UniValue& utx, double& requiredAmount)
 {
     bool isEnoughAmount=false;
     double amount=0.0;
@@ -93,6 +99,9 @@ bool ProcessUnspent::getUtxForAmount(UniValue& utx, double requiredAmount)
             isEnoughAmount=true;
             break;
         }
+
+        constexpr size_t txEmptySize=145;
+        requiredAmount+=static_cast<double>(txEmptySize)/COIN;
     }
     if(!isEnoughAmount)
     {

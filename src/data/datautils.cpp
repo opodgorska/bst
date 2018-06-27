@@ -69,7 +69,31 @@ void hex2bin(std::vector<char>& binaryData, const std::string& hexstr)
     }
 }
 
-static std::string double2str(double val)
+void hex2bin(std::vector<unsigned char>& binaryData, const std::string& hexstr)
+{
+    char hex_byte[3];
+    char *ep;
+
+    hex_byte[2] = '\0';
+    int i=0;
+    size_t len=hexstr.length();
+    for(size_t j=0; j<len; j+=2, i++) 
+    {
+        if(!hexstr[1]) 
+        {
+            throw std::runtime_error("hex2bin str truncated");
+        }
+        hex_byte[0] = hexstr[j];
+        hex_byte[1] = hexstr[j+1];
+        binaryData[i] = static_cast<unsigned char>(strtol(hex_byte, &ep, 16));
+        if(*ep) 
+        {
+            throw std::runtime_error("hex2bin failed");
+        }
+    }
+}
+
+std::string double2str(double val)
 {
     std::ostringstream strs;
     strs << std::setprecision(9) << val;
@@ -90,7 +114,23 @@ std::string computeChange(const UniValue& inputs, double fee)
 double computeFee(const CWallet& wallet, size_t dataSize)
 {
     dataSize/=2;
-	constexpr size_t txEmptySize=145;
-	constexpr CAmount feeRate=10;
+    constexpr size_t txEmptySize=145;
+    constexpr CAmount feeRate=10;
     return static_cast<double>(txEmptySize+(GetRequiredFee(wallet, dataSize)*feeRate))/COIN;
+}
+
+void reverseEndianess(std::string& str)
+{
+	std::string tmp=str;
+	size_t length=str.length();
+	if(length%2)
+	{
+        throw std::runtime_error("reverseEndianess input must have even length");
+	}
+	for(size_t i=0; i<length; i+=2)
+	{
+		tmp[i]=str[length-i-2];
+		tmp[i+1]=str[length-i-1];
+	}
+	str.swap(tmp);
 }
