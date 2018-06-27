@@ -267,7 +267,6 @@ void MakeBetTxs::getOpReturnAccReward(double& rewardAcc, const CTransaction& tx,
         *rewardPtr=tx.vout[1].scriptPubKey[i];
         ++rewardPtr;
     }
-    //std::cout<<"reward: "<<reward<<std::endl;
     rewardAcc+=(reward*amount.get_real());
 }
 
@@ -280,7 +279,6 @@ bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, co
     {
         UniValue amount(UniValue::VNUM);
         amount=ValueFromAmount(tx.vout[0].nValue);
-        std::cout<<"vin.betAmount: "<<amount.get_real()<<std::endl;
 
 //to control the potential reward use below commented code
 #if defined(USE_POTENTIAL_REWARD)
@@ -288,10 +286,10 @@ bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, co
 #else
         rewardAcc+=amount.get_real();
 #endif
-        std::cout<<"rewardAcc: "<<rewardAcc<<std::endl;
+        //LogPrintf("rewardAcc: %f\n", rewardAcc);
         if(rewardAcc>ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)
         {
-            std::cout<<"rewardAcc reached the limit\n";
+            LogPrintf("Accumulated reward reached the limit\n");
             return false;
         }
     }
@@ -554,7 +552,7 @@ bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScr
         std::string prevTxBlockHashStr=prevTxBlockHash.get_str();
         std::vector<unsigned char> binaryBlockHash(prevTxBlockHashStr.length()/2, 0);
         hex2bin(binaryBlockHash, prevTxBlockHashStr);
-        std::cout<<"prevTxBlockHashStr: "<<prevTxBlockHashStr<<std::endl;
+        //LogPrintf("prevTxBlockHashStr: %s\n", prevTxBlockHashStr);
         std::vector<unsigned char> blockhash(binaryBlockHash.end()-4, binaryBlockHash.end());
         std::reverse(blockhash.begin(), blockhash.end());//revert here to match endianess in script
         result.push_back(blockhash);
@@ -626,7 +624,7 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     }
     catch(...)
     {
-        std::cout<<"GetBetTxs::txVerify findTx() failed\n";
+        LogPrintf("GetBetTxs::txVerify findTx() failed\n");
         return false;
     }
     std::string blockhash=txPrev["blockhash"].get_str();
@@ -635,13 +633,12 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     reverseEndianess(op_return_data);
     
     int opReturnReward = std::stoi(op_return_data,nullptr,16);
-    std::cout<< "opReturnReward: " << opReturnReward <<std::endl;
+    //LogPrintf("opReturnReward: %d\n", opReturnReward);
 
     std::vector<unsigned char> blockhashInScript(tx.vin[0].scriptSig.end()-42, tx.vin[0].scriptSig.end()-38);
     std::reverse(blockhashInScript.begin(), blockhashInScript.end());
     std::string blockhashInScriptStr=HexStr(blockhashInScript.begin(), blockhashInScript.end());
-    
-    std::cout<<"blockhashInScriptStr: "<<blockhashInScriptStr<<std::endl;
+    //LogPrintf("blockhashInScriptStr: %s\n", blockhashInScriptStr);
     
     std::vector<unsigned char> mask_(tx.vin[0].scriptSig.end()-36, tx.vin[0].scriptSig.end()-32);
     const unsigned char op_and=*(tx.vin[0].scriptSig.end()-32);
@@ -657,19 +654,19 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     
     if(out > maskToReward(mask)*in)
     {
-        std::cout<<"out > maskToReward(mask)*in\n";
+        LogPrintf("GetBetTxs::txVerify: out > maskToReward(mask)*in\n");
         return false;
     }
     
     if(opReturnReward != maskToReward(mask))
     {
-        std::cout<<"opReturnReward != maskToReward(mask)\n";
+        LogPrintf("GetBetTxs::txVerify: opReturnReward != maskToReward(mask)\n");
         return false;
     }
     
     if(opReturnReward>MAX_BET_REWARD || maskToReward(mask)>MAX_BET_REWARD)
     {
-        std::cout<<"MAX_REWARD exceeded\n";
+        LogPrintf("GetBetTxs::txVerify: MAX_BET_REWARD exceeded\n");
         return false;        
     }
 
@@ -680,13 +677,13 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     int blockhashNumber=0;
     array2type(blockhashNumber_, blockhashNumber);
     
-    printf("blockhashNumber: %x\n", blockhashNumber);
-    printf("mask: %x\n", mask);
-    printf("betNumber: %x\n", betNumber);
+    /*LogPrintf("GetBetTxs::txVerify: blockhashNumber: %x\n", blockhashNumber);
+    LogPrintf("GetBetTxs::txVerify: mask: %x\n", mask);
+    LogPrintf("GetBetTxs::txVerify: betNumber: %x\n", betNumber);
     bool a=((mask & blockhashNumber)==betNumber);
-    std::cout<<"(mask & blockhashNumber)==betNumber: "<<a<<std::endl;
-    printf("op_and: %x\n", op_and);
-    std::cout<<"blockhash.substr(56, 8): "<<blockhash.substr(56, 8)<<std::endl;
+    LogPrintf("GetBetTxs::txVerify: (mask & blockhashNumber)==betNumber: %d\n", a);
+    LogPrintf("GetBetTxs::txVerify: op_and: %x\n", op_and);
+    LogPrintf("GetBetTxs::txVerify: blockhash.substr(56, 8): %s\n", blockhash.substr(56, 8));*/
 
     if((mask & blockhashNumber)==betNumber &&
        op_and==OP_AND &&
@@ -700,5 +697,6 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
         return true;
     }
 
+    LogPrintf("GetBetTxs::txVerify: transaction format check failed\n");
     return false;
 }

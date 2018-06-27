@@ -239,7 +239,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     bool correctBetTx=false;
     if (nValueIn < value_out)
     {
-        std::cout<<"nValueIn < value_out\n";
+        //LogPrintf("nValueIn < value_out\n");
         correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out);
         if(!correctBetTx)
         {
@@ -260,7 +260,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         }
         CWallet* const pwallet=wallet.get();
         txfee_aux=static_cast<CAmount>(computeFee(*pwallet, txSize)*COIN);
-        std::cout<<"txSize: "<<txSize<<" txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
+        //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
     }
     
     if (!MoneyRange(txfee_aux)) {

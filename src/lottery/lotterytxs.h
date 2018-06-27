@@ -112,12 +112,11 @@ T getReward(CWallet* const pwallet, const std::string& scriptPubKeyStr)
     std::vector<unsigned char> scriptPubKeyChr(scriptPubKeyStr.length()/2, 0);
     hex2bin(scriptPubKeyChr, scriptPubKeyStr);
     CScript scriptPubKey(scriptPubKeyChr.begin(), scriptPubKeyChr.end());
-    //std::cout<<"scriptPubKey: "<<HexStr(scriptPubKeyChr.begin(), scriptPubKeyChr.end())<<std::endl;
+    //LogPrintf("getReward: scriptPubKey: %s\n", HexStr(scriptPubKeyChr.begin(), scriptPubKeyChr.end()));
     CScript redeemScript;
     std::vector<unsigned char> scriptPubKeyHashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
     pwallet->GetCScript(uint160(scriptPubKeyHashBytes), redeemScript);//get redeemScript by its hash
-    //std::cout<<"redeemScript: "<<HexStr(redeemScript.begin(), redeemScript.end())<<std::endl;
-    
+    //LogPrintf("getReward: redeemScript: %s\n", HexStr(redeemScript.begin(), redeemScript.end()));
     std::vector<unsigned char> mask_(redeemScript.end()-36, redeemScript.end()-32);
     T mask=0;
     array2type(mask_, mask);
