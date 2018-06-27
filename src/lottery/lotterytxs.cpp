@@ -205,7 +205,6 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
 
             //we generate a new address type of OUTPUT_TYPE_LEGACY
             CTxDestination dest;
-            //getnewaddress(pwallet, dest);
             getnewaddress(dest);
 
             redeemScript = GetScriptForBetDest(dest, mask, betNumber);
@@ -557,7 +556,7 @@ bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScr
         hex2bin(binaryBlockHash, prevTxBlockHashStr);
         std::cout<<"prevTxBlockHashStr: "<<prevTxBlockHashStr<<std::endl;
         std::vector<unsigned char> blockhash(binaryBlockHash.end()-4, binaryBlockHash.end());
-        std::reverse(blockhash.begin(), blockhash.end());//<-----to odwrocenie jest zgodne z odwrotnymi danymi w redeemscript
+        std::reverse(blockhash.begin(), blockhash.end());//revert here to match endianess in script
         result.push_back(blockhash);
         //result[2]<-blockhash
 
@@ -610,9 +609,9 @@ UniValue GetBetTxs::findTx(const std::string& txid)
         }
     }
     
-    if(i==0)
+    if(i<0)
     {
-        throw std::runtime_error(std::string("GetBetTxs::findTx failed"));
+        throw std::runtime_error(std::string("Transaction not in blockchain"));
     }
     
     return result;
@@ -627,6 +626,7 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     }
     catch(...)
     {
+        std::cout<<"GetBetTxs::txVerify findTx() failed\n";
         return false;
     }
     std::string blockhash=txPrev["blockhash"].get_str();

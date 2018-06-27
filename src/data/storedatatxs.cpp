@@ -9,7 +9,6 @@
 #include <net.h>
 #include <policy/rbf.h>
 #include <rpc/rawtransaction.h>
-//#include <rpc/safemode.h>
 #include <rpc/server.h>
 #include <validation.h>
 #include "storedatatxs.h"

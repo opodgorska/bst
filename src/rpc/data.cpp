@@ -113,14 +113,21 @@ UniValue setOPreturnData(const std::string& hexMsg)
     UniValue res(UniValue::VARR);
     
     std::shared_ptr<CWallet> wallet = GetWallets()[0];
+    if(wallet==nullptr)
+    {
+        throw std::runtime_error(std::string("No wallet found"));
+    }
     CWallet* const pwallet=wallet.get();
-    double fee=computeFee(*pwallet, hexMsg.length());
+    
+    constexpr size_t txEmptySize=145;
+    size_t txSize=txEmptySize+hexMsg.length();
+    double fee=computeFee(*pwallet, txSize);
     
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
 
     UniValue inputs(UniValue::VARR);
-    if(!processUnspent.getUtxForAmount(inputs, fee))
+    if(!processUnspent.getUtxForAmount(inputs, txSize, 0.0, fee))
     {
         throw std::runtime_error(std::string("Insufficient funds"));
     }

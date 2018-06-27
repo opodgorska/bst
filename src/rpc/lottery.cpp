@@ -9,6 +9,7 @@
 #include <utilstrencodings.h>
 #include <stdint.h>
 #include <amount.h>
+#include <chainparams.h>
 
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
@@ -47,22 +48,29 @@ UniValue makebet(const JSONRPCRequest& request)
 	
 	if (request.fHelp || request.params.size() != 2)
 	throw std::runtime_error(
-		"makebet \n"
-		"\nCreates a bet transaction.\n"
-		"Before this command walletpassphrase is required. \n"
+        "makebet \n"
+        "\nCreates a bet transaction.\n"
+        "Before this command walletpassphrase is required. \n"
 
-		"\nArguments:\n"
-		"1. \"number\"                      (numeric, required) A number to be drown in range from 0 to 1023 \n"
-        "2. \"amount\"                      (numeric, required) Amount of money to be multiplied if you win or lose in other case\n"
+        "\nArguments:\n"
+        "1. \"number\"                      (numeric, required) A number to be drown in range from 0 to 1023 \n"
+        "2. \"amount\"                      (numeric, required) Amount of money to be multiplied if you win or lose in other case. Max value of amount is half of block mining reward\n"
 
-		"\nResult:\n"
-		"\"txid\"                           (string) A hex-encoded transaction id\n"
+        "\nResult:\n"
+        "\"txid\"                           (string) A hex-encoded transaction id\n"
 
 
-		"\nExamples:\n"
-		+ HelpExampleCli("makebet", "33 0.05")
-		+ HelpExampleRpc("makebet", "33 0.05")
+        "\nExamples:\n"
+        + HelpExampleCli("makebet", "33 0.05")
+        + HelpExampleRpc("makebet", "33 0.05")
 	);
+
+    const Consensus::Params& params = Params().GetConsensus();
+    double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
+    if(request.params[1].get_real()>=(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
+    {
+        throw std::runtime_error(std::string("Bet amount is graeter than half of block mining reward"));
+    }
 
     std::shared_ptr<CWallet> wallet = GetWallets()[0];
     if(wallet==nullptr)
@@ -74,16 +82,14 @@ UniValue makebet(const JSONRPCRequest& request)
     int betNumber = request.params[0].get_int();
     double betAmount = request.params[1].get_real();
     int mask = getMask(betNumber);
-    
     constexpr size_t dataSize=265;
-    constexpr CAmount feeRate=10;
-    double fee = static_cast<double>((GetRequiredFee(*pwallet, dataSize)*feeRate))/COIN;
+    double fee = computeFee(*pwallet, dataSize);
 
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
 
     UniValue inputs(UniValue::VARR);
-    if(!processUnspent.getUtxForAmount(inputs, betAmount+fee))
+    if(!processUnspent.getUtxForAmount(inputs, dataSize, betAmount, fee))
     {
         throw std::runtime_error(std::string("Insufficient funds"));
     }
@@ -130,21 +136,21 @@ UniValue getbet(const JSONRPCRequest& request)
 	
 	if (request.fHelp || request.params.size() != 2)
 	throw std::runtime_error(
-		"getbet \n"
-		"\nTry to redeem a reward from the transaction created by makebet.\n"
-		"Before this command walletpassphrase is required. \n"
+        "getbet \n"
+        "\nTry to redeem a reward from the transaction created by makebet.\n"
+        "Before this command walletpassphrase is required. \n"
 
-		"\nArguments:\n"
-		"1. \"txid\"         (string, required) The transaction id returned by makebet\n"
+        "\nArguments:\n"
+        "1. \"txid\"         (string, required) The transaction id returned by makebet\n"
         "2. \"address\"      (string, required) The address to sent the reward\n"
 
-		"\nResult:\n"
-		"\"txid\"            (string) A hex-encoded transaction id\n"
+        "\nResult:\n"
+        "\"txid\"            (string) A hex-encoded transaction id\n"
 
 
-		"\nExamples:\n"
-		+ HelpExampleCli("getbet", "\"123d6c76257605431b644b43472ee3666c4f27cc665ec8fc48c2551a88f9906e 36TARZ3BhxUYaJcZ2EF5FCT32RnQPHSxYB\"")
-		+ HelpExampleRpc("getbet", "\"123d6c76257605431b644b43472ee3666c4f27cc665ec8fc48c2551a88f9906e 36TARZ3BhxUYaJcZ2EF5FCT32RnQPHSxYB\"")
+        "\nExamples:\n"
+        + HelpExampleCli("getbet", "\"123d6c76257605431b644b43472ee3666c4f27cc665ec8fc48c2551a88f9906e 36TARZ3BhxUYaJcZ2EF5FCT32RnQPHSxYB\"")
+        + HelpExampleRpc("getbet", "\"123d6c76257605431b644b43472ee3666c4f27cc665ec8fc48c2551a88f9906e 36TARZ3BhxUYaJcZ2EF5FCT32RnQPHSxYB\"")
 	);
 
     std::shared_ptr<CWallet> wallet = GetWallets()[0];

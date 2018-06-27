@@ -9,6 +9,7 @@
 #include <script/interpreter.h>
 #include <consensus/validation.h>
 #include <lottery/lotterytxs.h>
+#include <data/processunspent.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -251,8 +252,15 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount txfee_aux = nValueIn - value_out;
     if(correctBetTx)
     {
-        txfee_aux = value_out*0.02;
-        std::cout<<"txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
+        size_t txSize=::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+        std::shared_ptr<CWallet> wallet = GetWallets()[0];
+        if(wallet==nullptr)
+        {
+            throw std::runtime_error(std::string("No wallet found"));
+        }
+        CWallet* const pwallet=wallet.get();
+        txfee_aux=static_cast<CAmount>(computeFee(*pwallet, txSize)*COIN);
+        std::cout<<"txSize: "<<txSize<<" txfee_aux: "<<txfee_aux<<" nValueIn: "<<nValueIn<<" value_out: "<<value_out<<std::endl;            
     }
     
     if (!MoneyRange(txfee_aux)) {

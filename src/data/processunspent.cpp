@@ -2,14 +2,17 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <algorithm>
 #include <core_io.h>
 #include <validation.h>
 #include <key_io.h>
+#include <wallet/fees.h>
+#include <wallet/coincontrol.h>
 #include "processunspent.h"
 
 ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::string>& addresses, bool include_unsafe, 
                                int nMinDepth, int nMaxDepth, CAmount nMinimumAmount, CAmount nMaximumAmount,
-                               CAmount nMinimumSumAmount, uint64_t nMaximumCount) : entryArray(UniValue::VARR)
+                               CAmount nMinimumSumAmount, uint64_t nMaximumCount) : wallet(pwallet)
 {
     std::set<CTxDestination> destinations;
     for (unsigned int idx = 0; idx < addresses.size(); idx++)
@@ -75,24 +78,36 @@ ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::st
         entry.pushKV("safe", out.fSafe);
         entryArray.push_back(entry);
     }
+    std::sort(entryArray.begin(), entryArray.end(),
+    [](UniValue a, UniValue b)
+    {
+        return a["confirmations"].get_int()> b["confirmations"].get_int();
+    });
 }
 
 ProcessUnspent::~ProcessUnspent() {}
 
-bool ProcessUnspent::getUtxForAmount(UniValue& utx, double requiredAmount)
+bool ProcessUnspent::getUtxForAmount(UniValue& utx, size_t dataSize, double amount, double& fee)
 {
     bool isEnoughAmount=false;
-    double amount=0.0;
+    double amountAvailable=0.0;
+
     size_t size=entryArray.size();
     for(size_t i=0;i<size;++i)
     {
-        amount+=entryArray[i][std::string("amount")].get_real();
+        double requiredAmount=amount+fee;
+        amountAvailable+=entryArray[i][std::string("amount")].get_real();
         utx.push_back(entryArray[i]);
-        if(amount>=requiredAmount)
+        if(amountAvailable>=requiredAmount)
         {
             isEnoughAmount=true;
             break;
         }
+
+        //we must increase transaction size by adding another input, therefore fee is increased as well
+        constexpr size_t txInputSize=145;
+        dataSize+=txInputSize;
+        fee=computeFee(*wallet, dataSize);
     }
     if(!isEnoughAmount)
     {
@@ -100,6 +115,15 @@ bool ProcessUnspent::getUtxForAmount(UniValue& utx, double requiredAmount)
     }
     
     return isEnoughAmount;
+}
+
+double computeFee(const CWallet& wallet, size_t dataSize)
+{
+    CCoinControl coin_control;
+    coin_control.m_signal_bip125_rbf=true;
+    FeeCalculation feeCalc;
+    CFeeRate nFeeRateNeeded = GetMinimumFeeRate(wallet, coin_control, ::mempool, ::feeEstimator, &feeCalc);
+    return static_cast<double>(nFeeRateNeeded.GetFee(dataSize))/COIN;
 }
 
 std::string getChangeAddress(CWallet* const pwallet, OutputType output_type)
