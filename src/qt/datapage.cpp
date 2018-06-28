@@ -252,7 +252,7 @@ void DataPage::store()
 
                 std::string hexStr=getHexStr();
                 constexpr size_t txEmptySize=145;
-                size_t txSize=txEmptySize+hexStr.length();
+                size_t txSize=txEmptySize+hexStr.length()/2;
                 double fee=computeFee(*pwallet, txSize);
 
                 UniValue inputs(UniValue::VARR);

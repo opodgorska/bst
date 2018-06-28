@@ -120,7 +120,7 @@ UniValue setOPreturnData(const std::string& hexMsg)
     CWallet* const pwallet=wallet.get();
     
     constexpr size_t txEmptySize=145;
-    size_t txSize=txEmptySize+hexMsg.length();
+    size_t txSize=txEmptySize+hexMsg.length()/2;
     double fee=computeFee(*pwallet, txSize);
     
     std::vector<std::string> addresses;
