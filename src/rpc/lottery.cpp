@@ -65,13 +65,6 @@ UniValue makebet(const JSONRPCRequest& request)
         + HelpExampleRpc("makebet", "33 0.05")
 	);
 
-    const Consensus::Params& params = Params().GetConsensus();
-    double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
-    if(request.params[1].get_real()>=(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
-    {
-        throw std::runtime_error(std::string("Bet amount is graeter than half of block mining reward"));
-    }
-
     std::shared_ptr<CWallet> wallet = GetWallets()[0];
     if(wallet==nullptr)
     {
@@ -80,7 +73,17 @@ UniValue makebet(const JSONRPCRequest& request)
     CWallet* const pwallet=wallet.get();
 
     int betNumber = request.params[0].get_int();
+    if(betNumber < 0 || betNumber >= MAX_BET_REWARD)
+    {
+        throw std::runtime_error(std::string("Bet number is out of range <0, 1023>"));
+    }
+    const Consensus::Params& params = Params().GetConsensus();
+    double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
     double betAmount = request.params[1].get_real();
+    if(betAmount <= 0 || betAmount >= (ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
+    {
+        throw std::runtime_error(std::string("Bet amount is out of range <0, half of block mining reward>"));
+    }
     int mask = getMask(betNumber);
     constexpr size_t dataSize=265;
     double fee = computeFee(*pwallet, dataSize);
