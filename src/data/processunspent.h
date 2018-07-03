@@ -16,7 +16,7 @@ public:
                     CAmount nMinimumSumAmount = MAX_MONEY, uint64_t nMaximumCount = 0);
     ~ProcessUnspent();
     bool getUtxForAmount(UniValue& utx, size_t dataSize, double amount, double& fee);
-	
+
 private:
     CWallet* const wallet;
     std::vector<UniValue> entryArray;
