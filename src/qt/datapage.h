@@ -5,6 +5,9 @@
 #ifndef BITCOIN_QT_DATAPAGE_H
 #define BITCOIN_QT_DATAPAGE_H
 
+#include <policy/feerate.h>
+#include <qt/walletmodel.h>
+
 #include <QFile>
 #include <QWidget>
 #include <univalue.h>
@@ -12,6 +15,7 @@
 class WalletModel;
 class QPlainTextEdit;
 class PlatformStyle;
+class QButtonGroup;
 
 namespace Ui {
     class DataPage;
@@ -35,14 +39,23 @@ private:
     WalletModel *walletModel;
     const int blockSizeDisplay;
     std::string changeAddress;
+    bool fFeeMinimized;
+    CFeeRate feeRate;
     QString hexaValue;
     QString textValue;
     QString fileToRetrieveName;
     QString fileToStoreName;
+    QButtonGroup *groupFee;
 
     void displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize);
     void unlockWallet();
     std::string getHexStr();
+    void minimizeFeeSection(bool fMinimize);
+    void updateFeeMinimizedLabel();
+    void updateCoinControlState(CCoinControl& ctrl);
+
+public Q_SLOTS:
+    void setBalance(const interfaces::WalletBalances& balances);
 
 private Q_SLOTS:
     void retrieve();
@@ -54,6 +67,14 @@ private Q_SLOTS:
     void storeMessageRadioClicked();
     void storeFileRadioClicked();
     void storeFileHashRadioClicked();
+    
+    void on_buttonChooseFee_clicked();
+    void on_buttonMinimizeFee_clicked();
+    void setMinimumFee();
+    void updateFeeSectionControls();
+    void updateMinFeeLabel();
+    void updateSmartFeeLabel();
+    void updateDisplayUnit();
     
 private:
     class FileWriter

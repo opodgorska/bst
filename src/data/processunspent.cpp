@@ -87,10 +87,12 @@ ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::st
 
 ProcessUnspent::~ProcessUnspent() {}
 
-bool ProcessUnspent::getUtxForAmount(UniValue& utx, size_t dataSize, double amount, double& fee)
+bool ProcessUnspent::getUtxForAmount(UniValue& utx, const CFeeRate& feeRate, size_t dataSize, double amount, double& fee)
 {
     bool isEnoughAmount=false;
     double amountAvailable=0.0;
+    
+    fee=static_cast<double>(feeRate.GetFee(dataSize))/COIN;
 
     size_t size=entryArray.size();
     for(size_t i=0;i<size;++i)
@@ -107,7 +109,7 @@ bool ProcessUnspent::getUtxForAmount(UniValue& utx, size_t dataSize, double amou
         //we must increase transaction size by adding another input, therefore fee is increased as well
         constexpr size_t txInputSize=145;
         dataSize+=txInputSize;
-        fee=computeFee(*wallet, dataSize);
+        fee=static_cast<double>(feeRate.GetFee(dataSize))/COIN;
     }
     if(!isEnoughAmount)
     {

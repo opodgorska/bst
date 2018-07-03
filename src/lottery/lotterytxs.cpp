@@ -615,8 +615,9 @@ UniValue GetBetTxs::findTx(const std::string& txid)
     return result;
 }
 
-bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
+bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
 {
+    fee=0;
     UniValue txPrev(UniValue::VOBJ);
     try
     {
@@ -652,6 +653,7 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out)
     int mask=0;
     array2type(mask_, mask);
     
+    fee=(maskToReward(mask)*in)-out;
     if(out > maskToReward(mask)*in)
     {
         LogPrintf("GetBetTxs::txVerify: out > maskToReward(mask)*in\n");

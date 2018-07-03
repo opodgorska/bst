@@ -237,10 +237,11 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     const CAmount value_out = tx.GetValueOut();
     bool correctBetTx=false;
+    CAmount betFee;
     if (nValueIn < value_out)
     {
         //LogPrintf("nValueIn < value_out\n");
-        correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out);
+        correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out, betFee);
         if(!correctBetTx)
         {
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
@@ -252,14 +253,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount txfee_aux = nValueIn - value_out;
     if(correctBetTx)
     {
-        size_t txSize=::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-        std::shared_ptr<CWallet> wallet = GetWallets()[0];
-        if(wallet==nullptr)
-        {
-            throw std::runtime_error(std::string("No wallet found"));
-        }
-        CWallet* const pwallet=wallet.get();
-        txfee_aux=static_cast<CAmount>(computeFee(*pwallet, txSize)*COIN);
+        txfee_aux=betFee;
         //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
     }
     

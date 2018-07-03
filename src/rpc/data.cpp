@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <amount.h>
 #include <hash.h>
+#include <wallet/coincontrol.h>
+#include <wallet/fees.h>
 
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
@@ -121,13 +123,20 @@ UniValue setOPreturnData(const std::string& hexMsg)
     
     constexpr size_t txEmptySize=145;
     size_t txSize=txEmptySize+hexMsg.length()/2;
-    double fee=computeFee(*pwallet, txSize);
+    double fee;
+
+    CCoinControl coin_control;
+    coin_control.m_feerate.reset();
+    coin_control.m_confirm_target = 2;
+    coin_control.m_signal_bip125_rbf = false;
+    FeeCalculation fee_calc;
+    CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
     
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
 
     UniValue inputs(UniValue::VARR);
-    if(!processUnspent.getUtxForAmount(inputs, txSize, 0.0, fee))
+    if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, 0.0, fee))
     {
         throw std::runtime_error(std::string("Insufficient funds"));
     }

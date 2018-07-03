@@ -4,12 +4,18 @@
 
 #include <QMessageBox>
 #include <QFileDialog>
+#include <qt/bitcoinunits.h>
 #include <qt/datapage.h>
 #include <qt/forms/ui_datapage.h>
+#include <qt/guiutil.h>
+#include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
 #include <qt/walletmodel.h>
 #include <qt/askpassphrasedialog.h>
+#include <qt/storetxdialog.h>
 
+#include <chainparams.h>
+#include <wallet/coincontrol.h>
 #include <validation.h>
 #ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
@@ -20,16 +26,48 @@
 #include <data/retrievedatatxs.h>
 #include <data/storedatatxs.h>
 
+#include <QSettings>
+#include <QButtonGroup>
+
 static constexpr int maxDataSize=MAX_OP_RETURN_RELAY-6;
+
+static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 1008} };
+extern int getConfTargetForIndex(int index);
+extern int getIndexForConfTarget(int target);
 
 DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent),
     ui(new Ui::DataPage),
     walletModel(0),
     blockSizeDisplay(64),
-    changeAddress("")
+    changeAddress(""),
+    fFeeMinimized(true)
 {
     ui->setupUi(this);
+    
+    // init transaction fee section
+    QSettings settings;
+    if (!settings.contains("fFeeSectionMinimized"))
+        settings.setValue("fFeeSectionMinimized", true);
+    if (!settings.contains("nFeeRadio") && settings.contains("nTransactionFee") && settings.value("nTransactionFee").toLongLong() > 0) // compatibility
+        settings.setValue("nFeeRadio", 1); // custom
+    if (!settings.contains("nFeeRadio"))
+        settings.setValue("nFeeRadio", 0); // recommended
+    if (!settings.contains("nSmartFeeSliderPosition"))
+        settings.setValue("nSmartFeeSliderPosition", 0);
+    if (!settings.contains("nTransactionFee"))
+        settings.setValue("nTransactionFee", (qint64)DEFAULT_PAY_TX_FEE);
+    if (!settings.contains("fPayOnlyMinFee"))
+        settings.setValue("fPayOnlyMinFee", false);
+    groupFee = new QButtonGroup(this);
+	groupFee->addButton(ui->radioSmartFee);
+	groupFee->addButton(ui->radioCustomFee);
+    groupFee->setId(ui->radioSmartFee, 0);
+    groupFee->setId(ui->radioCustomFee, 1);
+    groupFee->button((int)std::max(0, std::min(1, settings.value("nFeeRadio").toInt())))->setChecked(true);
+    ui->customFee->setValue(settings.value("nTransactionFee").toLongLong());
+    ui->checkBoxMinimumFee->setChecked(settings.value("fPayOnlyMinFee").toBool());
+    minimizeFeeSection(settings.value("fFeeSectionMinimized").toBool());
     
     if (!platformStyle->getImagesOnButtons()) {
         ui->fileRetrieveButton->setIcon(QIcon());
@@ -51,7 +89,6 @@ DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
 
     ui->fileStoreButton->setEnabled(false);
     ui->fileStoreEdit->setEnabled(false);
-    ui->txidStoreEdit->setReadOnly(true);
     ui->storeMessageRadioButton->setChecked(true);    
     connect(ui->storeMessageRadioButton, SIGNAL(clicked()), this, SLOT(storeMessageRadioClicked()));
     connect(ui->storeFileRadioButton, SIGNAL(clicked()), this, SLOT(storeFileRadioClicked()));
@@ -65,9 +102,164 @@ DataPage::~DataPage()
     delete ui;
 }
 
+void DataPage::minimizeFeeSection(bool fMinimize)
+{
+    ui->labelFeeMinimized->setVisible(fMinimize);
+    ui->buttonChooseFee  ->setVisible(fMinimize);
+    ui->buttonMinimizeFee->setVisible(!fMinimize);
+    ui->frameFeeSelection->setVisible(!fMinimize);
+    ui->horizontalLayoutSmartFee->setContentsMargins(0, (fMinimize ? 0 : 6), 0, 0);
+    fFeeMinimized = fMinimize;
+}
+
+void DataPage::on_buttonChooseFee_clicked()
+{
+    minimizeFeeSection(false);
+}
+
+void DataPage::on_buttonMinimizeFee_clicked()
+{
+    updateFeeMinimizedLabel();
+    minimizeFeeSection(true);
+}
+
+void DataPage::updateFeeMinimizedLabel()
+{
+    if(!walletModel || !walletModel->getOptionsModel())
+        return;
+
+    if (ui->radioSmartFee->isChecked())
+        ui->labelFeeMinimized->setText(ui->labelSmartFee->text());
+    else {
+        ui->labelFeeMinimized->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), ui->customFee->value()) + "/kB");
+    }
+}
+
+void DataPage::updateMinFeeLabel()
+{
+    if (walletModel && walletModel->getOptionsModel())
+        ui->checkBoxMinimumFee->setText(tr("Pay only the required fee of %1").arg(
+            BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), walletModel->wallet().getRequiredFee(1000)) + "/kB")
+        );
+}
+
+void DataPage::updateCoinControlState(CCoinControl& ctrl)
+{
+    if (ui->radioCustomFee->isChecked()) {
+        ctrl.m_feerate = CFeeRate(ui->customFee->value());
+    } else {
+        ctrl.m_feerate.reset();
+    }
+    // Avoid using global defaults when sending money from the GUI
+    // Either custom fee will be used or if not selected, the confirmation target from dropdown box
+    ctrl.m_confirm_target = getConfTargetForIndex(ui->confTargetSelector->currentIndex());
+    ctrl.m_signal_bip125_rbf = ui->optInRBF->isChecked();
+}
+
+void DataPage::updateSmartFeeLabel()
+{
+    if(!walletModel || !walletModel->getOptionsModel())
+        return;
+    CCoinControl coin_control;
+    updateCoinControlState(coin_control);
+    coin_control.m_feerate.reset(); // Explicitly use only fee estimation rate for smart fee labels
+    int returned_target;
+    FeeReason reason;
+    feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
+
+    ui->labelSmartFee->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), feeRate.GetFeePerK()) + "/kB");
+
+    if (reason == FeeReason::FALLBACK) {
+        ui->labelSmartFee2->show(); // (Smart fee not initialized yet. This usually takes a few blocks...)
+        ui->labelFeeEstimation->setText("");
+        ui->fallbackFeeWarningLabel->setVisible(true);
+        int lightness = ui->fallbackFeeWarningLabel->palette().color(QPalette::WindowText).lightness();
+        QColor warning_colour(255 - (lightness / 5), 176 - (lightness / 3), 48 - (lightness / 14));
+        ui->fallbackFeeWarningLabel->setStyleSheet("QLabel { color: " + warning_colour.name() + "; }");
+        ui->fallbackFeeWarningLabel->setIndent(QFontMetrics(ui->fallbackFeeWarningLabel->font()).width("x"));
+    }
+    else
+    {
+        ui->labelSmartFee2->hide();
+        ui->labelFeeEstimation->setText(tr("Estimated to begin confirmation within %n block(s).", "", returned_target));
+        ui->fallbackFeeWarningLabel->setVisible(false);
+    }
+
+    updateFeeMinimizedLabel();
+}
+
+void DataPage::setMinimumFee()
+{
+    ui->customFee->setValue(walletModel->wallet().getRequiredFee(1000));
+}
+
+void DataPage::updateFeeSectionControls()
+{
+    ui->confTargetSelector      ->setEnabled(ui->radioSmartFee->isChecked());
+    ui->labelSmartFee           ->setEnabled(ui->radioSmartFee->isChecked());
+    ui->labelSmartFee2          ->setEnabled(ui->radioSmartFee->isChecked());
+    ui->labelSmartFee3          ->setEnabled(ui->radioSmartFee->isChecked());
+    ui->labelFeeEstimation      ->setEnabled(ui->radioSmartFee->isChecked());
+    ui->checkBoxMinimumFee      ->setEnabled(ui->radioCustomFee->isChecked());
+    ui->labelMinFeeWarning      ->setEnabled(ui->radioCustomFee->isChecked());
+    ui->labelCustomPerKilobyte  ->setEnabled(ui->radioCustomFee->isChecked() && !ui->checkBoxMinimumFee->isChecked());
+    ui->customFee               ->setEnabled(ui->radioCustomFee->isChecked() && !ui->checkBoxMinimumFee->isChecked());
+}
+
+void DataPage::setBalance(const interfaces::WalletBalances& balances)
+{
+    if(walletModel && walletModel->getOptionsModel())
+    {
+        ui->labelBalance->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), balances.balance));
+    }
+}
+
+void DataPage::updateDisplayUnit()
+{
+    setBalance(walletModel->wallet().getBalances());
+    ui->customFee->setDisplayUnit(walletModel->getOptionsModel()->getDisplayUnit());
+    updateMinFeeLabel();
+    updateSmartFeeLabel();
+}
+
 void DataPage::setModel(WalletModel *model)
 {
     walletModel = model;
+    
+    interfaces::WalletBalances balances = walletModel->wallet().getBalances();
+    setBalance(balances);
+    connect(walletModel, SIGNAL(balanceChanged(interfaces::WalletBalances)), this, SLOT(setBalance(interfaces::WalletBalances)));
+    connect(walletModel->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
+
+    for (const int n : confTargets) {
+        ui->confTargetSelector->addItem(tr("%1 (%2 blocks)").arg(GUIUtil::formatNiceTimeOffset(n*Params().GetConsensus().nPowTargetSpacing)).arg(n));
+    }
+    connect(ui->confTargetSelector, SIGNAL(currentIndexChanged(int)), this, SLOT(updateSmartFeeLabel()));
+    connect(ui->checkBoxMinimumFee, SIGNAL(stateChanged(int)), this, SLOT(setMinimumFee()));
+    connect(groupFee, SIGNAL(buttonClicked(int)), this, SLOT(updateFeeSectionControls()));
+    connect(ui->checkBoxMinimumFee, SIGNAL(stateChanged(int)), this, SLOT(updateFeeSectionControls()));
+    connect(ui->optInRBF, SIGNAL(stateChanged(int)), this, SLOT(updateSmartFeeLabel()));
+    ui->customFee->setSingleStep(model->wallet().getRequiredFee(1000));
+    updateFeeSectionControls();
+    updateMinFeeLabel();
+    updateSmartFeeLabel();
+    
+    // set default rbf checkbox state
+    ui->optInRBF->setCheckState(Qt::Checked);
+
+    // set the smartfee-sliders default value (wallets default conf.target or last stored value)
+    QSettings settings;
+    if (settings.value("nSmartFeeSliderPosition").toInt() != 0) {
+        // migrate nSmartFeeSliderPosition to nConfTarget
+        // nConfTarget is available since 0.15 (replaced nSmartFeeSliderPosition)
+        int nConfirmTarget = 25 - settings.value("nSmartFeeSliderPosition").toInt(); // 25 == old slider range
+        settings.setValue("nConfTarget", nConfirmTarget);
+        settings.remove("nSmartFeeSliderPosition");
+    }
+    if (settings.value("nConfTarget").toInt() == 0)
+        ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(model->wallet().getConfirmTarget()));
+    else
+        ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(settings.value("nConfTarget").toInt()));
 }
 
 void DataPage::fileRetrieveClicked()
@@ -208,6 +400,7 @@ void DataPage::storeMessageRadioClicked()
 {
     ui->fileStoreButton->setEnabled(false);
     ui->messageStoreEdit->setEnabled(true);
+    ui->messageStoreEdit->setVisible(true);
     ui->fileStoreEdit->setEnabled(false);
 }
 
@@ -215,6 +408,7 @@ void DataPage::storeFileRadioClicked()
 {
     ui->fileStoreButton->setEnabled(true);
     ui->messageStoreEdit->setEnabled(false);
+    ui->messageStoreEdit->setVisible(false);
     ui->fileStoreEdit->setEnabled(true);
 }
 
@@ -222,6 +416,7 @@ void DataPage::storeFileHashRadioClicked()
 {
     ui->fileStoreButton->setEnabled(true);
     ui->messageStoreEdit->setEnabled(false);
+    ui->messageStoreEdit->setVisible(false);
     ui->fileStoreEdit->setEnabled(true);
 }
 
@@ -246,17 +441,21 @@ void DataPage::store()
             if(wallet != nullptr)
             {
                 CWallet* const pwallet=wallet.get();
-
                 std::vector<std::string> addresses;
                 ProcessUnspent processUnspent(pwallet, addresses);
+
+                CCoinControl coin_control;
+                updateCoinControlState(coin_control);
+                int returned_target;
+                FeeReason reason;
+                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
 
                 std::string hexStr=getHexStr();
                 constexpr size_t txEmptySize=145;
                 size_t txSize=txEmptySize+hexStr.length()/2;
-                double fee=computeFee(*pwallet, txSize);
-
+                double fee;
                 UniValue inputs(UniValue::VARR);
-                if(!processUnspent.getUtxForAmount(inputs, txSize, 0.0, fee))
+                if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, 0.0, fee))
                 {
                     throw std::runtime_error(std::string("Insufficient funds"));
                 }
@@ -270,14 +469,17 @@ void DataPage::store()
                 sendTo.pushKV(changeAddress, computeChange(inputs, fee));
                 sendTo.pushKV("data", hexStr);
 
-                StoreDataTxs storeDataTxs(pwallet, inputs, sendTo);
+                StoreDataTxs storeDataTxs(pwallet, inputs, sendTo, 0, ui->optInRBF->isChecked());
                 unlockWallet();
                 storeDataTxs.signTx();
                 std::string txid=storeDataTxs.sendTx().get_str();
 
                 QString qtxid=QString::fromStdString(txid);
-                ui->txidStoreEdit->setText(qtxid);
-                ui->txidStoreEdit->displayText();
+                
+                StoreTxDialog *dlg = new StoreTxDialog(qtxid, fee, walletModel->getOptionsModel()->getDisplayUnit());
+                dlg->setAttribute(Qt::WA_DeleteOnClose);
+                dlg->show();
+
             }
             else
             {

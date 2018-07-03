@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <amount.h>
 #include <chainparams.h>
+#include <wallet/coincontrol.h>
+#include <wallet/fees.h>
 
 #include <univalue.h>
 #include <boost/algorithm/string.hpp>
@@ -85,14 +87,21 @@ UniValue makebet(const JSONRPCRequest& request)
         throw std::runtime_error(std::string("Bet amount is out of range <0, half of block mining reward>"));
     }
     int mask = getMask(betNumber);
-    constexpr size_t dataSize=265;
-    double fee = computeFee(*pwallet, dataSize);
+    constexpr size_t txSize=265;
+    double fee;
+
+    CCoinControl coin_control;
+    coin_control.m_feerate.reset();
+    coin_control.m_confirm_target = 2;
+    coin_control.m_signal_bip125_rbf = false;
+    FeeCalculation fee_calc;
+    CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
 
     std::vector<std::string> addresses;
     ProcessUnspent processUnspent(pwallet, addresses);
 
     UniValue inputs(UniValue::VARR);
-    if(!processUnspent.getUtxForAmount(inputs, dataSize, betAmount, fee))
+    if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, betAmount, fee))
     {
         throw std::runtime_error(std::string("Insufficient funds"));
     }
@@ -174,10 +183,19 @@ UniValue getbet(const JSONRPCRequest& request)
     UniValue vout(UniValue::VOBJ);
     vout=txPrev["vout"][voutIdx];
 
+    constexpr size_t txSize=265;
+    CCoinControl coin_control;
+    coin_control.m_feerate.reset();
+    coin_control.m_confirm_target = 2;
+    coin_control.m_signal_bip125_rbf = false;
+    FeeCalculation fee_calc;
+    CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
+    double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
+
     UniValue scriptPubKeyStr(UniValue::VSTR);
     scriptPubKeyStr=vout["scriptPubKey"]["hex"];
     int reward=getReward<int>(pwallet, scriptPubKeyStr.get_str());
-    std::string amount=double2str(reward*vout["value"].get_real());
+    std::string amount=double2str(reward*vout["value"].get_real()-fee);
     
     UniValue txIn(UniValue::VOBJ);
     txIn.pushKV("txid", txidIn);

@@ -44,7 +44,7 @@ public:
     
     UniValue getTx();
     static UniValue findTx(const std::string& txid);
-    static bool txVerify(const CTransaction& tx, CAmount in, CAmount out);
+    static bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
 
 private:
     UniValue prevTxBlockHash;
