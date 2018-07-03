@@ -79,7 +79,7 @@ ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::st
         entryArray.push_back(entry);
     }
     std::sort(entryArray.begin(), entryArray.end(),
-    [](UniValue a, UniValue b)
+    [](const UniValue& a, const UniValue& b)
     {
         return a["confirmations"].get_int()> b["confirmations"].get_int();
     });

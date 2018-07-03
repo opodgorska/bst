@@ -77,7 +77,7 @@ UniValue makebet(const JSONRPCRequest& request)
     int betNumber = request.params[0].get_int();
     if(betNumber < 0 || betNumber >= MAX_BET_REWARD)
     {
-        throw std::runtime_error(std::string("Bet number is out of range <0, 1023>"));
+        throw std::runtime_error(std::string("Bet number is out of range <0, ")+std::to_string(MAX_BET_REWARD)+std::string(">"));
     }
     const Consensus::Params& params = Params().GetConsensus();
     double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);

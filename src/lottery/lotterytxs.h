@@ -51,7 +51,7 @@ private:
 
 private:
     UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo);
-    UniValue signTxImp();
+    UniValue signTxImp() override;
 
     UniValue SignRedeemBetTransaction(const UniValue hashType);
     bool Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion);
