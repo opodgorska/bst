@@ -26,6 +26,8 @@ public:
  */
 static const CRPCConvertParam vRPCConvertParams[] =
 {
+    { "makebet", 0, "betnumber" },
+    { "makebet", 1, "betamount" },
     { "setmocktime", 0, "timestamp" },
     { "generate", 0, "nblocks" },
     { "generate", 1, "maxtries" },

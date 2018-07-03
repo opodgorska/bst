@@ -41,6 +41,8 @@
 #include <validationinterface.h>
 #include <warnings.h>
 
+#include <lottery/lotterytxs.h>
+
 #include <future>
 #include <sstream>
 
@@ -3143,6 +3145,16 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (!CheckTransaction(*tx, state, false))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
+                                 
+    // Check if bet transactions included in block don't give total potential reward greater than a limit
+    double rewardAcc=0.0;
+    for (const auto& tx : block.vtx)
+    {
+        if(!MakeBetTxs::checkBetRewardSum(rewardAcc, *tx, consensusParams))
+        {
+            return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
+        }
+    }
 
     unsigned int nSigOps = 0;
     for (const auto& tx : block.vtx)

@@ -12,6 +12,7 @@
 #include <serialize.h>
 #include <uint256.h>
 
+constexpr int32_t MAKE_BET_INDICATOR=0x40000000;
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
@@ -376,6 +377,7 @@ struct CMutableTransaction
 
     CMutableTransaction();
     explicit CMutableTransaction(const CTransaction& tx);
+    CMutableTransaction(int32_t txVersion);
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {

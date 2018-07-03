@@ -47,6 +47,15 @@ bool CastToBool(const valtype& vch)
     return false;
 }
 
+void MakeSameSize(valtype& vch1, valtype& vch2)
+{
+    // Lengthen the shorter one
+    if (vch1.size() < vch2.size())
+        vch1.resize(vch2.size(), 0);
+    if (vch2.size() < vch1.size())
+        vch2.resize(vch1.size(), 0);
+}
+
 /**
  * Script is a stack machine (like Forth) that evaluates a predicate
  * returning a bool indicating valid or not.  There are no loops.
@@ -324,7 +333,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 opcode == OP_LEFT ||
                 opcode == OP_RIGHT ||
                 opcode == OP_INVERT ||
-                opcode == OP_AND ||
+                /*opcode == OP_AND ||*/
                 opcode == OP_OR ||
                 opcode == OP_XOR ||
                 opcode == OP_2MUL ||
@@ -377,6 +386,21 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
+                case OP_AND:
+                {
+                    // (x1 x2 - out)
+                    if (stack.size() < 2)
+                        return false;
+                    valtype& vch1 = stacktop(-2);
+                    valtype& vch2 = stacktop(-1);
+                    MakeSameSize(vch1, vch2);
+                    for (size_t i = 0; i < vch1.size(); i++)
+                    {
+                        vch1[i] &= vch2[i];
+                    }
+                    stack.pop_back();
+                }
+                break;
 
                 //
                 // Control

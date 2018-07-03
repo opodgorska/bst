@@ -8,6 +8,8 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <lottery/lotterytxs.h>
+#include <data/processunspent.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -234,13 +236,33 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     }
 
     const CAmount value_out = tx.GetValueOut();
-    if (nValueIn < value_out) {
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-            strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+    bool correctBetTx=false;
+    if (nValueIn < value_out)
+    {
+        //LogPrintf("nValueIn < value_out\n");
+        correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out);
+        if(!correctBetTx)
+        {
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+                strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+        }
     }
 
     // Tally transaction fees
-    const CAmount txfee_aux = nValueIn - value_out;
+    CAmount txfee_aux = nValueIn - value_out;
+    if(correctBetTx)
+    {
+        size_t txSize=::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+        std::shared_ptr<CWallet> wallet = GetWallets()[0];
+        if(wallet==nullptr)
+        {
+            throw std::runtime_error(std::string("No wallet found"));
+        }
+        CWallet* const pwallet=wallet.get();
+        txfee_aux=static_cast<CAmount>(computeFee(*pwallet, txSize)*COIN);
+        //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
+    }
+    
     if (!MoneyRange(txfee_aux)) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
     }
