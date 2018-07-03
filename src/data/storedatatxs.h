@@ -7,23 +7,17 @@
 
 #include <wallet/wallet.h>
 #include <univalue.h>
+#include <data/txs.h>
 
-class StoreDataTxs
+class StoreDataTxs : public Txs
 {
 public:
     StoreDataTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
     ~StoreDataTxs();
 
-    UniValue createDataTx(const UniValue& inputs, const UniValue& sendTo);
-    UniValue signTx();
-    UniValue sendTx();
-
 private:
-    CMutableTransaction mtx;
-    CWallet* const pwallet;
-    int64_t nLockTime;
-    bool rbfOptIn;
-    bool allowhighfees;
+    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo) override;
+    UniValue signTxImp() override;
 };
 
 #endif

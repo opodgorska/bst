@@ -27,8 +27,8 @@ private:
     CScript redeemScript;
 
 private:
-    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo);
-    UniValue signTxImp();
+    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo) override;
+    UniValue signTxImp() override;
 
     UniValue getnewaddress(CTxDestination& dest, OutputType output_type = OutputType::LEGACY);
     void getOpReturnAccReward(double& rewardAcc, const CTransaction& tx, const UniValue& amount);
@@ -50,7 +50,7 @@ private:
     UniValue prevTxBlockHash;
 
 private:
-    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo);
+    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo) override;
     UniValue signTxImp() override;
 
     UniValue SignRedeemBetTransaction(const UniValue hashType);
