@@ -45,10 +45,12 @@ private:
     QString textValue;
     QString fileToRetrieveName;
     QString fileToStoreName;
+    QString fileToCheckName;
     QButtonGroup *groupFee;
 
     void displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize);
     void unlockWallet();
+    std::string computeHash(const QByteArray& binaryData);
     std::string getHexStr();
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
@@ -60,13 +62,19 @@ public Q_SLOTS:
 private Q_SLOTS:
     void retrieve();
     void store();
+    void check();
     void hexRadioClicked();
     void stringRadioClicked();
     void fileRetrieveClicked();
+    void safeToFileToggled(bool);
     void fileStoreClicked();    
     void storeMessageRadioClicked();
     void storeFileRadioClicked();
     void storeFileHashRadioClicked();
+    void checkMessageRadioClicked();
+    void checkFileRadioClicked();
+    void checkFileHashRadioClicked();
+    void fileCheckClicked();
     
     void on_buttonChooseFee_clicked();
     void on_buttonMinimizeFee_clicked();

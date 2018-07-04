@@ -2,6 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <algorithm>
+
 #include <QMessageBox>
 #include <QFileDialog>
 #include <qt/bitcoinunits.h>
@@ -74,11 +76,15 @@ DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
         ui->fileStoreButton->setIcon(QIcon());
         ui->retrieveButton->setIcon(QIcon());
         ui->storeButton->setIcon(QIcon());
+        ui->fileCheckButton->setIcon(QIcon());
+        ui->checkButton->setIcon(QIcon());
     } else {
         ui->fileRetrieveButton->setIcon(platformStyle->SingleColorIcon(":/icons/open"));
         ui->fileStoreButton->setIcon(platformStyle->SingleColorIcon(":/icons/open"));
         ui->retrieveButton->setIcon(platformStyle->SingleColorIcon(":/icons/filesave"));
         ui->storeButton->setIcon(platformStyle->SingleColorIcon(":/icons/send"));
+        ui->fileCheckButton->setIcon(platformStyle->SingleColorIcon(":/icons/open"));
+        ui->checkButton->setIcon(platformStyle->SingleColorIcon(":/icons/transaction_confirmed"));
     }
 
     ui->stringRadioButton->setChecked(true);
@@ -86,15 +92,35 @@ DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
     connect(ui->hexRadioButton, SIGNAL(clicked()), this, SLOT(hexRadioClicked()));
     connect(ui->stringRadioButton, SIGNAL(clicked()), this, SLOT(stringRadioClicked()));
     connect(ui->fileRetrieveButton, SIGNAL(clicked()), this, SLOT(fileRetrieveClicked()));
+    connect(ui->safeToFileCheckBox, SIGNAL(toggled(bool)), this, SLOT(safeToFileToggled(bool)));
+    
+    ui->safeToFileCheckBox->setChecked(false);
+    ui->fileRetrieveButton->setVisible(false);
+    ui->fileRetrieveEdit->setVisible(false);
+    ui->fileRetrieveLabel->setVisible(false);
 
-    ui->fileStoreButton->setEnabled(false);
-    ui->fileStoreEdit->setEnabled(false);
+    ui->fileStoreButton->setVisible(false);
+    ui->fileStoreEdit->setVisible(false);
+    ui->fileStoreLabel->setVisible(false);
+
     ui->storeMessageRadioButton->setChecked(true);    
     connect(ui->storeMessageRadioButton, SIGNAL(clicked()), this, SLOT(storeMessageRadioClicked()));
     connect(ui->storeFileRadioButton, SIGNAL(clicked()), this, SLOT(storeFileRadioClicked()));
     connect(ui->storeFileHashRadioButton, SIGNAL(clicked()), this, SLOT(storeFileHashRadioClicked()));
     connect(ui->fileStoreButton, SIGNAL(clicked()), this, SLOT(fileStoreClicked()));
     connect(ui->storeButton, SIGNAL(clicked()), this, SLOT(store()));
+    connect(ui->checkButton, SIGNAL(clicked()), this, SLOT(check()));
+
+    ui->checkMessageRadioButton->setChecked(true);    
+    connect(ui->checkMessageRadioButton, SIGNAL(clicked()), this, SLOT(checkMessageRadioClicked()));
+    connect(ui->checkFileRadioButton, SIGNAL(clicked()), this, SLOT(checkFileRadioClicked()));
+    connect(ui->checkFileHashRadioButton, SIGNAL(clicked()), this, SLOT(checkFileHashRadioClicked()));
+    connect(ui->fileCheckButton, SIGNAL(clicked()), this, SLOT(fileCheckClicked()));
+    
+    ui->checkTextEdit->setVisible(true);
+    ui->fileCheckButton->setVisible(false);
+    ui->fileCheckLabel->setVisible(false);
+    ui->fileCheckEdit->setVisible(false);
 }
 
 DataPage::~DataPage()
@@ -268,6 +294,22 @@ void DataPage::fileRetrieveClicked()
     ui->fileRetrieveEdit->setText(fileToRetrieveName);
 }
 
+void DataPage::safeToFileToggled(bool checked)
+{
+    if(checked)
+    {
+        ui->fileRetrieveButton->setVisible(true);
+        ui->fileRetrieveEdit->setVisible(true);
+        ui->fileRetrieveLabel->setVisible(true);
+    }
+    else
+    {
+        ui->fileRetrieveButton->setVisible(false);
+        ui->fileRetrieveEdit->setVisible(false);
+        ui->fileRetrieveLabel->setVisible(false);
+    }
+}
+
 void DataPage::displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize)
 {
     textEdit->clear();
@@ -349,6 +391,20 @@ void DataPage::fileStoreClicked()
     ui->fileStoreEdit->setText(fileToStoreName);
 }
 
+std::string DataPage::computeHash(const QByteArray& binaryData_)
+{
+    constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
+    unsigned char fileHash[hashSize];
+    QByteArray binaryData=binaryData_;
+
+    CHash256 fileHasher;
+
+    fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
+    fileHasher.Finalize(fileHash);
+
+    return byte2str(&fileHash[0], static_cast<int>(hashSize));                
+}
+
 std::string DataPage::getHexStr()
 {
     std::string retStr;
@@ -381,15 +437,7 @@ std::string DataPage::getHexStr()
         }
         else if(ui->storeFileHashRadioButton->isChecked())
         {
-            constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
-            unsigned char fileHash[hashSize];
-
-            CHash256 fileHasher;
-            
-            fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
-            fileHasher.Finalize(fileHash);
-
-            retStr = byte2str(&fileHash[0], static_cast<int>(hashSize));
+            retStr = computeHash(binaryData);
         }
     }
     
@@ -398,26 +446,29 @@ std::string DataPage::getHexStr()
 
 void DataPage::storeMessageRadioClicked()
 {
-    ui->fileStoreButton->setEnabled(false);
-    ui->messageStoreEdit->setEnabled(true);
+    ui->fileStoreButton->setVisible(false);
+    ui->fileStoreEdit->setVisible(false);
+    ui->fileStoreLabel->setVisible(false);
+
     ui->messageStoreEdit->setVisible(true);
-    ui->fileStoreEdit->setEnabled(false);
 }
 
 void DataPage::storeFileRadioClicked()
 {
-    ui->fileStoreButton->setEnabled(true);
-    ui->messageStoreEdit->setEnabled(false);
+    ui->fileStoreButton->setVisible(true);
+    ui->fileStoreEdit->setVisible(true);
+    ui->fileStoreLabel->setVisible(true);
+
     ui->messageStoreEdit->setVisible(false);
-    ui->fileStoreEdit->setEnabled(true);
 }
 
 void DataPage::storeFileHashRadioClicked()
 {
-    ui->fileStoreButton->setEnabled(true);
-    ui->messageStoreEdit->setEnabled(false);
+    ui->fileStoreButton->setVisible(true);
+    ui->fileStoreEdit->setVisible(true);
+    ui->fileStoreLabel->setVisible(true);
+
     ui->messageStoreEdit->setVisible(false);
-    ui->fileStoreEdit->setEnabled(true);
 }
 
 void DataPage::unlockWallet()
@@ -502,11 +553,126 @@ void DataPage::store()
 #endif
 }
 
+void DataPage::check()
+{
+    try
+    {
+        std::string dataHash;
+        std::string blockchainHash;
+        std::string txid=ui->checkLineEdit->text().toStdString();
+        RetrieveDataTxs retrieveDataTxs(txid);
+        std::string txData=retrieveDataTxs.getTxData();
+        
+        if(ui->checkFileRadioButton->isChecked() || ui->checkMessageRadioButton->isChecked())
+        {
+            QString hexaValue = QString::fromStdString(txData);
+            QByteArray blockchainBinaryData=QByteArray::fromHex(hexaValue.toUtf8());
+            blockchainHash = computeHash(blockchainBinaryData);
+            
+            QByteArray binaryData;
+            if(ui->checkFileRadioButton->isChecked())
+            {
+                FileReader fileReader(ui->fileCheckEdit->text());
+                fileReader.read(binaryData);
+            }
+            else if(ui->checkMessageRadioButton->isChecked())
+            {
+                QString qs=ui->checkTextEdit->toPlainText();
+                std::string str=qs.toUtf8().constData();
+                
+                if(str.length()>maxDataSize)
+                {
+                    throw std::runtime_error(strprintf("Message size is grater than %d bytes", maxDataSize));
+                }
+
+                std::string hexStr = HexStr(str.begin(), str.end());
+                QString hexaValue = QString::fromStdString(hexStr);
+                binaryData=QByteArray::fromHex(hexaValue.toUtf8());
+            }
+            dataHash = computeHash(binaryData);
+        }
+        else
+        {
+            blockchainHash=txData;
+            std::transform(blockchainHash.begin(), blockchainHash.end(), blockchainHash.begin(), ::toupper);
+
+            QByteArray binaryData;
+            FileReader fileReader(ui->fileCheckEdit->text());
+            fileReader.read(binaryData);
+            dataHash = computeHash(binaryData);
+        }
+
+        //LogPrintf("blockchainHash: %s\n", blockchainHash);
+        //LogPrintf("dataHash: %s\n", dataHash);
+        QMessageBox msgBox;
+        if(dataHash.compare(blockchainHash)==0)
+        {
+            //msgBox.setText("PASS");
+            msgBox.setWindowTitle("Check PASS");
+            msgBox.setIconPixmap(QPixmap(":/icons/transaction_confirmed"));
+        }
+        else
+        {
+            //msgBox.setText("FAIL");
+            msgBox.setWindowTitle("Check FAIL");
+            msgBox.setIconPixmap(QPixmap(":/icons/transaction_conflicted"));
+        }
+        msgBox.exec();
+
+    }
+    catch(std::exception const& e)
+    {
+        QMessageBox msgBox;
+        msgBox.setText(e.what());
+        msgBox.exec();
+    }
+    catch(...)
+    {
+        QMessageBox msgBox;
+        msgBox.setText("Unknown exception occured");
+        msgBox.exec();
+    }
+}
+
+void DataPage::fileCheckClicked()
+{
+    fileToCheckName = QFileDialog::getOpenFileName(this, tr("Open File"), "/home", tr("Files (*.*)"));
+    ui->fileCheckEdit->setText(fileToCheckName);
+}
+
+void DataPage::checkMessageRadioClicked()
+{
+    ui->checkTextEdit->setVisible(true);
+    ui->fileCheckButton->setVisible(false);
+    ui->fileCheckLabel->setVisible(false);
+    ui->fileCheckEdit->setVisible(false);
+}
+
+void DataPage::checkFileRadioClicked()
+{
+    ui->checkTextEdit->setVisible(false);
+    ui->fileCheckButton->setVisible(true);
+    ui->fileCheckLabel->setVisible(true);
+    ui->fileCheckEdit->setVisible(true);
+}
+
+void DataPage::checkFileHashRadioClicked()
+{
+    ui->checkTextEdit->setVisible(false);
+    ui->fileCheckButton->setVisible(true);
+    ui->fileCheckLabel->setVisible(true);
+    ui->fileCheckEdit->setVisible(true);
+}
+
 DataPage::FileWriter::FileWriter(const QString& fileName_) : isOpen(false), file(fileName_) 
 {
     if(!fileName_.isEmpty())
     {
         isOpen=file.open(QIODevice::WriteOnly);
+        if(!isOpen)
+        {
+            throw std::runtime_error("Couldn't open the file");
+        }
     }
 }
 
@@ -535,6 +701,10 @@ DataPage::FileReader::FileReader(const QString& fileName_) : isOpen(false), file
     if(!fileName_.isEmpty())
     {
         isOpen=file.open(QIODevice::ReadOnly);
+        if(!isOpen)
+        {
+            throw std::runtime_error("Couldn't open the file");
+        }
     }
 }
 
