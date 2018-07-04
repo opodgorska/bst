@@ -391,11 +391,10 @@ void DataPage::fileStoreClicked()
     ui->fileStoreEdit->setText(fileToStoreName);
 }
 
-std::string DataPage::computeHash(const QByteArray& binaryData_)
+std::string DataPage::computeHash(QByteArray binaryData)
 {
     constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
     unsigned char fileHash[hashSize];
-    QByteArray binaryData=binaryData_;
 
     CHash256 fileHasher;
 

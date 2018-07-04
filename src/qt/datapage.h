@@ -50,7 +50,7 @@ private:
 
     void displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize);
     void unlockWallet();
-    std::string computeHash(const QByteArray& binaryData);
+    std::string computeHash(QByteArray binaryData);
     std::string getHexStr();
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
