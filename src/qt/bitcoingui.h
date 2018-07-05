@@ -107,6 +107,9 @@ private:
     
     QAction *dataAction;
     QAction *dataMenuAction;
+
+    QAction *lotteryAction;
+    QAction *lotteryMenuAction;
     
     QAction *sendCoinsAction;
     QAction *sendCoinsMenuAction;
@@ -233,6 +236,9 @@ private Q_SLOTS:
 
     /** Switch to data page */
     void gotoDataPage();
+
+    /** Switch to data page */
+    void gotoLotteryPage();
 
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");

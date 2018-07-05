@@ -14,6 +14,7 @@
 #include <qt/platformstyle.h>
 #include <qt/receivecoinsdialog.h>
 #include <qt/datapage.h>
+#include <qt/lotterypage.h>
 #include <qt/sendcoinsdialog.h>
 #include <qt/signverifymessagedialog.h>
 #include <qt/transactiontablemodel.h>
@@ -62,12 +63,14 @@ WalletView::WalletView(const PlatformStyle *_platformStyle, QWidget *parent):
     usedReceivingAddressesPage = new AddressBookPage(platformStyle, AddressBookPage::ForEditing, AddressBookPage::ReceivingTab, this);
     
     dataPage = new DataPage(platformStyle);
+    lotteryPage = new LotteryPage(platformStyle);
 
     addWidget(overviewPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
     addWidget(dataPage);
+    addWidget(lotteryPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
@@ -134,6 +137,7 @@ void WalletView::setWalletModel(WalletModel *_walletModel)
     receiveCoinsPage->setModel(_walletModel);
     sendCoinsPage->setModel(_walletModel);
     dataPage->setModel(_walletModel);
+    lotteryPage->setModel(_walletModel);
     usedReceivingAddressesPage->setModel(_walletModel ? _walletModel->getAddressTableModel() : nullptr);
     usedSendingAddressesPage->setModel(_walletModel ? _walletModel->getAddressTableModel() : nullptr);
 
@@ -207,6 +211,11 @@ void WalletView::gotoSendCoinsPage(QString addr)
 void WalletView::gotoDataPage()
 {
 	setCurrentWidget(dataPage);
+}
+
+void WalletView::gotoLotteryPage()
+{
+	setCurrentWidget(lotteryPage);
 }
 
 void WalletView::gotoSignMessageTab(QString addr)
