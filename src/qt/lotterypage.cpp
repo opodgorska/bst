@@ -324,7 +324,7 @@ void LotteryPage::updateRewardView()
     int betNumber = ui->betNumberLineEdit->text().toInt();
     int mask = getMask(betNumber);
     double betAmount = ui->amountLineEdit->text().toDouble();
-    double reward = mask*betAmount;
+    double reward = maskToReward(mask)*betAmount;
     if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
     {
         reward = 0.0;
@@ -373,11 +373,10 @@ void LotteryPage::makeBet()
                 double fee;
 
                 CCoinControl coin_control;
-                coin_control.m_feerate.reset();
-                coin_control.m_confirm_target = 2;
-                coin_control.m_signal_bip125_rbf = false;
-                FeeCalculation fee_calc;
-                CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
+                updateCoinControlState(coin_control);
+                int returned_target;
+                FeeReason reason;
+                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
 
                 std::vector<std::string> addresses;
                 ProcessUnspent processUnspent(pwallet, addresses);
@@ -477,9 +476,7 @@ void LotteryPage::getBet()
 
                 constexpr size_t txSize=265;
                 CCoinControl coin_control;
-                coin_control.m_feerate.reset();
-                coin_control.m_confirm_target = 2;
-                coin_control.m_signal_bip125_rbf = false;
+                updateCoinControlState(coin_control);
                 FeeCalculation fee_calc;
                 CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
                 double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
