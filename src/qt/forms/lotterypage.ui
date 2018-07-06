@@ -32,7 +32,7 @@
             <item>
              <widget class="QLabel" name="betNumberLabel">
               <property name="text">
-               <string>Bet number:</string>
+               <string>Bet number:     </string>
               </property>
              </widget>
             </item>
@@ -59,7 +59,7 @@
             <item>
              <widget class="QLabel" name="amountLabel">
               <property name="text">
-               <string>Amount:       </string>
+               <string>Amount [BST]: </string>
               </property>
              </widget>
             </item>
@@ -102,6 +102,20 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item>
+             <widget class="QLabel" name="maxRewardLabel">
+              <property name="text">
+               <string>Potential reward: </string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="maxRewardValLabel">
+              <property name="text">
+               <string>123.456 BST</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>

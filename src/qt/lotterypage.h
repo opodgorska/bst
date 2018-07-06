@@ -58,6 +58,7 @@ public Q_SLOTS:
 private Q_SLOTS:
     void makeBet();
     void getBet();
+    void updateRewardView();
 
     void on_buttonChooseFee_clicked();
     void on_buttonMinimizeFee_clicked();

@@ -43,8 +43,6 @@
 #include <data/processunspent.h>
 #include <lottery/lotterytxs.h>
 
-static constexpr int maxDataSize=MAX_OP_RETURN_RELAY-6;
-
 static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 1008} };
 extern int getConfTargetForIndex(int index);
 extern int getIndexForConfTarget(int target);
@@ -214,6 +212,7 @@ void LotteryPage::updateDisplayUnit()
     ui->customFee->setDisplayUnit(walletModel->getOptionsModel()->getDisplayUnit());
     updateMinFeeLabel();
     updateSmartFeeLabel();
+    updateRewardView();
 }
 
 void LotteryPage::setModel(WalletModel *model)
@@ -254,6 +253,10 @@ void LotteryPage::setModel(WalletModel *model)
         ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(model->wallet().getConfirmTarget()));
     else
         ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(settings.value("nConfTarget").toInt()));
+
+    connect(ui->betNumberLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
+    connect(ui->amountLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
+    ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
 }
 
 void LotteryPage::unlockWallet()
@@ -316,6 +319,22 @@ void LotteryPage::loadListFromFile(const QString& fileName)
     }
 }
 
+void LotteryPage::updateRewardView()
+{
+    int betNumber = ui->betNumberLineEdit->text().toInt();
+    int mask = getMask(betNumber);
+    double betAmount = ui->amountLineEdit->text().toDouble();
+    double reward = mask*betAmount;
+    if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
+    {
+        reward = 0.0;
+    }
+    if(walletModel && walletModel->getOptionsModel())
+    {
+        ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(reward*COIN)));
+    }
+}
+
 void LotteryPage::makeBet()
 {
     if(walletModel)
@@ -329,6 +348,15 @@ void LotteryPage::makeBet()
 
                 int betNumber = ui->betNumberLineEdit->text().toInt();
 
+                if(ui->betNumberLineEdit->text().length()==0)
+                {
+                    throw std::runtime_error(std::string("Bet number must be provided"));
+                }
+                if(ui->amountLineEdit->text().length()==0)
+                {
+                    throw std::runtime_error(std::string("Amount must be provided"));
+                }
+
                 if(betNumber < 0 || betNumber >= MAX_BET_REWARD)
                 {
                     throw std::runtime_error(std::string("Bet number is out of range <0, ")+std::to_string(MAX_BET_REWARD)+std::string(">"));
@@ -338,7 +366,7 @@ void LotteryPage::makeBet()
                 double betAmount = ui->amountLineEdit->text().toDouble();
                 if(betAmount <= 0 || betAmount >= (ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
                 {
-                    throw std::runtime_error(std::string("Bet amount is out of range <0, half of block mining reward>"));
+                    throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
                 }
                 int mask = getMask(betNumber);
                 constexpr size_t txSize=265;
