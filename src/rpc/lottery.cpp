@@ -84,7 +84,7 @@ UniValue makebet(const JSONRPCRequest& request)
     double betAmount = request.params[1].get_real();
     if(betAmount <= 0 || betAmount >= (ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
     {
-        throw std::runtime_error(std::string("Bet amount is out of range <0, half of block mining reward>"));
+        throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
     }
     int mask = getMask(betNumber);
     constexpr size_t txSize=265;

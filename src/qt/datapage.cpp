@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <qt/bitcoinunits.h>
+#include <qt/clientmodel.h>
 #include <qt/datapage.h>
 #include <qt/forms/ui_datapage.h>
 #include <qt/guiutil.h>
@@ -246,6 +247,15 @@ void DataPage::updateDisplayUnit()
     ui->customFee->setDisplayUnit(walletModel->getOptionsModel()->getDisplayUnit());
     updateMinFeeLabel();
     updateSmartFeeLabel();
+}
+
+void DataPage::setClientModel(ClientModel *_clientModel)
+{
+    this->clientModel = _clientModel;
+
+    if (_clientModel) {
+        connect(_clientModel, SIGNAL(numBlocksChanged(int,QDateTime,double,bool)), this, SLOT(updateSmartFeeLabel()));
+    }
 }
 
 void DataPage::setModel(WalletModel *model)

@@ -12,6 +12,7 @@
 #include <QDoubleValidator>
 
 #include <qt/bitcoinunits.h>
+#include <qt/clientmodel.h>
 #include <qt/lotterypage.h>
 #include <qt/forms/ui_lotterypage.h>
 #include <qt/guiutil.h>
@@ -51,6 +52,7 @@ LotteryPage::LotteryPage(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent),
     ui(new Ui::LotteryPage),
     walletModel(0),
+    clientModel(0),
     changeAddress(""),
     selectedItem(nullptr),
     fFeeMinimized(true)
@@ -213,6 +215,15 @@ void LotteryPage::updateDisplayUnit()
     updateMinFeeLabel();
     updateSmartFeeLabel();
     updateRewardView();
+}
+
+void LotteryPage::setClientModel(ClientModel *_clientModel)
+{
+    this->clientModel = _clientModel;
+
+    if (_clientModel) {
+        connect(_clientModel, SIGNAL(numBlocksChanged(int,QDateTime,double,bool)), this, SLOT(updateSmartFeeLabel()));
+    }
 }
 
 void LotteryPage::setModel(WalletModel *model)
@@ -477,8 +488,9 @@ void LotteryPage::getBet()
                 constexpr size_t txSize=265;
                 CCoinControl coin_control;
                 updateCoinControlState(coin_control);
-                FeeCalculation fee_calc;
-                CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
+                int returned_target;
+                FeeReason reason;
+                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
                 double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
 
                 UniValue scriptPubKeyStr(UniValue::VSTR);

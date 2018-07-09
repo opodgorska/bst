@@ -14,6 +14,7 @@
 #include <univalue.h>
 
 class WalletModel;
+class ClientModel;
 class QPlainTextEdit;
 class PlatformStyle;
 class QButtonGroup;
@@ -33,11 +34,14 @@ class LotteryPage : public QWidget
 public:
     explicit LotteryPage(const PlatformStyle *platformStyle, QWidget *parent = 0);
     ~LotteryPage();
+    
+    void setClientModel(ClientModel *clientModel);
     void setModel(WalletModel *model);
 
 private:
     Ui::LotteryPage *ui;
     WalletModel *walletModel;
+    ClientModel *clientModel;
     std::string changeAddress;
     QListWidgetItem *selectedItem;
     bool fFeeMinimized;
