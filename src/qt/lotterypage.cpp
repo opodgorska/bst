@@ -398,6 +398,11 @@ void LotteryPage::makeBet()
                     throw std::runtime_error(std::string("Insufficient funds"));
                 }
 
+                if(fee>(static_cast<double>(maxTxFee)/COIN))
+                {
+                    fee=(static_cast<double>(maxTxFee)/COIN);
+                }
+
                 if(changeAddress.empty())
                 {
                     changeAddress=getChangeAddress(pwallet);
@@ -492,6 +497,11 @@ void LotteryPage::getBet()
                 FeeReason reason;
                 CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
                 double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
+
+                if(fee>(static_cast<double>(maxTxFee)/COIN))
+                {
+                    fee=(static_cast<double>(maxTxFee)/COIN);
+                }
 
                 UniValue scriptPubKeyStr(UniValue::VSTR);
                 scriptPubKeyStr=vout["scriptPubKey"]["hex"];

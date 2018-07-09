@@ -520,6 +520,11 @@ void DataPage::store()
                     throw std::runtime_error(std::string("Insufficient funds"));
                 }
 
+                if(fee>(static_cast<double>(maxTxFee)/COIN))
+                {
+                    fee=(static_cast<double>(maxTxFee)/COIN);
+                }
+
                 if(changeAddress.empty())
                 {
                     changeAddress=getChangeAddress(pwallet);
