@@ -24,6 +24,8 @@ public:
     static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params);
 
 private:
+    bool isNewAddrGenerated;
+    CTxDestination dest;
     CScript redeemScript;
 
 private:

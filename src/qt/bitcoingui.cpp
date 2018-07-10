@@ -333,14 +333,14 @@ void BitcoinGUI::createActions()
     dataMenuAction->setStatusTip(dataAction->statusTip());
     dataMenuAction->setToolTip(dataMenuAction->statusTip());
 
-    lotteryAction = new QAction(platformStyle->SingleColorIcon(":/icons/binary-code"), tr("&Lottery"), this);
+    lotteryAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Lottery"), this);
     lotteryAction->setStatusTip(tr("Make bet to play lottery"));
     lotteryAction->setToolTip(lotteryAction->statusTip());
     lotteryAction->setCheckable(true);
     lotteryAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_7));
     tabGroup->addAction(lotteryAction);
     
-    lotteryMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/binary-code"), lotteryAction->text(), this);
+    lotteryMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/lottery"), lotteryAction->text(), this);
     lotteryMenuAction->setStatusTip(lotteryAction->statusTip());
     lotteryMenuAction->setToolTip(lotteryMenuAction->statusTip());
 

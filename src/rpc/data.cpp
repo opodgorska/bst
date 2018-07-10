@@ -91,6 +91,19 @@ private:
     std::ofstream file;	
 };
 
+static std::string computeHash(char* binaryData, size_t size)
+{
+    constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
+    unsigned char fileHash[hashSize];
+
+    CHash256 fileHasher;
+
+    fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData), size);
+    fileHasher.Finalize(fileHash);
+
+    return byte2str(&fileHash[0], static_cast<int>(hashSize));                
+}
+
 static UniValue callRPC(std::string args)
 {
     std::vector<std::string> vArgs;
@@ -253,7 +266,7 @@ UniValue storemessage(const JSONRPCRequest& request)
         "Before this command walletpassphrase is required. \n"
 
         "\nArguments:\n"
-        "1. \"string\"                      (string, required) A user data string\n"
+        "1. \"message\"                     (string, required) A user message string\n"
         "2. replaceable                     (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
         "3. conf_target                     (numeric, optional) Confirmation target (in blocks)\n"
         "4. \"estimate_mode\"               (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
@@ -331,16 +344,9 @@ UniValue storesignature(const JSONRPCRequest& request)
     std::string filePath=request.params[0].get_str();
 
     std::vector<char> binaryData;
-    constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
-    unsigned char fileHash[hashSize];
-
     FileReader fileReader(filePath);
     fileReader.read(binaryData);
-
-    CHash256 fileHasher;
-
-    fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
-    fileHasher.Finalize(fileHash);
+    std::string hashStr = computeHash(binaryData.data(), binaryData.size());
 
     CCoinControl coin_control;
     if (!request.params[1].isNull())
@@ -359,7 +365,8 @@ UniValue storesignature(const JSONRPCRequest& request)
             throw std::runtime_error("Invalid estimate_mode parameter");
         }
     }
-    return setOPreturnData(byte2str(fileHash, hashSize), coin_control);
+
+    return setOPreturnData(hashStr, coin_control);
 }
 
 UniValue storedata(const JSONRPCRequest& request)
@@ -382,8 +389,8 @@ UniValue storedata(const JSONRPCRequest& request)
 
         "\nResult:\n"
         "\"txid\"                           (string) A hex-encoded transaction id\n"
-
-
+ 
+ 
         "\nExamples:\n"
         + HelpExampleCli("storedata", "\"/home/myfile.txt\"")
         + HelpExampleRpc("storedata", "\"/home/myfile.txt\"")
@@ -423,14 +430,174 @@ UniValue storedata(const JSONRPCRequest& request)
     return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()), coin_control);
 }
 
+UniValue checkmessage(const JSONRPCRequest& request)
+{
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR});
+
+    if (request.fHelp || request.params.size() != 2)
+    throw std::runtime_error(
+        "checkmessage \"txid\" \"message\" \n"
+        "\nChecks user data string against the message in a blockchain.\n"
+
+        "\nArguments:\n"
+        "1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+        "2. \"message\"                     (string, required) A user message string\n"
+
+        "\nResult:\n"
+        "\"string\"                         (string) PASS or FAIL\n"
+
+
+        "\nExamples:\n"
+        + HelpExampleCli("checkmessage", "\"txid\" \"message\"")
+        + HelpExampleRpc("checkmessage", "\"txid\" \"message\"")
+    );
+
+    std::string txid=request.params[0].get_str();
+    std::string OPreturnData=getOPreturnData(txid);
+    if(!OPreturnData.empty())
+    {
+        std::vector<char> OPreturnBinaryData;
+        OPreturnBinaryData.resize(OPreturnData.length()/2);
+        hex2bin(OPreturnBinaryData, OPreturnData);
+        std::string blockchainHash=computeHash(OPreturnBinaryData.data(), OPreturnBinaryData.size());
+
+        std::string  message=request.params[1].get_str();
+        std::string hexMsg=HexStr(message.begin(), message.end());
+        std::vector<char> messageBinaryData;
+        messageBinaryData.resize(hexMsg.length()/2);
+        hex2bin(messageBinaryData, hexMsg);
+        std::string messageHash=computeHash(messageBinaryData.data(), messageBinaryData.size());
+
+        if(messageHash.compare(blockchainHash))
+        {
+            return UniValue(UniValue::VSTR, std::string("FAIL"));
+        }
+
+        return UniValue(UniValue::VSTR, std::string("PASS"));
+    }
+
+    return UniValue(UniValue::VSTR, std::string("FAIL"));
+}
+
+UniValue checkdata(const JSONRPCRequest& request)
+{
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR});
+
+    if (request.fHelp || request.params.size() != 2)
+    throw std::runtime_error(
+        "checkdata \"txid\" \"path to the file\" \n"
+        "\nChecks user data file content against the data in a blockchain.\n"
+
+        "\nArguments:\n"
+        "1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+        "2. \"path to the file\"            (string, required) A path to the file\n"
+
+        "\nResult:\n"
+        "\"string\"                         (string) PASS or FAIL\n"
+
+
+        "\nExamples:\n"
+        + HelpExampleCli("checkdata", "\"txid\" \"path to the file\"")
+        + HelpExampleRpc("checkdata", "\"txid\" \"path to the file\"")
+    );
+
+
+    std::string txid=request.params[0].get_str();
+    std::string OPreturnData=getOPreturnData(txid);
+
+    if(!request.params[1].isNull())
+    {
+        std::vector<char> OPreturnBinaryData;
+        OPreturnBinaryData.resize(OPreturnData.length()/2);
+        hex2bin(OPreturnBinaryData, OPreturnData);
+        std::string blockchainHash=computeHash(OPreturnBinaryData.data(), OPreturnBinaryData.size());
+
+        std::string filePath=request.params[1].get_str();
+        std::vector<char> binaryData;
+
+        FileReader fileReader(filePath);
+        fileReader.read(binaryData);
+
+        if(binaryData.size()>maxDataSize)
+        {
+            throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
+        }
+
+        std::string dataHash=computeHash(binaryData.data(), binaryData.size());
+        if(dataHash.compare(blockchainHash))
+        {
+            return UniValue(UniValue::VSTR, std::string("FAIL"));
+        }
+
+        return UniValue(UniValue::VSTR, std::string("PASS"));
+    }
+
+    return UniValue(UniValue::VSTR, std::string("FAIL"));
+}
+
+UniValue checksignature(const JSONRPCRequest& request)
+{
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR});
+
+    if (request.fHelp || request.params.size() != 2)
+    throw std::runtime_error(
+        "checksignature \"txid\" \"path to the file\" \n"
+        "\nChecks user data file signature against the signature in a blockchain.\n"
+
+        "\nArguments:\n"
+        "1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+        "2. \"path to the file\"            (string, required) A path to the file\n"
+
+        "\nResult:\n"
+        "\"string\"                         (string) PASS or FAIL\n"
+
+
+        "\nExamples:\n"
+        + HelpExampleCli("checksignature", "\"txid\" \"path to the file\"")
+        + HelpExampleRpc("checksignature", "\"txid\" \"path to the file\"")
+    );
+
+
+    std::string txid=request.params[0].get_str();
+    std::string OPreturnData=getOPreturnData(txid);
+    std::transform(OPreturnData.begin(), OPreturnData.end(), OPreturnData.begin(), ::toupper);
+
+    if(!request.params[1].isNull())
+    {
+        std::string filePath=request.params[1].get_str();
+        std::vector<char> binaryData;
+
+        FileReader fileReader(filePath);
+        fileReader.read(binaryData);
+
+        if(binaryData.size()>maxDataSize)
+        {
+            throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
+        }
+
+        std::string dataHash=computeHash(binaryData.data(), binaryData.size());
+        if(dataHash.compare(OPreturnData))
+        {
+            return UniValue(UniValue::VSTR, std::string("FAIL"));
+        }
+
+        return UniValue(UniValue::VSTR, std::string("PASS"));
+    }
+
+    return UniValue(UniValue::VSTR, std::string("FAIL"));
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
     { "blockchain",         "storemessage",                	&storemessage,             	{"message", "replaceable", "conf_target", "estimate_mode"} },
     { "blockchain",         "retrievemessage",             	&retrievemessage,          	{"txid"} },
-    { "blockchain",         "retrievedata",             	&retrievedata,          	{"txid", "replaceable", "conf_target", "estimate_mode"} },
-    { "blockchain",         "storesignature",             	&storesignature,          	{"file_path"} },
+    { "blockchain",         "retrievedata",             	&retrievedata,          	{"txid"} },
+    { "blockchain",         "storesignature",             	&storesignature,          	{"file_path", "replaceable", "conf_target", "estimate_mode"} },
     { "blockchain",         "storedata",             		&storedata,          		{"file_path", "replaceable", "conf_target", "estimate_mode"} },
+    { "blockchain",         "checkmessage",             	&checkmessage,          	{"txid", "message"} },
+    { "blockchain",         "checkdata",             		&checkdata,          		{"txid", "file_path"} },
+    { "blockchain",         "checksignature",             	&checksignature,          	{"txid", "file_path"} },
 };
 
 void RegisterDataRPCCommands(CRPCTable &t)

@@ -107,7 +107,7 @@ UniValue MakeBetTxs::getnewaddress(CTxDestination& dest, OutputType output_type)
 
 
 MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_, int32_t txVersion_) 
-                      : Txs(txVersion_, pwallet_, nLockTime_, rbfOptIn_, allowhighfees_)
+                      : Txs(txVersion_, pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), isNewAddrGenerated(false)
 {
     createTxImp(inputs, sendTo);
 }
@@ -204,8 +204,11 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
             int mask = sendToObj[key].get_int();
 
             //we generate a new address type of OUTPUT_TYPE_LEGACY
-            CTxDestination dest;
-            getnewaddress(dest);
+            if(!isNewAddrGenerated)
+            {
+                getnewaddress(dest);
+                isNewAddrGenerated=true;
+            }
 
             redeemScript = GetScriptForBetDest(dest, mask, betNumber);
             pwallet->AddCScript(redeemScript);
