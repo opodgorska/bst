@@ -9,7 +9,6 @@
 #include <QSettings>
 #include <QButtonGroup>
 #include <QIntValidator>
-#include <QDoubleValidator>
 
 #include <qt/bitcoinunits.h>
 #include <qt/clientmodel.h>
@@ -23,11 +22,7 @@
 
 #include <wallet/coincontrol.h>
 #include <validation.h>
-#ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
-#endif
-
-
 #include <validation.h>
 #include <policy/policy.h>
 #include <utilstrencodings.h>
@@ -89,6 +84,13 @@ LotteryPage::LotteryPage(const PlatformStyle *platformStyle, QWidget *parent) :
     connect(ui->getBetButton, SIGNAL(clicked()), this, SLOT(getBet()));
     
     loadListFromFile(QString("bets.dat"));
+    ui->rewardRatioComboBox->addItem("Automatic");
+    for(int i=1;i<=MAX_BET_REWARD_POW;++i)
+    {
+        ui->rewardRatioComboBox->addItem(QString::number(1<<i));
+    }
+    ui->warningRewardRatio->setVisible(true);
+    ui->warningRewardRatio->setText(QString("Automatic reward ratio gives lowest reward but highest probabilty to win"));
 }
 
 LotteryPage::~LotteryPage()
@@ -267,6 +269,7 @@ void LotteryPage::setModel(WalletModel *model)
 
     connect(ui->betNumberLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
     connect(ui->amountLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
+    connect(ui->rewardRatioComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateRewardView()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
 }
 
@@ -334,6 +337,29 @@ void LotteryPage::updateRewardView()
 {
     int betNumber = ui->betNumberLineEdit->text().toInt();
     int mask = getMask(betNumber);
+    
+    ui->warningRewardRatio->setVisible(false);
+    if (ui->rewardRatioComboBox->currentIndex()>0)
+    {
+        int minReward = maskToReward(mask);
+        int rewardMult = ui->rewardRatioComboBox->currentText().toInt();
+        if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
+        {
+            throw std::runtime_error(std::string("Reward ratio must be power of 2"));
+        }
+        if(rewardMult<minReward)
+        {
+            ui->warningRewardRatio->setVisible(true);
+            ui->warningRewardRatio->setText(QString("Warning: Reward ratio must be at least ")+QString::number(minReward));
+        }
+        mask = getMask(rewardMult-1);
+    }
+    else
+    {
+        ui->warningRewardRatio->setVisible(true);
+        ui->warningRewardRatio->setText(QString("Automatic reward ratio gives the lowest reward but the highest probabilty to win"));
+    }
+
     double betAmount = ui->amountLineEdit->text().toDouble();
     double reward = maskToReward(mask)*betAmount;
     if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
@@ -380,6 +406,22 @@ void LotteryPage::makeBet()
                     throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
                 }
                 int mask = getMask(betNumber);
+                if (ui->rewardRatioComboBox->currentIndex()>0)
+                {
+                    int minReward = maskToReward(mask);
+                    int rewardMult = ui->rewardRatioComboBox->currentText().toInt();
+                    if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
+                    {
+                        throw std::runtime_error(std::string("Reward ratio must be power of 2"));
+                    }
+                    if(rewardMult<minReward)
+                    {
+                        throw std::runtime_error(std::string("Reward ratio must be at least ")+std::to_string(minReward));
+                    }
+                    
+                    mask = getMask(rewardMult-1);
+                }
+                
                 constexpr size_t txSize=265;
                 double fee;
 
@@ -421,7 +463,7 @@ void LotteryPage::makeBet()
                 {
                     throw std::runtime_error(strprintf("Potential reward is greater than %d", MAX_BET_REWARD));
                 }
-                std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward)));
+                std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward))+byte2str(reinterpret_cast<unsigned char*>(&betNumber),sizeof(betNumber)));
                 
                 UniValue betReward(UniValue::VOBJ);
                 betReward.pushKV("data", msg);
@@ -524,6 +566,7 @@ void LotteryPage::getBet()
                 std::string txid=tx.sendTx().get_str();
 
                 QMessageBox msgBox;
+                msgBox.setWindowTitle("Winning transaction ID:");
                 msgBox.setText(QString::fromStdString(txid));
                 msgBox.exec();
 

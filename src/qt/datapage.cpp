@@ -621,13 +621,11 @@ void DataPage::check()
         QMessageBox msgBox;
         if(dataHash.compare(blockchainHash)==0)
         {
-            //msgBox.setText("PASS");
             msgBox.setWindowTitle("Check PASS");
             msgBox.setIconPixmap(QPixmap(":/icons/transaction_confirmed"));
         }
         else
         {
-            //msgBox.setText("FAIL");
             msgBox.setWindowTitle("Check FAIL");
             msgBox.setIconPixmap(QPixmap(":/icons/transaction_conflicted"));
         }

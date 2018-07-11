@@ -47,7 +47,7 @@ static UniValue callRPC(std::string args)
 
 UniValue makebet(const JSONRPCRequest& request)
 {
-	if (request.fHelp || request.params.size() < 2 || request.params.size() > 5)
+	if (request.fHelp || request.params.size() < 2 || request.params.size() > 6)
 	throw std::runtime_error(
         "makebet \n"
         "\nCreates a bet transaction.\n"
@@ -56,9 +56,10 @@ UniValue makebet(const JSONRPCRequest& request)
         "\nArguments:\n"
         "1. \"number\"                      (numeric, required) A number to be drown in range from 0 to 1023 \n"
         "2. \"amount\"                      (numeric, required) Amount of money to be multiplied if you win or lose in other case. Max value of amount is half of block mining reward\n"
-        "3. replaceable                     (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
-        "4. conf_target                     (numeric, optional) Confirmation target (in blocks)\n"
-        "5. \"estimate_mode\"               (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
+        "3. \"reward_mult_ratio\"           (numeric, required) A ratio you want to multiply your amount by if you win. This value must be power of 2\n"
+        "4. replaceable                     (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
+        "5. conf_target                     (numeric, optional) Confirmation target (in blocks)\n"
+        "6. \"estimate_mode\"               (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
         "       \"UNSET\"\n"
         "       \"ECONOMICAL\"\n"
         "       \"CONSERVATIVE\"\n"
@@ -91,24 +92,41 @@ UniValue makebet(const JSONRPCRequest& request)
     {
         throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
     }
+    
     int mask = getMask(betNumber);
+    if (!request.params[2].isNull())
+    {
+        int minReward = maskToReward(mask);
+        int rewardMult = request.params[2].get_int();
+        if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
+        {
+            throw std::runtime_error(std::string("reward_mult_ratio must be power of 2"));
+        }
+        if(rewardMult<minReward)
+        {
+            throw std::runtime_error(std::string("reward_mult_ratio must be at least ")+std::to_string(minReward));
+        }
+        
+        mask = getMask(rewardMult-1);
+    }
+
     constexpr size_t txSize=265;
     double fee;
 
     CCoinControl coin_control;
-    if (!request.params[2].isNull())
-    {
-        coin_control.m_signal_bip125_rbf = request.params[2].get_bool();
-    }
-
     if (!request.params[3].isNull())
     {
-        coin_control.m_confirm_target = ParseConfirmTarget(request.params[3]);
+        coin_control.m_signal_bip125_rbf = request.params[3].get_bool();
     }
 
     if (!request.params[4].isNull())
     {
-        if (!FeeModeFromString(request.params[4].get_str(), coin_control.m_fee_mode)) {
+        coin_control.m_confirm_target = ParseConfirmTarget(request.params[4]);
+    }
+
+    if (!request.params[5].isNull())
+    {
+        if (!FeeModeFromString(request.params[5].get_str(), coin_control.m_fee_mode)) {
             throw std::runtime_error("Invalid estimate_mode parameter");
         }
     }
@@ -148,7 +166,7 @@ UniValue makebet(const JSONRPCRequest& request)
     {
         throw std::runtime_error(strprintf("Potential reward is greater than %d", MAX_BET_REWARD));
     }
-    std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward)));
+    std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward))+byte2str(reinterpret_cast<unsigned char*>(&betNumber),sizeof(betNumber)));
     
     UniValue betReward(UniValue::VOBJ);
     betReward.pushKV("data", msg);
@@ -185,7 +203,7 @@ UniValue getbet(const JSONRPCRequest& request)
         "       \"CONSERVATIVE\"\n"
 
         "\nResult:\n"
-        "\"txid\"            (string) A hex-encoded transaction id\n"
+        "\"txid\"            (string) A hex-encoded transaction id if you won\n"
 
 
         "\nExamples:\n"
@@ -266,7 +284,7 @@ UniValue getbet(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
-    { "blockchain",         "makebet",                	        &makebet,             	        {"number", "amount", "replaceable", "conf_target", "estimate_mode"} },
+    { "blockchain",         "makebet",                	        &makebet,             	        {"number", "amount", "reward_mult_ratio", "replaceable", "conf_target", "estimate_mode"} },
     { "blockchain",         "getbet",                	        &getbet,             	        {"txid", "address", "replaceable", "conf_target", "estimate_mode"} },
 };
 

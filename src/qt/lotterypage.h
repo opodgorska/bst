@@ -8,16 +8,14 @@
 #include <policy/feerate.h>
 #include <qt/walletmodel.h>
 
-#include <QFile>
 #include <QWidget>
-#include <QListWidgetItem>
-#include <univalue.h>
 
 class WalletModel;
 class ClientModel;
 class QPlainTextEdit;
 class PlatformStyle;
 class QButtonGroup;
+class QListWidgetItem;
 
 namespace Ui {
     class LotteryPage;

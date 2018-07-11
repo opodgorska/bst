@@ -633,10 +633,25 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmoun
     }
     std::string blockhash=txPrev["blockhash"].get_str();
 
-    std::string op_return_data=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
-    reverseEndianess(op_return_data);
+    std::string op_return_reward=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
+    if(op_return_reward.empty())
+    {
+        LogPrintf("GetBetTxs::txVerify: op_return_reward is empty\n");
+        return false;
+    }
+    reverseEndianess(op_return_reward);
+    int opReturnReward = std::stoi(op_return_reward,nullptr,16);
+
+    std::string op_return_number=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4+8, 8);
+    if(op_return_number.empty())
+    {
+        LogPrintf("GetBetTxs::txVerify: op_return_number is empty\n");
+        return false;
+    }
+    reverseEndianess(op_return_number);
+    int opReturnNumber = std::stoi(op_return_number,nullptr,16);
     
-    int opReturnReward = std::stoi(op_return_data,nullptr,16);
+    //LogPrintf("opReturnNumber: %d\n", opReturnNumber);
     //LogPrintf("opReturnReward: %d\n", opReturnReward);
 
     std::vector<unsigned char> blockhashInScript(tx.vin[0].scriptSig.end()-42, tx.vin[0].scriptSig.end()-38);
@@ -677,6 +692,12 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmoun
 
     int betNumber=0;
     array2type(betNumber_, betNumber);
+
+    if(opReturnNumber!=betNumber)
+    {
+        LogPrintf("GetBetTxs::txVerify: opReturnNumber!=betNumber\n");
+        return false;        
+    }
 
     std::vector<unsigned char> blockhashNumber_(tx.vin[0].scriptSig.end()-42, tx.vin[0].scriptSig.end()-38);
     int blockhashNumber=0;

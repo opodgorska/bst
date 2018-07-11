@@ -28,8 +28,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
 {
     { "makebet", 0, "betnumber" },
     { "makebet", 1, "betamount" },
-    { "makebet", 3 , "replaceable" },
-    { "makebet", 4 , "conf_target" },
+    { "makebet", 2, "reward_mult_ratio" },
+    { "makebet", 4 , "replaceable" },
+    { "makebet", 5 , "conf_target" },
     { "getbet", 3 , "replaceable" },
     { "getbet", 4 , "conf_target" },
     { "storemessage", 1 , "replaceable" },
