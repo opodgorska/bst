@@ -124,7 +124,7 @@ UniValue makebet(const JSONRPCRequest& request)
     {
         throw std::runtime_error(strprintf("Potential reward is greater than %d", MAX_BET_REWARD));
     }
-    std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward)));
+    std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward))+byte2str(reinterpret_cast<unsigned char*>(&betNumber),sizeof(betNumber)));
     
     UniValue betReward(UniValue::VOBJ);
     betReward.pushKV("data", msg);
