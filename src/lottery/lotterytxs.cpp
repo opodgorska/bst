@@ -633,7 +633,16 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmoun
     }
     std::string blockhash=txPrev["blockhash"].get_str();
 
-    std::string op_return_reward=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
+    std::string op_return_reward;
+    try
+    {
+        op_return_reward=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
+    }
+    catch(const std::out_of_range& oor)
+    {
+        LogPrintf("GetBetTxs::txVerify: op_return_reward is out-of-range\n");
+        return false;        
+    }
     if(op_return_reward.empty())
     {
         LogPrintf("GetBetTxs::txVerify: op_return_reward is empty\n");
@@ -642,7 +651,16 @@ bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmoun
     reverseEndianess(op_return_reward);
     int opReturnReward = std::stoi(op_return_reward,nullptr,16);
 
-    std::string op_return_number=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4+8, 8);
+    std::string op_return_number;
+    try
+    {
+        op_return_number=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4+8, 8);
+    }
+    catch(const std::out_of_range& oor)
+    {
+        LogPrintf("GetBetTxs::txVerify: op_return_number is out-of-range\n");
+        return false;        
+    }
     if(op_return_number.empty())
     {
         LogPrintf("GetBetTxs::txVerify: op_return_number is empty\n");

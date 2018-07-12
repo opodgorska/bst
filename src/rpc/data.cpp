@@ -28,36 +28,36 @@ static std::string changeAddress("");
 class FileReader
 {
 public:
-	FileReader(const std::string& fileName_) : file(fileName_.c_str(), std::ios::in|std::ios::binary|std::ios::ate)
-	{
+    FileReader(const std::string& fileName_) : file(fileName_.c_str(), std::ios::in|std::ios::binary|std::ios::ate)
+    {
         if(!file.is_open())
         {
             throw std::runtime_error("Couldn't open the file");
         }
         size = file.tellg();
-	}
-	
-	~FileReader()
-	{
-		if(file.is_open())
-		{
-			file.close();
-		}
-	}
-	
-	void read(std::vector<char>& binaryData)
-	{
-		if(file.is_open())
-		{
-			binaryData.resize(size);
-			file.seekg(0, std::ios::beg);
-			file.read(binaryData.data(), size);
-		}
-	}
+    }
+
+    ~FileReader()
+    {
+        if(file.is_open())
+        {
+            file.close();
+        }
+    }
+
+    void read(std::vector<char>& binaryData)
+    {
+        if(file.is_open())
+        {
+            binaryData.resize(size);
+            file.seekg(0, std::ios::beg);
+            file.read(binaryData.data(), size);
+        }
+    }
 
 private:
-	std::ifstream file;
-	std::streampos size;
+    std::ifstream file;
+    std::streampos size;
 };
 
 class FileWriter
@@ -88,7 +88,7 @@ public:
     }
 
 private:
-    std::ofstream file;	
+    std::ofstream file;
 };
 
 static std::string computeHash(char* binaryData, size_t size)

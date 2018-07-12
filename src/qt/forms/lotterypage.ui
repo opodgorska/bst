@@ -111,13 +111,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="warningRewardRatio">
-          <property name="text">
-           <string>Warning</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <spacer name="horizontalSpacer_12">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -199,7 +192,7 @@
              <widget class="QListWidget" name="transactionListWidget">
               <property name="minimumSize">
                <size>
-                <width>550</width>
+                <width>600</width>
                 <height>100</height>
                </size>
               </property>

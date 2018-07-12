@@ -79,18 +79,9 @@ LotteryPage::LotteryPage(const PlatformStyle *platformStyle, QWidget *parent) :
     minimizeFeeSection(settings.value("fFeeSectionMinimized").toBool());
 
     ui->betNumberLineEdit->setValidator( new QIntValidator(0, MAX_BET_REWARD-1, this) );
-
-    connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
-    connect(ui->getBetButton, SIGNAL(clicked()), this, SLOT(getBet()));
-    
     loadListFromFile(QString("bets.dat"));
-    ui->rewardRatioComboBox->addItem("Automatic");
-    for(int i=1;i<=MAX_BET_REWARD_POW;++i)
-    {
-        ui->rewardRatioComboBox->addItem(QString::number(1<<i));
-    }
-    ui->warningRewardRatio->setVisible(true);
-    ui->warningRewardRatio->setText(QString("Automatic reward ratio gives lowest reward but highest probabilty to win"));
+
+    loadRewardRatioFrom(0);
 }
 
 LotteryPage::~LotteryPage()
@@ -267,9 +258,11 @@ void LotteryPage::setModel(WalletModel *model)
     else
         ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(settings.value("nConfTarget").toInt()));
 
-    connect(ui->betNumberLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
+    connect(ui->betNumberLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardViewByBetNum()));
     connect(ui->amountLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
     connect(ui->rewardRatioComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateRewardView()));
+    connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
+    connect(ui->getBetButton, SIGNAL(clicked()), this, SLOT(getBet()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
 }
 
@@ -333,32 +326,67 @@ void LotteryPage::loadListFromFile(const QString& fileName)
     }
 }
 
+void LotteryPage::loadRewardRatioFrom(int from)
+{
+    for(int i=1;i<=MAX_BET_REWARD_POW;++i)
+    {
+        int num = (1<<i);
+        if(num>=from)
+        {
+            ui->rewardRatioComboBox->addItem(QString("x")+QString::number(num));
+        }
+    }
+}
+
+void LotteryPage::clearRewardRatio()
+{
+    int count = ui->rewardRatioComboBox->count();
+    for(int i=0;i<count;++i)
+    {
+        ui->rewardRatioComboBox->removeItem(0);
+    }
+}
+
+void LotteryPage::updateRewardRatioFrom(int from)
+{
+    int currentRewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
+    clearRewardRatio();
+    loadRewardRatioFrom(from);
+    if(from<=currentRewardMult)
+    {
+        int index = ui->rewardRatioComboBox->findText(QString("x")+QString::number(currentRewardMult));
+        ui->rewardRatioComboBox->setCurrentIndex(index);
+    }
+}
+
 void LotteryPage::updateRewardView()
+{
+    int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
+    int mask = getMask(rewardMult-1);
+
+    double betAmount = ui->amountLineEdit->text().toDouble();
+    double reward = maskToReward(mask)*betAmount;
+    if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
+    {
+        reward = 0.0;
+    }
+    if(walletModel && walletModel->getOptionsModel())
+    {
+        ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(reward*COIN)));
+    }
+}
+
+void LotteryPage::updateRewardViewByBetNum()
 {
     int betNumber = ui->betNumberLineEdit->text().toInt();
     int mask = getMask(betNumber);
-    
-    ui->warningRewardRatio->setVisible(false);
-    if (ui->rewardRatioComboBox->currentIndex()>0)
-    {
-        int minReward = maskToReward(mask);
-        int rewardMult = ui->rewardRatioComboBox->currentText().toInt();
-        if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
-        {
-            throw std::runtime_error(std::string("Reward ratio must be power of 2"));
-        }
-        if(rewardMult<minReward)
-        {
-            ui->warningRewardRatio->setVisible(true);
-            ui->warningRewardRatio->setText(QString("Warning: Reward ratio must be at least ")+QString::number(minReward));
-        }
-        mask = getMask(rewardMult-1);
-    }
-    else
-    {
-        ui->warningRewardRatio->setVisible(true);
-        ui->warningRewardRatio->setText(QString("Automatic reward ratio gives the lowest reward but the highest probabilty to win"));
-    }
+
+    int minReward = maskToReward(mask);
+    int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
+
+    updateRewardRatioFrom(minReward);
+    rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
+    mask = getMask(rewardMult-1);
 
     double betAmount = ui->amountLineEdit->text().toDouble();
     double reward = maskToReward(mask)*betAmount;
@@ -383,12 +411,12 @@ void LotteryPage::makeBet()
             {
                 CWallet* const pwallet=wallet.get();
 
-                int betNumber = ui->betNumberLineEdit->text().toInt();
-
                 if(ui->betNumberLineEdit->text().length()==0)
                 {
                     throw std::runtime_error(std::string("Bet number must be provided"));
                 }
+                int betNumber = ui->betNumberLineEdit->text().toInt();
+
                 if(ui->amountLineEdit->text().length()==0)
                 {
                     throw std::runtime_error(std::string("Amount must be provided"));
@@ -405,22 +433,19 @@ void LotteryPage::makeBet()
                 {
                     throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
                 }
+
                 int mask = getMask(betNumber);
-                if (ui->rewardRatioComboBox->currentIndex()>0)
+                int minReward = maskToReward(mask);
+                int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
+                if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
                 {
-                    int minReward = maskToReward(mask);
-                    int rewardMult = ui->rewardRatioComboBox->currentText().toInt();
-                    if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
-                    {
-                        throw std::runtime_error(std::string("Reward ratio must be power of 2"));
-                    }
-                    if(rewardMult<minReward)
-                    {
-                        throw std::runtime_error(std::string("Reward ratio must be at least ")+std::to_string(minReward));
-                    }
-                    
-                    mask = getMask(rewardMult-1);
+                    throw std::runtime_error(std::string("Reward ratio must be power of 2"));
                 }
+                if(rewardMult<minReward)
+                {
+                    throw std::runtime_error(std::string("Reward ratio must be at least ")+std::to_string(minReward));
+                }                
+                mask = getMask(rewardMult-1);
                 
                 constexpr size_t txSize=265;
                 double fee;
