@@ -11,7 +11,8 @@
 #include <data/datautils.h>
 #include <data/txs.h>
 
-static constexpr int MAX_BET_REWARD=1024;
+static constexpr int MAX_BET_REWARD_POW=10;
+static constexpr int MAX_BET_REWARD=(0x1<<MAX_BET_REWARD_POW);
 static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.5;
 
 class MakeBetTxs : public Txs
@@ -24,6 +25,8 @@ public:
     static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params);
 
 private:
+    bool isNewAddrGenerated;
+    CTxDestination dest;
     CScript redeemScript;
 
 private:

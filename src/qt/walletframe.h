@@ -75,6 +75,9 @@ public Q_SLOTS:
     /** Switch to data page */
     void gotoDataPage();
 
+    /** Switch to lottery page */
+    void gotoLotteryPage();
+
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */

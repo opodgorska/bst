@@ -96,6 +96,8 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     quitAction(0),
     dataAction(0),
     dataMenuAction(0),
+    lotteryAction(0),
+    lotteryMenuAction(0),
     sendCoinsAction(0),
     sendCoinsMenuAction(0),
     usedSendingAddressesAction(0),
@@ -327,9 +329,20 @@ void BitcoinGUI::createActions()
     dataAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
     tabGroup->addAction(dataAction);
     
-    dataMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/history"), dataAction->text(), this);
+    dataMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/binary-code"), dataAction->text(), this);
     dataMenuAction->setStatusTip(dataAction->statusTip());
     dataMenuAction->setToolTip(dataMenuAction->statusTip());
+
+    lotteryAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Lottery"), this);
+    lotteryAction->setStatusTip(tr("Make bet to play lottery"));
+    lotteryAction->setToolTip(lotteryAction->statusTip());
+    lotteryAction->setCheckable(true);
+    lotteryAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_7));
+    tabGroup->addAction(lotteryAction);
+    
+    lotteryMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/lottery"), lotteryAction->text(), this);
+    lotteryMenuAction->setStatusTip(lotteryAction->statusTip());
+    lotteryMenuAction->setToolTip(lotteryMenuAction->statusTip());
 
 #ifdef ENABLE_WALLET
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
@@ -345,6 +358,11 @@ void BitcoinGUI::createActions()
     connect(dataAction, SIGNAL(triggered()), this, SLOT(gotoDataPage()));
     connect(dataAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(dataMenuAction, SIGNAL(triggered()), this, SLOT(gotoDataPage()));
+
+    connect(lotteryAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(lotteryAction, SIGNAL(triggered()), this, SLOT(gotoLotteryPage()));
+    connect(lotteryAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(lotteryMenuAction, SIGNAL(triggered()), this, SLOT(gotoLotteryPage()));
 
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));
@@ -487,6 +505,7 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(dataAction);
+        toolbar->addAction(lotteryAction);
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
 
@@ -615,6 +634,8 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     sendCoinsMenuAction->setEnabled(enabled);
     dataAction->setEnabled(enabled);
     dataMenuAction->setEnabled(enabled);
+    lotteryAction->setEnabled(enabled);
+    lotteryMenuAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
     receiveCoinsMenuAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
@@ -667,6 +688,7 @@ void BitcoinGUI::createTrayIconMenu()
     trayIconMenu->addAction(receiveCoinsMenuAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(dataAction);
+    trayIconMenu->addAction(lotteryAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(signMessageAction);
     trayIconMenu->addAction(verifyMessageAction);
@@ -766,6 +788,12 @@ void BitcoinGUI::gotoDataPage()
 {
     dataAction->setChecked(true);
     if (walletFrame) walletFrame->gotoDataPage();
+}
+
+void BitcoinGUI::gotoLotteryPage()
+{
+    lotteryAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoLotteryPage();
 }
 
 void BitcoinGUI::gotoSignMessageTab(QString addr)

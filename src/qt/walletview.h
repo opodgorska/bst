@@ -13,6 +13,7 @@ class BitcoinGUI;
 class ClientModel;
 class OverviewPage;
 class DataPage;
+class LotteryPage;
 class PlatformStyle;
 class ReceiveCoinsDialog;
 class SendCoinsDialog;
@@ -61,6 +62,7 @@ private:
     WalletModel *walletModel;
 
     DataPage *dataPage;
+    LotteryPage *lotteryPage;
     OverviewPage *overviewPage;
     QWidget *transactionsPage;
     ReceiveCoinsDialog *receiveCoinsPage;
@@ -85,6 +87,9 @@ public Q_SLOTS:
 
     /** Switch to data page */
     void gotoDataPage();
+
+    /** Switch to lottery page */
+    void gotoLotteryPage();
 
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");

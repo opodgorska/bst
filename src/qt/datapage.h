@@ -13,6 +13,7 @@
 #include <univalue.h>
 
 class WalletModel;
+class ClientModel;
 class QPlainTextEdit;
 class PlatformStyle;
 class QButtonGroup;
@@ -32,11 +33,14 @@ class DataPage : public QWidget
 public:
     explicit DataPage(const PlatformStyle *platformStyle, QWidget *parent = 0);
     ~DataPage();
+
+    void setClientModel(ClientModel *clientModel);
     void setModel(WalletModel *model);
 
 private:
     Ui::DataPage *ui;
     WalletModel *walletModel;
+    ClientModel *clientModel;
     const int blockSizeDisplay;
     std::string changeAddress;
     bool fFeeMinimized;

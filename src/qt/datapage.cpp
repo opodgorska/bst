@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <qt/bitcoinunits.h>
+#include <qt/clientmodel.h>
 #include <qt/datapage.h>
 #include <qt/forms/ui_datapage.h>
 #include <qt/guiutil.h>
@@ -246,6 +247,15 @@ void DataPage::updateDisplayUnit()
     ui->customFee->setDisplayUnit(walletModel->getOptionsModel()->getDisplayUnit());
     updateMinFeeLabel();
     updateSmartFeeLabel();
+}
+
+void DataPage::setClientModel(ClientModel *_clientModel)
+{
+    this->clientModel = _clientModel;
+
+    if (_clientModel) {
+        connect(_clientModel, SIGNAL(numBlocksChanged(int,QDateTime,double,bool)), this, SLOT(updateSmartFeeLabel()));
+    }
 }
 
 void DataPage::setModel(WalletModel *model)
@@ -510,6 +520,11 @@ void DataPage::store()
                     throw std::runtime_error(std::string("Insufficient funds"));
                 }
 
+                if(fee>(static_cast<double>(maxTxFee)/COIN))
+                {
+                    fee=(static_cast<double>(maxTxFee)/COIN);
+                }
+
                 if(changeAddress.empty())
                 {
                     changeAddress=getChangeAddress(pwallet);
@@ -606,13 +621,11 @@ void DataPage::check()
         QMessageBox msgBox;
         if(dataHash.compare(blockchainHash)==0)
         {
-            //msgBox.setText("PASS");
             msgBox.setWindowTitle("Check PASS");
             msgBox.setIconPixmap(QPixmap(":/icons/transaction_confirmed"));
         }
         else
         {
-            //msgBox.setText("FAIL");
             msgBox.setWindowTitle("Check FAIL");
             msgBox.setIconPixmap(QPixmap(":/icons/transaction_conflicted"));
         }
