@@ -18,6 +18,7 @@ import time
 from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
+from .mininode import NetworkThread
 from .util import (
     MAX_NODES,
     PortSeed,
@@ -83,6 +84,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         """Sets test framework defaults. Do not override this method. Instead, override the set_test_params() method"""
         self.setup_clean_chain = False
         self.nodes = []
+        self.network_thread = None
         self.mocktime = 0
         self.supports_cli = False
         self.bind_to_localhost_only = True
@@ -144,6 +146,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.options.tmpdir = tempfile.mkdtemp(prefix="test")
         self._start_logging()
 
+        self.log.debug('Setting up network thread')
+        self.network_thread = NetworkThread()
+        self.network_thread.start()
+
         success = TestStatus.FAILED
 
         try:
@@ -171,6 +177,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             print("Testcase failed. Attaching python debugger. Enter ? for help")
             pdb.set_trace()
 
+        self.log.debug('Closing down network thread')
+        self.network_thread.close()
         if not self.options.noshutdown:
             self.log.info("Stopping nodes")
             if self.nodes:
@@ -467,3 +475,20 @@ class SkipTest(Exception):
     """This exception is raised to skip a test"""
     def __init__(self, message):
         self.message = message
+
+
+def skip_if_no_py3_zmq():
+    """Attempt to import the zmq package and skip the test if the import fails."""
+    try:
+        import zmq  # noqa
+    except ImportError:
+        raise SkipTest("python3-zmq module not available.")
+
+
+def skip_if_no_bitcoind_zmq(test_instance):
+    """Skip the running test if bitcoind has not been compiled with zmq support."""
+    config = configparser.ConfigParser()
+    config.read_file(open(test_instance.options.configfile))
+
+    if not config["components"].getboolean("ENABLE_ZMQ"):
+        raise SkipTest("bitcoind has not been built with zmq enabled.")
