@@ -74,6 +74,7 @@ bst-cli checkmessage c04878b7bf26def16ee689863943da91f9e7dcce77250e1ca8b63905493
 PASS
 ```
 
+```
 bst-cli checksignature 0eec311afa6e8253c984d9bd57dadedd72848065160a093dc66a776388cfda13 /path/to/file/myfile
 PASS
 ```
