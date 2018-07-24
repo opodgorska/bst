@@ -1824,7 +1824,11 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
+            {
                 WalletTxToJSON(wtx, entry);
+                size_t dataSize=wtx.tx->GetOP_ReturnSize();
+                entry.pushKV("datasize", dataSize);
+            }
             entry.pushKV("abandoned", wtx.isAbandoned());
             ret.push_back(entry);
         }
