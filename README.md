@@ -33,7 +33,7 @@ Default settings for BST are following:
 - peer-to-peer network port:	8446
 - executable names:		bst*
 
-To store and retrieve data from the blockchain following RPC commands are now availlable:
+To store and retrieve data from the blockchain following RPC commands are available:
 
 ```
 bst-cli storemessage "user data string"
@@ -62,11 +62,52 @@ bst-cli retrievedata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654f
 bst-cli retrievedata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654fa3323 /path/to/file/outfile
 ```
 
+To check if data stored in blockchain match user data following RPC commands are available:
+
+```
+bst-cli checkdata ad1e1c0736f366fdf6b2e9b63048c02a0aef83fdf4e705e78f89c3e654fa3323 /path/to/file/myfile
+PASS
+```
+
+```
+bst-cli checkmessage c04878b7bf26def16ee689863943da91f9e7dcce77250e1ca8b6390549356006 "user data string"
+PASS
+```
+
+bst-cli checksignature 0eec311afa6e8253c984d9bd57dadedd72848065160a093dc66a776388cfda13 /path/to/file/myfile
+PASS
+```
+
 ```
 bst-cli listtransactions
 Among other parameters returns "datasize" field informing about the size of the data stored in the blockchain.
 ```
 
-Along with RPC commands also Qt client was developed to provide the same data manipulation functionality. A 'Data' page embedded into bst-qt application
-contains two tabs that enable data to store into or retrieve from the blockchain. A dialog with transaction details also informs about "Data size" for a
-given transaction.
+To play lottery following RPC commands are available:
+
+```
+makebet 0 0.1 2
+15189c8466bac9680be23e2a3a4490e954fe59895f1c329ac9b008a7157caaa7
+```
+
+```
+getbet 15189c8466bac9680be23e2a3a4490e954fe59895f1c329ac9b008a7157caaa7 36TARZ3BhxUYaJcZ2EF5FCT32RnQPHSxYB
+34bcf741f0899b33338893cc0be99550a28034a84f3aa91801aec1e4f2d17aef
+```
+
+To play lottery you need to create a bet using the makebet command which returns a transaction id. After the transaction is confirmed (is stored in the blockchain) you can check if you win
+by calling the getbet command. If you win your reward is sent to the provided address.
+
+The makebet command requires at least 3 arguments:
+1. "number"                      (numeric, required) A number to be drown in range from 0 to 1023 
+2. "amount"                      (numeric, required) Amount of money to be multiplied if you win or lose in other case. Max value of amount is half of block mining reward
+3. "reward_mult_ratio"           (numeric, required) A ratio you want to multiply your amount by if you win. This value must be power of 2
+
+The getbet command requires at least 2 arguments:
+1. "txid"         (string, required) The transaction id returned by makebet
+2. "address"      (string, required) The address to sent the reward
+
+Along with RPC commands also Qt client was developed to provide the same data manipulation and lottery functionality. A 'Data' page embedded into bst-qt application
+contains three tabs that enable data to store into, check and retrieve from the blockchain. A dialog with transaction details also informs about "Data size" for a
+given transaction. Also a 'Lottery' page was added. This page handle two commands: make/get bet creating transactions that let you to make bets and transations that 
+let you get rewards from winning bets.
