@@ -148,6 +148,7 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
+    const_cast<Consensus::Params&>(chainparams.GetConsensus()).DAAHeight=Consensus::DAAHeightActive;// bioinfo change: DAAHeight must be set in some tests
     std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
     CBlock& block = pblocktemplate->block;
 

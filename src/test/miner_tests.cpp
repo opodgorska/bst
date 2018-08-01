@@ -373,6 +373,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         CBlockIndex* prev = chainActive.Tip();
         CBlockIndex* next = new CBlockIndex();
         next->phashBlock = new uint256(InsecureRand256());
+        next->nChainWork = chainActive.Tip()->nHeight;//bioinfo change: due to the bitconcashe difficulty algorithm
         pcoinsTip->SetBestBlock(next->GetBlockHash());
         next->pprev = prev;
         next->nHeight = prev->nHeight + 1;
@@ -385,6 +386,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         CBlockIndex* prev = chainActive.Tip();
         CBlockIndex* next = new CBlockIndex();
         next->phashBlock = new uint256(InsecureRand256());
+        next->nChainWork = chainActive.Tip()->nHeight;//bioinfo change: due to the bitconcashe difficulty algorithm
         pcoinsTip->SetBestBlock(next->GetBlockHash());
         next->pprev = prev;
         next->nHeight = prev->nHeight + 1;
@@ -495,7 +497,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     BOOST_CHECK(TestSequenceLocks(tx, flags)); // Sequence locks pass
     tx.vin[0].nSequence = CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG | 1;
     BOOST_CHECK(!TestSequenceLocks(tx, flags)); // Sequence locks fail
-
+    
+    //bioinfo change: to pass the test we must change deployment of BIP68 to time point later that the timestamps used in blocks in this test 
+    const_cast<Consensus::Params&>(chainparams.GetConsensus()).vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = 1527842385;
+    const_cast<Consensus::Params&>(chainparams.GetConsensus()).vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = 1533113439;
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
     // None of the of the absolute height/time locked tx should have made

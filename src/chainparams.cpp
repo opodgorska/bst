@@ -82,7 +82,7 @@ public:
         consensus.BIP34Hash = uint256S("80000000002dcd07c0c9d0bc726dcd43a84d00482a0abb2c4ec48c2ee671eab5");
         consensus.BIP65Height = 1351;
         consensus.BIP66Height = 1251;
-        consensus.DAAHeight = 29277; //This must be grater or equal than DifficultyAdjustmentInterval()
+        consensus.DAAHeight = Consensus::DAAHeightActive;
 
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -133,7 +133,7 @@ public:
 
         vSeeds.clear();      //DNS seeds.
         vSeeds.emplace_back("seed.blockstamp.info");
-        vSeeds.emplace_back("85.10.197.15");
+        vSeeds.emplace_back("85.10.201.29");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
