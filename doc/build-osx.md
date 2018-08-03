@@ -41,14 +41,14 @@ from the root of the repository.
 Build Bitcoin Core
 ------------------------
 
-1. Clone the bitcoin source code and cd into `bitcoin`
+1. Clone the bst source code and cd into `bst`
 
-        git clone https://github.com/bitcoin/bitcoin
-        cd bitcoin
+        git clone https://github.com/BlockStamp/bst.git
+        cd bst
 
-2.  Build bitcoin-core:
+2.  Build bst-core:
 
-    Configure and build the headless bitcoin binaries as well as the GUI (if Qt is found).
+    Configure and build the headless bst binaries as well as the GUI (if Qt is found).
 
     You can disable the GUI build by passing `--without-gui` to configure.
 
@@ -67,26 +67,26 @@ Build Bitcoin Core
 Running
 -------
 
-Bitcoin Core is now available at `./src/bitcoind`
+Bitcoin Core is now available at `./src/bstd`
 
 Before running, it's recommended you create an RPC configuration file.
 
-    echo -e "rpcuser=bitcoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/Bitcoin/bitcoin.conf"
+    echo -e "rpcuser=bitcoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/BST/bst.conf"
 
-    chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/bitcoin.conf"
+    chmod 600 "/Users/${USER}/Library/Application Support/BST/bst.conf"
 
-The first time you run bitcoind, it will start downloading the blockchain. This process could take several hours.
+The first time you run bstd, it will start downloading the blockchain. This process could take several hours.
 
 You can monitor the download process by looking at the debug.log file:
 
-    tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
+    tail -f $HOME/Library/Application\ Support/BST/debug.log
 
 Other commands:
 -------
 
-    ./src/bitcoind -daemon # Starts the bitcoin daemon.
-    ./src/bitcoin-cli --help # Outputs a list of command-line options.
-    ./src/bitcoin-cli help # Outputs a list of RPC commands when the daemon is running.
+    ./src/bstd -daemon # Starts the bst daemon.
+    ./src/bst-cli --help # Outputs a list of command-line options.
+    ./src/bst-cli help # Outputs a list of RPC commands when the daemon is running.
 
 Notes
 -----
