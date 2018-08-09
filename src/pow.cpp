@@ -128,10 +128,10 @@ static arith_uint256 ComputeTarget(const CBlockIndex *pindexFirst,
     // adjustment we are going to do to a factor in [0.5, 2].
     int64_t nActualTimespan =
         int64_t(pindexLast->nTime) - int64_t(pindexFirst->nTime);
-    if (nActualTimespan > 288 * params.nPowTargetSpacing) {
-        nActualTimespan = 288 * params.nPowTargetSpacing;
-    } else if (nActualTimespan < 72 * params.nPowTargetSpacing) {
-        nActualTimespan = 72 * params.nPowTargetSpacing;
+    if (nActualTimespan > 2880 * params.nPowTargetSpacing) {
+        nActualTimespan = 2880 * params.nPowTargetSpacing;
+    } else if (nActualTimespan < 720 * params.nPowTargetSpacing) {
+        nActualTimespan = 720 * params.nPowTargetSpacing;
     }
 
     work /= nActualTimespan;
@@ -196,7 +196,7 @@ static uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     assert(pindexPrev);
 
     // Special difficulty rule for testnet:
-    // If the new block's timestamp is more than 2* 10 minutes then allow
+    // If the new block's timestamp is more than 2* 1 minute then allow
     // mining of a min-difficulty block.
     if (params.fPowAllowMinDifficultyBlocks &&
         (pblock->GetBlockTime() >
@@ -213,7 +213,7 @@ static uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     assert(pindexLast);
 
     // Get the first suitable block of the difficulty interval.
-    uint32_t nHeightFirst = nHeight - 144;
+    uint32_t nHeightFirst = nHeight - 1440;
     const CBlockIndex *pindexFirst =
         GetSuitableBlock(pindexPrev->GetAncestor(nHeightFirst));
     assert(pindexFirst);
