@@ -13,7 +13,7 @@
 
 namespace Consensus {
 
-const uint32_t DAAHeightActive=1441;  //This must be grater or equal than DifficultyAdjustmentInterval()
+const uint32_t DAAHeightActive=1444;
 
 enum DeploymentPos
 {
