@@ -48,7 +48,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
  */
 static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
-    const char* pszTimestamp = "9/Aug/2018 0000000000000000002be011f70cd48f20f57955ca0524cfa7f128763ebb82ea";
+    const char* pszTimestamp = "20/Aug/2018  00000000000000000018b1c1975ec9bba41aaffe8ba2faafca801b8a0680e881";
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
@@ -76,7 +76,7 @@ public:
         strNetworkID = "main";
         consensus.nSubsidyHalvingInterval = 1050000; //every 2 yers for 1 minute target spacing
 
-        consensus.BIP16Exception = uint256S("800000001960523e297356e3db8778d247bee2d8bacec17854c2513dd8623377");
+        consensus.BIP16Exception = uint256S("8000000049a2e26b0185be50b4b8ed58b707c8893762959f0b1673641cae1828");
         consensus.BIP34Height = 1024;
         consensus.BIP34Hash = uint256S("80000000005d7a89f2933e465fd579c4608c9cbc1d479bd5fc6268ec9a8580c1");
         consensus.BIP65Height = 1351;
@@ -124,11 +124,11 @@ public:
         nDefaultPort = 8446;
         nPruneAfterHeight = 100000;
 
-        genesis = CreateGenesisBlock(1533799229, 819553321, 0x1d00ffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1534749679, 345169555, 0x1d00ffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-        uint256 picoHash = uint256S("800000001960523e297356e3db8778d247bee2d8bacec17854c2513dd8623377");
+        uint256 picoHash = uint256S("8000000049a2e26b0185be50b4b8ed58b707c8893762959f0b1673641cae1828");
         assert(consensus.hashGenesisBlock == picoHash);
-        assert(genesis.hashMerkleRoot == uint256S("c4ce83fafe24d20f17bb69364768ebf910de6bc57888854dad9000b0095292aa"));
+        assert(genesis.hashMerkleRoot == uint256S("6f244d2d32e34b70fd35d149614c5cfc15842fd48dfd556b5bd06528fc6cced7"));
 
         vSeeds.clear();      //DNS seeds.
         vSeeds.emplace_back("seed.blockstamp.info");
@@ -211,11 +211,11 @@ public:
         nDefaultPort = 18333;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1533799229, 819553321, 0x1d00ffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1534749679, 345169555, 0x1d00ffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-        uint256 picoHash = uint256S("800000001960523e297356e3db8778d247bee2d8bacec17854c2513dd8623377");
+        uint256 picoHash = uint256S("8000000049a2e26b0185be50b4b8ed58b707c8893762959f0b1673641cae1828");
         assert(consensus.hashGenesisBlock == picoHash);
-        assert(genesis.hashMerkleRoot == uint256S("c4ce83fafe24d20f17bb69364768ebf910de6bc57888854dad9000b0095292aa"));
+        assert(genesis.hashMerkleRoot == uint256S("6f244d2d32e34b70fd35d149614c5cfc15842fd48dfd556b5bd06528fc6cced7"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
