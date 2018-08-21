@@ -78,7 +78,7 @@ public:
 
         consensus.BIP16Exception = uint256S("8000000049a2e26b0185be50b4b8ed58b707c8893762959f0b1673641cae1828");
         consensus.BIP34Height = 1024;
-        consensus.BIP34Hash = uint256S("80000000005d7a89f2933e465fd579c4608c9cbc1d479bd5fc6268ec9a8580c1");
+        consensus.BIP34Hash = uint256S("8000000000d34dcc4a6f1312961560bb5db555451d6262cc899e228ebcffcb4c");
         consensus.BIP65Height = 1351;
         consensus.BIP66Height = 1251;
         consensus.DAAHeight = Consensus::DAAHeightActive;

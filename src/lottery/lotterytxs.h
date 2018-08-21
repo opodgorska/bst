@@ -13,7 +13,7 @@
 
 static constexpr int MAX_BET_REWARD_POW=10;
 static constexpr int MAX_BET_REWARD=(0x1<<MAX_BET_REWARD_POW);
-static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.5;
+static constexpr double ACCUMULATED_BET_REWARD_FOR_BLOCK=0.9;
 
 class MakeBetTxs : public Txs
 {
