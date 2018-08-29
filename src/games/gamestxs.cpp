@@ -5,7 +5,8 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key_io.h>
-#include <lottery/lotterytxs.h>
+#include <games/gamestxs.h>
+#include <games/gamesutils.h>
 #include <policy/rbf.h>
 #include <rpc/rawtransaction.h>
 #include <index/txindex.h>
@@ -23,18 +24,16 @@
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
 
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
-
-//creating a lottery transaction
+//creating game transaction
 
 class CScriptBetVisitor : public boost::static_visitor<bool>
 {
 private:
-    int mask;
-    int betNumber;
+    int argument;
+    std::vector<int> betNumbers;
     CScript *script;
 public:
-    explicit CScriptBetVisitor(CScript *scriptin, char mask_, char betNumber_) : mask(mask_), betNumber(betNumber_), script(scriptin) {}
+    explicit CScriptBetVisitor(CScript *scriptin, const std::vector<int>& betNumbers_, int argument_) : argument(argument_), betNumbers(betNumbers_), script(scriptin) {}
 
     bool operator()(const CNoDestination &dest) const {
         script->clear();
@@ -43,13 +42,27 @@ public:
 
     bool operator()(const CKeyID &keyID) const {
         script->clear();
-        
-        std::vector<unsigned char> maskArray;
+        std::vector<unsigned char> argumentArray;
         std::vector<unsigned char> betNumberArray;
-        type2array(mask, maskArray);
-        type2array(betNumber, betNumberArray);
+        size_t numbersCount=betNumbers.size();
+        
+        type2array(argument, argumentArray);
+        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << OP_IF;
+        for(size_t i=0;i<numbersCount-1;++i)
+        {
+            type2array(betNumbers[i], betNumberArray);
+            *script << OP_DUP << betNumberArray << OP_EQUAL << OP_IF << OP_DROP << OP_TRUE << OP_ELSE;
+        }
 
-        *script << maskArray << OP_AND << betNumberArray << OP_EQUALVERIFY << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        type2array(betNumbers[numbersCount-1], betNumberArray);
+        *script << betNumberArray << OP_EQUALVERIFY << OP_TRUE;
+
+        for(size_t i=0;i<numbersCount-1;++i)
+        {        
+            *script << OP_ENDIF;
+        }
+
+        *script << OP_ELSE << OP_DROP << OP_FALSE << OP_ENDIF << argumentArray << OP_DROP;
         return true;
     }
 
@@ -74,39 +87,15 @@ public:
     }
 };
 
-CScript GetScriptForBetDest(const CTxDestination& dest, int mask, int betNumber)
+CScript GetScriptForBetDest(const CTxDestination& dest, const std::vector<int>& betNumbers, int argument)
 {
     CScript script;
 
-    boost::apply_visitor(CScriptBetVisitor(&script, mask, betNumber), dest);
+    boost::apply_visitor(CScriptBetVisitor(&script, betNumbers, argument), dest);
     return script;
 }
 
-UniValue MakeBetTxs::getnewaddress(CTxDestination& dest, OutputType output_type)
-{
-    LOCK2(cs_main, pwallet->cs_wallet);
-
-    if (!pwallet->IsLocked()) {
-        pwallet->TopUpKeyPool();
-    }
-
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey))
-    {
-        throw std::runtime_error(std::string("Error: Keypool ran out, please call keypoolrefill first"));
-    }
-    pwallet->LearnRelatedScripts(newKey, output_type);
-    dest = GetDestinationForKey(newKey, output_type);
-
-    std::string strAccount("");
-    pwallet->SetAddressBook(dest, strAccount, "receive");
-
-    return EncodeDestination(dest);
-}
-
-
-MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_, int32_t txVersion_) 
+MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int32_t txVersion_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
                       : Txs(txVersion_, pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), isNewAddrGenerated(false)
 {
     createTxImp(inputs, sendTo);
@@ -177,63 +166,71 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
         rawTx.vin.push_back(in);
     }
 
-
     for (unsigned int idx = 0; idx < sendTo.size(); idx++)
     {
+        int argument;
+        std::vector<int> betNumbers;
         const UniValue& sendToObj = sendTo[idx].get_obj();
-
         std::vector<std::string> addrList = sendToObj.getKeys();
-
-        if (addrList[0] == "data") 
+        
+        for (const std::string &name_ : addrList)
         {
-            const std::string addr = addrList[0];
-            std::vector<unsigned char> data = ParseHexV(sendToObj[addr].getValStr(),"Data");
-
-            CTxOut out(0, CScript() << OP_RETURN << data);
-            rawTx.vout.push_back(out);
-        }
-        else if(addrList[0]=="betNumber")
-        {
-            std::string key = addrList[0];
-            int betNumber = sendToObj[key].get_int();
-
-            key = addrList[1];
-            CAmount nAmount = AmountFromValue(sendToObj[key].getValStr());
-
-            key = addrList[2];
-            int mask = sendToObj[key].get_int();
-
-            //we generate a new address type of OUTPUT_TYPE_LEGACY
-            if(!isNewAddrGenerated)
+            if (name_ == "data") 
             {
-                getnewaddress(dest);
-                isNewAddrGenerated=true;
+                std::vector<unsigned char> data = ParseHexV(sendToObj[name_].getValStr(),"Data");
+
+                CTxOut out(0, CScript() << OP_RETURN << data);
+                rawTx.vout.push_back(out);
             }
-
-            redeemScript = GetScriptForBetDest(dest, mask, betNumber);
-            pwallet->AddCScript(redeemScript);
-
-            CScript scriptPubKey;
-            scriptPubKey.clear();
-            scriptPubKey << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
-
-            CTxOut out(nAmount, scriptPubKey);
-            rawTx.vout.push_back(out);
-        }
-        else 
-        {
-            const std::string addr = addrList[0];
-            CTxDestination destination = DecodeDestination(addr);
-            if (!IsValidDestination(destination)) 
+            else if(name_=="argument")
             {
-                throw std::runtime_error(std::string("Invalid Bitcoin address: ") + addr);
+                argument = sendToObj[name_].get_int();
             }
+            else if(name_=="betNumbers")
+            {
+                for(size_t i=0;i<sendToObj[name_].size();++i)
+                {
+                    betNumbers.push_back(sendToObj[name_][i].get_int());
+                }
+            }
+            else if(name_=="betAmount")
+            {
+                CAmount nAmount = AmountFromValue(sendToObj[name_].getValStr());
 
-            CScript scriptPubKey = GetScriptForDestination(destination);
-            CAmount nAmount = AmountFromValue(sendToObj[addr].getValStr());
+                //we generate a new address type of OUTPUT_TYPE_LEGACY
+                if(!isNewAddrGenerated)
+                {
+                    getnewaddress(dest);
+                    isNewAddrGenerated=true;
+                }
 
-            CTxOut out(nAmount, scriptPubKey);
-            rawTx.vout.push_back(out);
+                redeemScript = GetScriptForBetDest(dest, betNumbers, argument);
+                if(!pwallet->AddCScript(redeemScript))
+                {
+                    throw std::runtime_error(std::string("Adding script failed"));
+                }
+
+                CScript scriptPubKey;
+                scriptPubKey.clear();
+                scriptPubKey << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
+
+                CTxOut out(nAmount, scriptPubKey);
+                rawTx.vout.push_back(out);
+            }
+            else 
+            {
+                CTxDestination destination = DecodeDestination(name_);
+                if (!IsValidDestination(destination)) 
+                {
+                    throw std::runtime_error(std::string("Invalid Bitcoin address: ") + name_);
+                }
+
+                CScript scriptPubKey = GetScriptForDestination(destination);
+                CAmount nAmount = AmountFromValue(sendToObj[name_].getValStr());
+
+                CTxOut out(nAmount, scriptPubKey);
+                rawTx.vout.push_back(out);
+            }
         }
     }
 
@@ -241,7 +238,6 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
     {
         throw std::runtime_error(std::string("Invalid parameter combination: Sequence number(s) contradict replaceable option"));
     }
-    
     return EncodeHexTx(rawTx);
 }
 
@@ -261,49 +257,11 @@ UniValue MakeBetTxs::getTx()
     return EncodeHexTx(mtx);
 }
 
-void MakeBetTxs::getOpReturnAccReward(double& rewardAcc, const CTransaction& tx, const UniValue& amount)
-{
-    int reward=0;
-    char* rewardPtr=reinterpret_cast<char*>(&reward);
-    for(size_t i=2;i<tx.vout[1].scriptPubKey.size();++i)
-    {
-        *rewardPtr=tx.vout[1].scriptPubKey[i];
-        ++rewardPtr;
-    }
-    rewardAcc+=(reward*amount.get_real());
-}
-
-//#define USE_POTENTIAL_REWARD 1
-bool MakeBetTxs::checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params)
-{
-    double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
-    int32_t txMakeBetVersion=(tx.nVersion ^ MAKE_BET_INDICATOR);
-    if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)
-    {
-        UniValue amount(UniValue::VNUM);
-        amount=ValueFromAmount(tx.vout[0].nValue);
-
-//to control the potential reward use below commented code
-#if defined(USE_POTENTIAL_REWARD)
-        getOpReturnAccReward(rewardAcc, tx);
-#else
-        rewardAcc+=amount.get_real();
-#endif
-        //LogPrintf("rewardAcc: %f\n", rewardAcc);
-        if(rewardAcc>ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)
-        {
-            LogPrintf("Accumulated reward reached the limit\n");
-            return false;
-        }
-    }
-    return true;
-}
-
 /***********************************************************************/
-//redeeming a lottery transaction
+//redeeming transaction
 
-GetBetTxs::GetBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, const UniValue& prevTxBlockHash_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
-                    : Txs(pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), prevTxBlockHash(prevTxBlockHash_)
+GetBetTxs::GetBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, const UniValue& prevTxBlockHash_, ArgumentOperation* operation_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
+                    : Txs(pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), prevTxBlockHash(prevTxBlockHash_), operation(operation_)
 {
     createTxImp(inputs, sendTo);
 }
@@ -500,31 +458,18 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
     return result;
 }
 
-    // scriptSig:    <sig> <sig...> <serialized_script>
-    // scriptPubKey: HASH160 <hash> EQUAL
-
-bool GetBetTxs::Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion)
+unsigned int GetBetTxs::getMakeTxBlockHash(unsigned int argument)
 {
-    std::vector<unsigned char> vchSig;
-    if (!creator.CreateSig(provider, vchSig, address, scriptCode, sigversion))
-        return false;
-    ret.push_back(vchSig);
-    return true;
-}
+    std::string makeTxBlockHashStr=prevTxBlockHash.get_str();
+    std::vector<unsigned char> binaryBlockHash(makeTxBlockHashStr.length()/2, 0);
+    hex2bin(binaryBlockHash, makeTxBlockHashStr);
+    std::vector<unsigned char> blockhash(binaryBlockHash.end()-4, binaryBlockHash.end());
+    
+    unsigned int blockhashTmp;
+    array2typeRev(blockhash, blockhashTmp);
 
-CScript GetBetTxs::PushAll(const std::vector<valtype>& values)
-{
-    CScript result;
-    for (const valtype& v : values) {
-        if (v.size() == 0) {
-            result << OP_0;
-        } else if (v.size() == 1 && v[0] >= 1 && v[0] <= 16) {
-            result << CScript::EncodeOP_N(v[0]);
-        } else {
-            result << v;
-        }
-    }
-    return result;
+    operation->setArgument(argument);
+    return (*operation)(blockhashTmp);
 }
 
 bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata)
@@ -535,9 +480,17 @@ bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScr
     pwallet->GetCScript(uint160(scriptPubKeyHashBytes), redeemScript);//get redeemScript by its hash
 
     sigdata.scriptWitness.stack.clear();
-    
-    std::vector<unsigned char> redeemScriptHashBytes(redeemScript.end()-22, redeemScript.end()-2);
+
+    std::vector<unsigned char> redeemScriptHashBytes(redeemScript.begin()+3, redeemScript.begin()+23);
     CKeyID keyID = CKeyID(uint160(redeemScriptHashBytes));//get hash of a pubKeyHash from redeemScript
+
+    unsigned int argument = getArgument(redeemScript);
+    unsigned int blockhashTmp=getMakeTxBlockHash(argument);
+    std::vector<unsigned char> blockhash;
+    type2array(blockhashTmp, blockhash);
+    
+    result.push_back(blockhash);
+    //result[0]<-blockhash
 
     if (!Sign1(*pwallet, keyID, creator, redeemScript, result, SigVersion::BASE))
     {
@@ -545,21 +498,12 @@ bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScr
     }
     else
     {
-        //result[0]<-sig
+        //result[1]<-sig
         
         CPubKey vch;
         pwallet->GetPubKey(keyID, vch);
         result.push_back(ToByteVector(vch));
-        //result[1]<-pubKey
-        
-        std::string prevTxBlockHashStr=prevTxBlockHash.get_str();
-        std::vector<unsigned char> binaryBlockHash(prevTxBlockHashStr.length()/2, 0);
-        hex2bin(binaryBlockHash, prevTxBlockHashStr);
-        //LogPrintf("prevTxBlockHashStr: %s\n", prevTxBlockHashStr);
-        std::vector<unsigned char> blockhash(binaryBlockHash.end()-4, binaryBlockHash.end());
-        std::reverse(blockhash.begin(), blockhash.end());//revert here to match endianess in script
-        result.push_back(blockhash);
-        //result[2]<-blockhash
+        //result[2]<-pubKey
 
         result.push_back(ToByteVector(redeemScript));
         //result[3]<-redeemScript
@@ -576,171 +520,86 @@ UniValue GetBetTxs::getTx()
     return EncodeHexTx(mtx);
 }
 
-UniValue GetBetTxs::findTx(const std::string& txid)
+size_t getRedeemScriptSize(const CScript& redeemScript)
 {
-    LOCK(cs_main);
-
-    bool in_active_chain = true;
-    uint256 hash = ParseHashV(txid, "parameter 1");
-    CBlockIndex* blockindex = nullptr;
-    CTransactionRef tx;
-    uint256 hash_block;
-    UniValue result(UniValue::VOBJ);
-
-    int i;
-    for(i=chainActive.Height();i>=0;--i)
-    {
-        blockindex = chainActive[i];
-
-        if (hash == Params().GenesisBlock().hashMerkleRoot)
-        {
-            // Special exception for the genesis block coinbase transaction
-            throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
-        }
-
-        if (GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
-        {
-            if(blockindex)
-            {
-                result.pushKV("in_active_chain", in_active_chain);
-            }
-            TxToJSON(*tx, hash_block, result);
-            result.pushKV("blockhash", hash_block.ToString());
-            break;
-        }
-    }
-    
-    if(i<0)
-    {
-        throw std::runtime_error(std::string("Transaction not in blockchain"));
-    }
-    
-    return result;
+    CScript::const_iterator it_end=redeemScript.end();
+    CScript::const_iterator it_begin=redeemScript.begin();
+    return it_end-it_begin+1;
 }
 
-bool GetBetTxs::txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
+CScript getRedeemScript(CWallet* const pwallet, const std::string& scriptPubKeyStr)
 {
-    fee=0;
-    UniValue txPrev(UniValue::VOBJ);
-    try
-    {
-        txPrev=GetBetTxs::findTx(tx.vin[0].prevout.hash.GetHex());
-    }
-    catch(...)
-    {
-        LogPrintf("GetBetTxs::txVerify findTx() failed\n");
-        return false;
-    }
-    std::string blockhash=txPrev["blockhash"].get_str();
+    std::vector<unsigned char> scriptPubKeyChr(scriptPubKeyStr.length()/2, 0);
+    hex2bin(scriptPubKeyChr, scriptPubKeyStr);
+    CScript scriptPubKey(scriptPubKeyChr.begin(), scriptPubKeyChr.end());
+    CScript redeemScript;
+    std::vector<unsigned char> scriptPubKeyHashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
+    pwallet->GetCScript(uint160(scriptPubKeyHashBytes), redeemScript);//get redeemScript by its hash
+    
+    return redeemScript;
+}
 
-    std::string op_return_reward;
-    try
-    {
-        op_return_reward=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4, 8);
-    }
-    catch(const std::out_of_range& oor)
-    {
-        LogPrintf("GetBetTxs::txVerify: op_return_reward is out-of-range\n");
-        return false;        
-    }
-    if(op_return_reward.empty())
-    {
-        LogPrintf("GetBetTxs::txVerify: op_return_reward is empty\n");
-        return false;
-    }
-    reverseEndianess(op_return_reward);
-    int opReturnReward = std::stoi(op_return_reward,nullptr,16);
+int getReward(CWallet* const pwallet, const std::string& scriptPubKeyStr)
+{        
+    CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr);
+    unsigned int argument = getArgument(redeemScript);
 
-    std::string op_return_number;
-    try
+    int numOfBetsNumbers=0;
+    CScript::const_iterator it_end=redeemScript.end()-1;
+    
+    it_end-=6;
+    
+    if(*it_end!=OP_ENDIF)
     {
-        op_return_number=txPrev["vout"][1]["scriptPubKey"]["hex"].get_str().substr(4+8, 8);
+        return 0;
     }
-    catch(const std::out_of_range& oor)
+    --it_end;
+    if(*it_end!=OP_FALSE)
     {
-        LogPrintf("GetBetTxs::txVerify: op_return_number is out-of-range\n");
-        return false;        
+        return 0;
     }
-    if(op_return_number.empty())
+    --it_end;
+    if(*it_end!=OP_DROP)
     {
-        LogPrintf("GetBetTxs::txVerify: op_return_number is empty\n");
-        return false;
+        return 0;
     }
-    reverseEndianess(op_return_number);
-    int opReturnNumber = std::stoi(op_return_number,nullptr,16);
-    
-    //LogPrintf("opReturnNumber: %d\n", opReturnNumber);
-    //LogPrintf("opReturnReward: %d\n", opReturnReward);
-
-    std::vector<unsigned char> blockhashInScript(tx.vin[0].scriptSig.end()-42, tx.vin[0].scriptSig.end()-38);
-    std::reverse(blockhashInScript.begin(), blockhashInScript.end());
-    std::string blockhashInScriptStr=HexStr(blockhashInScript.begin(), blockhashInScript.end());
-    //LogPrintf("blockhashInScriptStr: %s\n", blockhashInScriptStr);
-    
-    std::vector<unsigned char> mask_(tx.vin[0].scriptSig.end()-36, tx.vin[0].scriptSig.end()-32);
-    const unsigned char op_and=*(tx.vin[0].scriptSig.end()-32);
-    std::vector<unsigned char> betNumber_(tx.vin[0].scriptSig.end()-30, tx.vin[0].scriptSig.end()-26);
-    const unsigned char op_equalverify_1=*(tx.vin[0].scriptSig.end()-26);
-    const unsigned char op_dup=*(tx.vin[0].scriptSig.end()-25);
-    const unsigned char op_hash160=*(tx.vin[0].scriptSig.end()-24);
-    const unsigned char op_equalverify_2=*(tx.vin[0].scriptSig.end()-2);
-    const unsigned char op_checksig=*(tx.vin[0].scriptSig.end()-1);
-    
-    int mask=0;
-    array2type(mask_, mask);
-    
-    fee=(maskToReward(mask)*in)-out;
-    if(out > maskToReward(mask)*in)
+    --it_end;
+    if(*it_end!=OP_ELSE)
     {
-        LogPrintf("GetBetTxs::txVerify: out > maskToReward(mask)*in\n");
-        return false;
+        return 0;
+    }
+    --it_end;
+    for(CScript::const_iterator it=it_end;it>it_end-18;--it)
+    {
+        //printf("const_iterator: %x\n", *it);
+        if(OP_TRUE==*it)
+        {
+            numOfBetsNumbers=it_end-it+1;
+            it_end=it;
+            break;
+        }
+        else if(OP_ENDIF!=*it)
+        {
+            return 0;
+        }
+    }
+    --it_end;
+    if(*it_end!=OP_EQUALVERIFY)
+    {
+        return 0;
     }
     
-    if(opReturnReward != maskToReward(mask))
-    {
-        LogPrintf("GetBetTxs::txVerify: opReturnReward != maskToReward(mask)\n");
-        return false;
-    }
+    return argument/numOfBetsNumbers;
+}
+
+unsigned int getArgument(const CScript& redeemScript)
+{
+    CScript::const_iterator it_end=redeemScript.end()-1;
     
-    if(opReturnReward>MAX_BET_REWARD || maskToReward(mask)>MAX_BET_REWARD)
-    {
-        LogPrintf("GetBetTxs::txVerify: MAX_BET_REWARD exceeded\n");
-        return false;        
-    }
-
-    int betNumber=0;
-    array2type(betNumber_, betNumber);
-
-    if(opReturnNumber!=betNumber)
-    {
-        LogPrintf("GetBetTxs::txVerify: opReturnNumber!=betNumber\n");
-        return false;        
-    }
-
-    std::vector<unsigned char> blockhashNumber_(tx.vin[0].scriptSig.end()-42, tx.vin[0].scriptSig.end()-38);
-    int blockhashNumber=0;
-    array2type(blockhashNumber_, blockhashNumber);
+    std::vector<unsigned char> argument_(it_end-4, it_end);
     
-    /*LogPrintf("GetBetTxs::txVerify: blockhashNumber: %x\n", blockhashNumber);
-    LogPrintf("GetBetTxs::txVerify: mask: %x\n", mask);
-    LogPrintf("GetBetTxs::txVerify: betNumber: %x\n", betNumber);
-    bool a=((mask & blockhashNumber)==betNumber);
-    LogPrintf("GetBetTxs::txVerify: (mask & blockhashNumber)==betNumber: %d\n", a);
-    LogPrintf("GetBetTxs::txVerify: op_and: %x\n", op_and);
-    LogPrintf("GetBetTxs::txVerify: blockhash.substr(56, 8): %s\n", blockhash.substr(56, 8));*/
-
-    if((mask & blockhashNumber)==betNumber &&
-       op_and==OP_AND &&
-       op_equalverify_1==OP_EQUALVERIFY &&
-       op_dup==OP_DUP &&
-       op_hash160==OP_HASH160 &&
-       op_equalverify_2==OP_EQUALVERIFY &&
-       op_checksig==OP_CHECKSIG &&
-       blockhashInScriptStr==blockhash.substr(56, 8))
-    {
-        return true;
-    }
-
-    LogPrintf("GetBetTxs::txVerify: transaction format check failed\n");
-    return false;
+    unsigned int argument;
+    array2type(argument_, argument);
+    
+    return argument;
 }

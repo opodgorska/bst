@@ -135,7 +135,11 @@ BITCOIN_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
-  lottery/lotterytxs.h \
+  games/gamesutils.h \
+  games/gamestxs.h \
+  games/gamesverify.h \
+  games/modulo/modulotxs.h \
+  games/modulo/moduloverify.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -238,7 +242,11 @@ libbitcoin_server_a_SOURCES = \
   index/base.cpp \
   index/txindex.cpp \
   init.cpp \
-  lottery/lotterytxs.cpp \
+  games/gamesutils.cpp \
+  games/gamestxs.cpp \
+  games/gamesverify.cpp \
+  games/modulo/modulotxs.cpp \
+  games/modulo/moduloverify.cpp \
   dbwrapper.cpp \
   merkleblock.cpp \
   miner.cpp \
@@ -258,7 +266,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
   rpc/data.cpp \
-  rpc/lottery.cpp \
+  rpc/game.cpp \
   rpc/util.cpp \
   script/sigcache.cpp \
   shutdown.cpp \

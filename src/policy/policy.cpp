@@ -78,10 +78,20 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 
 bool IsStandardTx(const CTransaction& tx, std::string& reason)
 {
+    std::array<int32_t, 1> betTypes={ {MAKE_MODULO_GAME_INDICATOR} };
+    bool badVersionFlag=true;
     if (tx.nVersion > CTransaction::MAX_STANDARD_VERSION || tx.nVersion < 1)
     {
-        int32_t makeBetIndicator = (tx.nVersion ^ MAKE_BET_INDICATOR);
-        if(makeBetIndicator > CTransaction::MAX_STANDARD_VERSION || makeBetIndicator < 1) {
+        for(size_t i=0;i<betTypes.size();++i)
+        {
+            int32_t makeBetIndicator=(tx.nVersion ^ betTypes[i]);
+            if(makeBetIndicator <= CTransaction::MAX_STANDARD_VERSION && makeBetIndicator >= 1)
+            {
+                badVersionFlag=false;
+                break;
+            }
+        }
+        if(badVersionFlag) {
             reason = "version";
             return false;
         }

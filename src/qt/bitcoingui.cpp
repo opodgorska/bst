@@ -273,16 +273,16 @@ void BitcoinGUI::createActions()
     dataMenuAction->setStatusTip(dataAction->statusTip());
     dataMenuAction->setToolTip(dataMenuAction->statusTip());
 
-    lotteryAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Lottery"), this);
-    lotteryAction->setStatusTip(tr("Make bet to play lottery"));
-    lotteryAction->setToolTip(lotteryAction->statusTip());
-    lotteryAction->setCheckable(true);
-    lotteryAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_7));
-    tabGroup->addAction(lotteryAction);
+    gameAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Game"), this);
+    gameAction->setStatusTip(tr("Make bet to play game"));
+    gameAction->setToolTip(gameAction->statusTip());
+    gameAction->setCheckable(true);
+    gameAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_7));
+    tabGroup->addAction(gameAction);
     
-    lotteryMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/lottery"), lotteryAction->text(), this);
-    lotteryMenuAction->setStatusTip(lotteryAction->statusTip());
-    lotteryMenuAction->setToolTip(lotteryMenuAction->statusTip());
+    gameMenuAction = new QAction(platformStyle->TextColorIcon(":/icons/lottery"), gameAction->text(), this);
+    gameMenuAction->setStatusTip(gameAction->statusTip());
+    gameMenuAction->setToolTip(gameMenuAction->statusTip());
 
 #ifdef ENABLE_WALLET
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
@@ -299,10 +299,10 @@ void BitcoinGUI::createActions()
     connect(dataAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(dataMenuAction, SIGNAL(triggered()), this, SLOT(gotoDataPage()));
 
-    connect(lotteryAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(lotteryAction, SIGNAL(triggered()), this, SLOT(gotoLotteryPage()));
-    connect(lotteryAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(lotteryMenuAction, SIGNAL(triggered()), this, SLOT(gotoLotteryPage()));
+    /*connect(gameAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(gameAction, SIGNAL(triggered()), this, SLOT(gotoGamePage()));
+    connect(gameAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(gameMenuAction, SIGNAL(triggered()), this, SLOT(gotoGamePage()));*/
 
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));
@@ -445,7 +445,7 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(dataAction);
-        toolbar->addAction(lotteryAction);
+        toolbar->addAction(gameAction);
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
 
@@ -505,13 +505,13 @@ void BitcoinGUI::setClientModel(ClientModel *_clientModel)
         }
 #endif // ENABLE_WALLET
         unitDisplayControl->setOptionsModel(_clientModel->getOptionsModel());
-
+        
         OptionsModel* optionsModel = _clientModel->getOptionsModel();
         if(optionsModel)
         {
             // be aware of the tray icon disable state change reported by the OptionsModel object.
             connect(optionsModel,SIGNAL(hideTrayIconChanged(bool)),this,SLOT(setTrayIconVisible(bool)));
-
+        
             // initialize the disable state of the tray icon with the current value in the model.
             setTrayIconVisible(optionsModel->getHideTrayIcon());
         }
@@ -597,8 +597,8 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     sendCoinsMenuAction->setEnabled(enabled);
     dataAction->setEnabled(enabled);
     dataMenuAction->setEnabled(enabled);
-    lotteryAction->setEnabled(enabled);
-    lotteryMenuAction->setEnabled(enabled);
+    gameAction->setEnabled(enabled);
+    gameMenuAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
     receiveCoinsMenuAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
@@ -651,7 +651,7 @@ void BitcoinGUI::createTrayIconMenu()
     trayIconMenu->addAction(receiveCoinsMenuAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(dataAction);
-    trayIconMenu->addAction(lotteryAction);
+    trayIconMenu->addAction(gameAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(signMessageAction);
     trayIconMenu->addAction(verifyMessageAction);
@@ -753,10 +753,10 @@ void BitcoinGUI::gotoDataPage()
     if (walletFrame) walletFrame->gotoDataPage();
 }
 
-void BitcoinGUI::gotoLotteryPage()
+void BitcoinGUI::gotoGamePage()
 {
-    lotteryAction->setChecked(true);
-    if (walletFrame) walletFrame->gotoLotteryPage();
+    gameAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoGamePage();
 }
 
 void BitcoinGUI::gotoSignMessageTab(QString addr)
@@ -1111,7 +1111,7 @@ void BitcoinGUI::setHDStatus(int hdEnabled)
     labelWalletHDStatusIcon->setPixmap(platformStyle->SingleColorIcon(hdEnabled ? ":/icons/hd_enabled" : ":/icons/hd_disabled").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
     labelWalletHDStatusIcon->setToolTip(hdEnabled ? tr("HD key generation is <b>enabled</b>") : tr("HD key generation is <b>disabled</b>"));
 
-    // eventually disable the QLabel to set its opacity to 50%
+    // eventually disable the QLabel to set its opacity to 50% 
     labelWalletHDStatusIcon->setEnabled(hdEnabled);
 }
 

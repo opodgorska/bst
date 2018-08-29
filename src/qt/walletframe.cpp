@@ -158,11 +158,11 @@ void WalletFrame::gotoDataPage()
         i.value()->gotoDataPage();
 }
 
-void WalletFrame::gotoLotteryPage()
+void WalletFrame::gotoGamePage()
 {
     QMap<QString, WalletView*>::const_iterator i;
     for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
-        i.value()->gotoLotteryPage();
+        i.value()->gotoGamePage();
 }
 
 void WalletFrame::gotoSignMessageTab(QString addr)

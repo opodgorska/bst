@@ -14,7 +14,7 @@
 #include <qt/platformstyle.h>
 #include <qt/receivecoinsdialog.h>
 #include <qt/datapage.h>
-#include <qt/lotterypage.h>
+#include <qt/gamepage.h>
 #include <qt/sendcoinsdialog.h>
 #include <qt/signverifymessagedialog.h>
 #include <qt/transactiontablemodel.h>
@@ -63,14 +63,14 @@ WalletView::WalletView(const PlatformStyle *_platformStyle, QWidget *parent):
     usedReceivingAddressesPage = new AddressBookPage(platformStyle, AddressBookPage::ForEditing, AddressBookPage::ReceivingTab, this);
     
     dataPage = new DataPage(platformStyle);
-    lotteryPage = new LotteryPage(platformStyle);
+    gamePage = new GamePage(platformStyle);
 
     addWidget(overviewPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
     addWidget(dataPage);
-    addWidget(lotteryPage);
+    addWidget(gamePage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
@@ -114,7 +114,7 @@ void WalletView::setBitcoinGUI(BitcoinGUI *gui)
         // Pass through transaction notifications
         connect(this, SIGNAL(incomingTransaction(QString,int,CAmount,QString,QString,QString,QString)), gui, SLOT(incomingTransaction(QString,int,CAmount,QString,QString,QString,QString)));
 
-        // Connect HD enabled state signal
+        // Connect HD enabled state signal 
         connect(this, SIGNAL(hdEnabledStatusChanged()), gui, SLOT(updateWalletStatus()));
     }
 }
@@ -126,7 +126,7 @@ void WalletView::setClientModel(ClientModel *_clientModel)
     overviewPage->setClientModel(_clientModel);
     sendCoinsPage->setClientModel(_clientModel);
     dataPage->setClientModel(_clientModel);
-    lotteryPage->setClientModel(_clientModel);
+    gamePage->setClientModel(_clientModel);
 }
 
 void WalletView::setWalletModel(WalletModel *_walletModel)
@@ -139,7 +139,7 @@ void WalletView::setWalletModel(WalletModel *_walletModel)
     receiveCoinsPage->setModel(_walletModel);
     sendCoinsPage->setModel(_walletModel);
     dataPage->setModel(_walletModel);
-    lotteryPage->setModel(_walletModel);
+    gamePage->setModel(_walletModel);
     usedReceivingAddressesPage->setModel(_walletModel ? _walletModel->getAddressTableModel() : nullptr);
     usedSendingAddressesPage->setModel(_walletModel ? _walletModel->getAddressTableModel() : nullptr);
 
@@ -215,9 +215,9 @@ void WalletView::gotoDataPage()
 	setCurrentWidget(dataPage);
 }
 
-void WalletView::gotoLotteryPage()
+void WalletView::gotoGamePage()
 {
-	setCurrentWidget(lotteryPage);
+	setCurrentWidget(gamePage);
 }
 
 void WalletView::gotoSignMessageTab(QString addr)

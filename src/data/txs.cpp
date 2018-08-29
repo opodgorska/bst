@@ -1,4 +1,5 @@
 #include <consensus/validation.h>
+#include <key_io.h>
 #include <net.h>
 #include <policy/rbf.h>
 #include <rpc/server.h>
@@ -114,4 +115,53 @@ UniValue Txs::sendTxImp()
     });
 
     return hashTx.GetHex();
+}
+
+UniValue Txs::getnewaddress(CTxDestination& dest, OutputType output_type)
+{
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
+    }
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey))
+    {
+        throw std::runtime_error(std::string("Error: Keypool ran out, please call keypoolrefill first"));
+    }
+    pwallet->LearnRelatedScripts(newKey, output_type);
+    dest = GetDestinationForKey(newKey, output_type);
+
+    std::string strAccount("");
+    pwallet->SetAddressBook(dest, strAccount, "receive");
+
+    return EncodeDestination(dest);
+}
+
+// scriptSig:    <sig> <sig...> <serialized_script>
+// scriptPubKey: HASH160 <hash> EQUAL
+bool Txs::Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion)
+{
+    std::vector<unsigned char> vchSig;
+    if (!creator.CreateSig(provider, vchSig, address, scriptCode, sigversion))
+        return false;
+    ret.push_back(vchSig);
+    return true;
+}
+
+CScript Txs::PushAll(const std::vector<valtype>& values)
+{
+    CScript result;
+    for (const valtype& v : values) {
+        if (v.size() == 0) {
+            result << OP_0;
+        } else if (v.size() == 1 && v[0] >= 1 && v[0] <= 16) {
+            result << CScript::EncodeOP_N(v[0]);
+        } else {
+            result << v;
+        }
+    }
+    return result;
 }

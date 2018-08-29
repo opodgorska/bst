@@ -108,8 +108,8 @@ private:
 
     QAction* dataAction = nullptr;
     QAction* dataMenuAction = nullptr;
-    QAction* lotteryAction = nullptr;
-    QAction* lotteryMenuAction = nullptr;
+    QAction* gameAction = nullptr;
+    QAction* gameMenuAction = nullptr;
 
     QAction* sendCoinsAction = nullptr;
     QAction* sendCoinsMenuAction = nullptr;
@@ -238,8 +238,8 @@ private Q_SLOTS:
     /** Switch to data page */
     void gotoDataPage();
 
-    /** Switch to data page */
-    void gotoLotteryPage();
+    /** Switch to game page */
+    void gotoGamePage();
 
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");
@@ -274,7 +274,7 @@ private Q_SLOTS:
 
     /** Show progress dialog e.g. for verifychain */
     void showProgress(const QString &title, int nProgress);
-
+    
     /** When hideTrayIcon setting is changed in OptionsModel hide or show the icon accordingly. */
     void setTrayIconVisible(bool);
 

@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_LOTTERYPAGE_H
-#define BITCOIN_QT_LOTTERYPAGE_H
+#ifndef BITCOIN_QT_GAMEPAGE_H
+#define BITCOIN_QT_GAMEPAGE_H
 
 #include <policy/feerate.h>
 #include <qt/walletmodel.h>
@@ -18,26 +18,26 @@ class QButtonGroup;
 class QListWidgetItem;
 
 namespace Ui {
-    class LotteryPage;
+    class GamePage;
 }
 
 QT_BEGIN_NAMESPACE
 class QModelIndex;
 QT_END_NAMESPACE
 
-class LotteryPage : public QWidget
+class GamePage : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit LotteryPage(const PlatformStyle *platformStyle, QWidget *parent = 0);
-    ~LotteryPage();
+    explicit GamePage(const PlatformStyle *platformStyle, QWidget *parent = 0);
+    ~GamePage();
     
     void setClientModel(ClientModel *clientModel);
     void setModel(WalletModel *model);
 
 private:
-    Ui::LotteryPage *ui;
+    Ui::GamePage *ui;
     WalletModel *walletModel;
     ClientModel *clientModel;
     std::string changeAddress;
@@ -75,4 +75,4 @@ private Q_SLOTS:
     void updateDisplayUnit();
 };
 
-#endif // BITCOIN_QT_LOTTERYPAGE_H
+#endif // BITCOIN_QT_GAMEPAGE_H

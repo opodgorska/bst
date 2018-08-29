@@ -8,8 +8,7 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
-#include <lottery/lotterytxs.h>
-#include <data/processunspent.h>
+#include <games/modulo/moduloverify.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -241,7 +240,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     if (nValueIn < value_out)
     {
         //LogPrintf("nValueIn < value_out\n");
-        correctBetTx=GetBetTxs::txVerify(tx, nValueIn, value_out, betFee);
+        correctBetTx=modulo::txVerify(tx, nValueIn, value_out, betFee);
         if(!correctBetTx)
         {
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,

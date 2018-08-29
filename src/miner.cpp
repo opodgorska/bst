@@ -25,8 +25,6 @@
 #include <utilmoneystr.h>
 #include <validationinterface.h>
 
-#include <lottery/lotterytxs.h>
-
 #include <algorithm>
 #include <queue>
 #include <utility>
@@ -323,7 +321,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     const int64_t MAX_CONSECUTIVE_FAILURES = 1000;
     int64_t nConsecutiveFailed = 0;
 
-    double rewardAcc = 0.0;
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
@@ -422,13 +419,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         for (size_t i=0; i<sortedEntries.size(); ++i) 
         {
-            const CTransaction& tx = *(sortedEntries[i]->GetSharedTx());
-            // Prevent from including in block bet transactions giving total potential reward greater than a limit
-            if(!MakeBetTxs::checkBetRewardSum(rewardAcc, tx, chainparams.GetConsensus()))
-            {
-                continue;
-            }
-            
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);

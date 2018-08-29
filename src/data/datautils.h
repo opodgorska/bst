@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <iomanip>
 
 #include <univalue.h>
 
@@ -38,5 +39,13 @@ void array2typeRev(const std::vector<Q>& array, T& in)
     std::vector<Q> a=array;
     std::reverse(a.begin(), a.end());
     memcpy(reinterpret_cast<Q*>(&in), a.data(), sizeof(T));
+}
+
+template< typename T >
+std::string int2hex( T i )
+{
+    std::stringstream stream;
+    stream << std::setfill ('0') << std::setw(sizeof(T)*2) << std::hex << i;
+    return stream.str();
 }
 #endif

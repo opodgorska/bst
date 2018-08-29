@@ -12,8 +12,8 @@
 
 #include <qt/bitcoinunits.h>
 #include <qt/clientmodel.h>
-#include <qt/lotterypage.h>
-#include <qt/forms/ui_lotterypage.h>
+#include <qt/gamepage.h>
+#include <qt/forms/ui_gamepage.h>
 #include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
@@ -37,15 +37,19 @@
 
 #include <data/datautils.h>
 #include <data/processunspent.h>
-#include <lottery/lotterytxs.h>
+#include <games/gamestxs.h>
+#include <games/gamesutils.h>
+#include <games/modulo/modulotxs.h>
+
+using namespace modulo;
 
 static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 1008} };
 extern int getConfTargetForIndex(int index);
 extern int getIndexForConfTarget(int target);
 
-LotteryPage::LotteryPage(const PlatformStyle *platformStyle, QWidget *parent) :
+GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::LotteryPage),
+    ui(new Ui::GamePage),
     walletModel(0),
     clientModel(0),
     changeAddress(""),
@@ -78,18 +82,19 @@ LotteryPage::LotteryPage(const PlatformStyle *platformStyle, QWidget *parent) :
     ui->checkBoxMinimumFee->setChecked(settings.value("fPayOnlyMinFee").toBool());
     minimizeFeeSection(settings.value("fFeeSectionMinimized").toBool());
 
-    ui->betNumberLineEdit->setValidator( new QIntValidator(0, MAX_BET_REWARD-1, this) );
+    //ui->betNumberLineEdit->setValidator( new QIntValidator(0, MAX_BET_REWARD-1, this) );//<-----
+    ui->betNumberLineEdit->setValidator( new QIntValidator(0, (1024*1024)-1, this) );
     loadListFromFile(QString("bets.dat"));
 
     loadRewardRatioFrom(0);
 }
 
-LotteryPage::~LotteryPage()
+GamePage::~GamePage()
 {
     delete ui;
 }
 
-void LotteryPage::minimizeFeeSection(bool fMinimize)
+void GamePage::minimizeFeeSection(bool fMinimize)
 {
     ui->labelFeeMinimized->setVisible(fMinimize);
     ui->buttonChooseFee  ->setVisible(fMinimize);
@@ -99,18 +104,18 @@ void LotteryPage::minimizeFeeSection(bool fMinimize)
     fFeeMinimized = fMinimize;
 }
 
-void LotteryPage::on_buttonChooseFee_clicked()
+void GamePage::on_buttonChooseFee_clicked()
 {
     minimizeFeeSection(false);
 }
 
-void LotteryPage::on_buttonMinimizeFee_clicked()
+void GamePage::on_buttonMinimizeFee_clicked()
 {
     updateFeeMinimizedLabel();
     minimizeFeeSection(true);
 }
 
-void LotteryPage::updateFeeMinimizedLabel()
+void GamePage::updateFeeMinimizedLabel()
 {
     if(!walletModel || !walletModel->getOptionsModel())
         return;
@@ -122,7 +127,7 @@ void LotteryPage::updateFeeMinimizedLabel()
     }
 }
 
-void LotteryPage::updateMinFeeLabel()
+void GamePage::updateMinFeeLabel()
 {
     if (walletModel && walletModel->getOptionsModel())
         ui->checkBoxMinimumFee->setText(tr("Pay only the required fee of %1").arg(
@@ -130,7 +135,7 @@ void LotteryPage::updateMinFeeLabel()
         );
 }
 
-void LotteryPage::updateCoinControlState(CCoinControl& ctrl)
+void GamePage::updateCoinControlState(CCoinControl& ctrl)
 {
     if (ui->radioCustomFee->isChecked()) {
         ctrl.m_feerate = CFeeRate(ui->customFee->value());
@@ -143,7 +148,7 @@ void LotteryPage::updateCoinControlState(CCoinControl& ctrl)
     ctrl.m_signal_bip125_rbf = ui->optInRBF->isChecked();
 }
 
-void LotteryPage::updateSmartFeeLabel()
+void GamePage::updateSmartFeeLabel()
 {
     if(!walletModel || !walletModel->getOptionsModel())
         return;
@@ -175,12 +180,12 @@ void LotteryPage::updateSmartFeeLabel()
     updateFeeMinimizedLabel();
 }
 
-void LotteryPage::setMinimumFee()
+void GamePage::setMinimumFee()
 {
     ui->customFee->setValue(walletModel->wallet().getRequiredFee(1000));
 }
 
-void LotteryPage::updateFeeSectionControls()
+void GamePage::updateFeeSectionControls()
 {
     ui->confTargetSelector      ->setEnabled(ui->radioSmartFee->isChecked());
     ui->labelSmartFee           ->setEnabled(ui->radioSmartFee->isChecked());
@@ -193,7 +198,7 @@ void LotteryPage::updateFeeSectionControls()
     ui->customFee               ->setEnabled(ui->radioCustomFee->isChecked() && !ui->checkBoxMinimumFee->isChecked());
 }
 
-void LotteryPage::setBalance(const interfaces::WalletBalances& balances)
+void GamePage::setBalance(const interfaces::WalletBalances& balances)
 {
     if(walletModel && walletModel->getOptionsModel())
     {
@@ -201,7 +206,7 @@ void LotteryPage::setBalance(const interfaces::WalletBalances& balances)
     }
 }
 
-void LotteryPage::updateDisplayUnit()
+void GamePage::updateDisplayUnit()
 {
     setBalance(walletModel->wallet().getBalances());
     ui->customFee->setDisplayUnit(walletModel->getOptionsModel()->getDisplayUnit());
@@ -210,7 +215,7 @@ void LotteryPage::updateDisplayUnit()
     updateRewardView();
 }
 
-void LotteryPage::setClientModel(ClientModel *_clientModel)
+void GamePage::setClientModel(ClientModel *_clientModel)
 {
     this->clientModel = _clientModel;
 
@@ -219,7 +224,7 @@ void LotteryPage::setClientModel(ClientModel *_clientModel)
     }
 }
 
-void LotteryPage::setModel(WalletModel *model)
+void GamePage::setModel(WalletModel *model)
 {
     walletModel = model;
 
@@ -266,7 +271,7 @@ void LotteryPage::setModel(WalletModel *model)
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
 }
 
-void LotteryPage::unlockWallet()
+void GamePage::unlockWallet()
 {
     if (walletModel->getEncryptionStatus() == WalletModel::Locked)
     {
@@ -276,7 +281,7 @@ void LotteryPage::unlockWallet()
     }
 }
 
-void LotteryPage::dumpListToFile(const QString& fileName)
+void GamePage::dumpListToFile(const QString& fileName)
 {
     fs::path dataPath = GetDataDir();
 
@@ -301,7 +306,7 @@ void LotteryPage::dumpListToFile(const QString& fileName)
     dumpFile.close();
 }
 
-void LotteryPage::loadListFromFile(const QString& fileName)
+void GamePage::loadListFromFile(const QString& fileName)
 {
     fs::path dataPath = GetDataDir();
 
@@ -326,19 +331,19 @@ void LotteryPage::loadListFromFile(const QString& fileName)
     }
 }
 
-void LotteryPage::loadRewardRatioFrom(int from)
+void GamePage::loadRewardRatioFrom(int from)
 {
-    for(int i=1;i<=MAX_BET_REWARD_POW;++i)
+    /*for(int i=1;i<=MAX_BET_REWARD_POW;++i)
     {
         int num = (1<<i);
         if(num>=from)
         {
             ui->rewardRatioComboBox->addItem(QString("x")+QString::number(num));
         }
-    }
+    }*/
 }
 
-void LotteryPage::clearRewardRatio()
+void GamePage::clearRewardRatio()
 {
     int count = ui->rewardRatioComboBox->count();
     for(int i=0;i<count;++i)
@@ -347,7 +352,7 @@ void LotteryPage::clearRewardRatio()
     }
 }
 
-void LotteryPage::updateRewardRatioFrom(int from)
+void GamePage::updateRewardRatioFrom(int from)
 {
     int currentRewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
     clearRewardRatio();
@@ -359,9 +364,9 @@ void LotteryPage::updateRewardRatioFrom(int from)
     }
 }
 
-void LotteryPage::updateRewardView()
+void GamePage::updateRewardView()
 {
-    int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
+    /*int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
     int mask = getMask(rewardMult-1);
 
     double betAmount = ui->amountLineEdit->text().toDouble();
@@ -373,23 +378,26 @@ void LotteryPage::updateRewardView()
     if(walletModel && walletModel->getOptionsModel())
     {
         ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(reward*COIN)));
-    }
+    }*/
 }
 
-void LotteryPage::updateRewardViewByBetNum()
+void GamePage::updateRewardViewByBetNum()
 {
     int betNumber = ui->betNumberLineEdit->text().toInt();
-    int mask = getMask(betNumber);
+    //int mask = getMask(betNumber);
+    int mask = 2;
 
-    int minReward = maskToReward(mask);
+    //int minReward = maskToReward(mask);
+    int minReward = 2;
     int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
 
     updateRewardRatioFrom(minReward);
     rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
-    mask = getMask(rewardMult-1);
+    //mask = getMask(rewardMult-1);
 
     double betAmount = ui->amountLineEdit->text().toDouble();
-    double reward = maskToReward(mask)*betAmount;
+    //double reward = maskToReward(mask)*betAmount;
+    double reward = 0.1;
     if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
     {
         reward = 0.0;
@@ -400,7 +408,7 @@ void LotteryPage::updateRewardViewByBetNum()
     }
 }
 
-void LotteryPage::makeBet()
+void GamePage::makeBet()
 {
     if(walletModel)
     {
@@ -422,19 +430,23 @@ void LotteryPage::makeBet()
                     throw std::runtime_error(std::string("Amount must be provided"));
                 }
 
-                if(betNumber < 0 || betNumber >= MAX_BET_REWARD)
+                //if(betNumber < 0 || betNumber >= MAX_BET_REWARD)//<-----
+                if(betNumber < 0)
                 {
-                    throw std::runtime_error(std::string("Bet number is out of range <0, ")+std::to_string(MAX_BET_REWARD)+std::string(">"));
+                    //throw std::runtime_error(std::string("Bet number is out of range <0, ")+std::to_string(MAX_BET_REWARD)+std::string(">"));
+                    throw std::runtime_error(std::string("Bet number is out of range"));
                 }
                 const Consensus::Params& params = Params().GetConsensus();
                 double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
                 double betAmount = ui->amountLineEdit->text().toDouble();
-                if(betAmount <= 0 || betAmount >= (ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
+                //if(betAmount <= 0 || betAmount >= (ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
+                if(betAmount <= 0)
                 {
-                    throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
+                    //throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
+                    throw std::runtime_error(std::string("Amount is out of range"));
                 }
 
-                int mask = getMask(betNumber);
+                /*int mask = getMask(betNumber);
                 int minReward = maskToReward(mask);
                 int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
                 if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
@@ -445,7 +457,7 @@ void LotteryPage::makeBet()
                 {
                     throw std::runtime_error(std::string("Reward ratio must be at least ")+std::to_string(minReward));
                 }                
-                mask = getMask(rewardMult-1);
+                mask = getMask(rewardMult-1);*/
                 
                 constexpr size_t txSize=265;
                 double fee;
@@ -480,16 +492,16 @@ void LotteryPage::makeBet()
                 UniValue bet(UniValue::VOBJ);
                 bet.pushKV("betNumber", betNumber);
                 bet.pushKV("betAmount", betAmount);
-                bet.pushKV("mask", mask);
+                //bet.pushKV("mask", mask);
                 sendTo.push_back(bet);
 
-                int reward=maskToReward(mask);
+                /*int reward=maskToReward(mask);
                 if(reward>MAX_BET_REWARD)
                 {
                     throw std::runtime_error(strprintf("Potential reward is greater than %d", MAX_BET_REWARD));
                 }
-                std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward))+byte2str(reinterpret_cast<unsigned char*>(&betNumber),sizeof(betNumber)));
-                
+                std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward))+byte2str(reinterpret_cast<unsigned char*>(&betNumber),sizeof(betNumber)));*/
+                std::string msg;
                 UniValue betReward(UniValue::VOBJ);
                 betReward.pushKV("data", msg);
                 sendTo.push_back(betReward);
@@ -529,7 +541,7 @@ void LotteryPage::makeBet()
     }
 }
 
-void LotteryPage::getBet()
+void GamePage::getBet()
 {
     if(walletModel)
     {
@@ -549,7 +561,7 @@ void LotteryPage::getBet()
                 std::string txidIn = qtxid.toStdString();
                 
                 UniValue txPrev(UniValue::VOBJ);
-                txPrev=GetBetTxs::findTx(txidIn);
+                txPrev=findTx(txidIn);
                 UniValue prevTxBlockHash(UniValue::VSTR);
                 prevTxBlockHash=txPrev["blockhash"].get_str();
                 
@@ -572,7 +584,8 @@ void LotteryPage::getBet()
 
                 UniValue scriptPubKeyStr(UniValue::VSTR);
                 scriptPubKeyStr=vout["scriptPubKey"]["hex"];
-                int reward=getReward<int>(pwallet, scriptPubKeyStr.get_str());
+                //int reward=getReward<int>(pwallet, scriptPubKeyStr.get_str());//<-----
+                int reward=1;
                 std::string amount=double2str(reward*vout["value"].get_real()-fee);
                 
                 UniValue txIn(UniValue::VOBJ);
