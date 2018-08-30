@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <iomanip>
+#include <numeric>
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <validation.h>
