@@ -73,6 +73,11 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
                     length=order;
                     offset=4;
                 }
+                else if(order==0x4c)
+                {
+                    length=std::stoi(hexStr.substr(4,2),nullptr,16);
+                    offset=6;
+                }
                 else
                 {
                     LogPrintf("txVerify: betType length is too-large\n");
