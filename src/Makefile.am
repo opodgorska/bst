@@ -140,6 +140,7 @@ BITCOIN_CORE_H = \
   games/gamesverify.h \
   games/modulo/modulotxs.h \
   games/modulo/moduloverify.h \
+  games/modulo/moduloutils.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -247,6 +248,7 @@ libbitcoin_server_a_SOURCES = \
   games/gamesverify.cpp \
   games/modulo/modulotxs.cpp \
   games/modulo/moduloverify.cpp \
+  games/modulo/moduloutils.cpp \
   dbwrapper.cpp \
   merkleblock.cpp \
   miner.cpp \

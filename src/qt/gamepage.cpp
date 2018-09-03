@@ -40,8 +40,14 @@
 #include <games/gamestxs.h>
 #include <games/gamesutils.h>
 #include <games/modulo/modulotxs.h>
+#include <games/modulo/moduloutils.h>
 
 using namespace modulo;
+
+static const std::array<QString, 13> betTypes = { {QString("Straight"), QString("Split"), QString("Street"), 
+                                                  QString("Corner"), QString("Line"), QString("Column"), 
+                                                  QString("Dozen"), QString("Low"), QString("High"),
+                                                  QString("Even"), QString("Odd"), QString("Red"), QString("Black")} };
 
 static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 1008} };
 extern int getConfTargetForIndex(int index);
@@ -82,11 +88,12 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
     ui->checkBoxMinimumFee->setChecked(settings.value("fPayOnlyMinFee").toBool());
     minimizeFeeSection(settings.value("fFeeSectionMinimized").toBool());
 
-    //ui->betNumberLineEdit->setValidator( new QIntValidator(0, MAX_BET_REWARD-1, this) );//<-----
-    ui->betNumberLineEdit->setValidator( new QIntValidator(0, (1024*1024)-1, this) );
-    loadListFromFile(QString("bets.dat"));
+    ui->betNumberSpinBox->setMinimum(1);
+    ui->rewardRatioSpinBox->setMinimum(2);
+    ui->amountSpinBox->setDecimals(9);
+    ui->amountSpinBox->setMaximum(MAX_PAYOFF/COIN);
 
-    loadRewardRatioFrom(0);
+    loadListFromFile(QString("bets.dat"));
 }
 
 GamePage::~GamePage()
@@ -263,12 +270,175 @@ void GamePage::setModel(WalletModel *model)
     else
         ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(settings.value("nConfTarget").toInt()));
 
-    connect(ui->betNumberLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardViewByBetNum()));
-    connect(ui->amountLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardView()));
-    connect(ui->rewardRatioComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateRewardView()));
+    ui->gameTypeComboBox->addItem(QString("Roulette"));
+    ui->gameTypeComboBox->addItem(QString("Lottery"));
+    
+    ui->rewardRatioSpinBox->setValue(36);
+    ui->rewardRatioSpinBox->setEnabled(false);
+    
+    for(size_t i=0; i<betTypes.size(); ++i)
+    {
+        ui->betTypeComboBox->addItem(betTypes[i]);
+    }
+    ui->betTypeComboBox->setEnabled(true);
+    
+    connect(ui->gameTypeComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateGameType()));
+    connect(ui->betTypeComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateBetType()));
+    connect(ui->rewardRatioSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateRewardView()));
+    connect(ui->betListWidget, SIGNAL(itemSelectionChanged()), this, SLOT(updateRewardView()));
+    connect(ui->addBetButton, SIGNAL(clicked()), this, SLOT(addBet()));
+    connect(ui->deleteBetButton, SIGNAL(clicked()), this, SLOT(deleteBet()));
     connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
     connect(ui->getBetButton, SIGNAL(clicked()), this, SLOT(getBet()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
+}
+
+void GamePage::clearGameTypeBox()
+{
+    int count = ui->betListWidget->count();
+    for(int i=0;i<count;++i)
+    {
+        delete ui->betListWidget->takeItem(0);
+    }
+}
+
+void GamePage::updateBetType()
+{
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        if(ui->betTypeComboBox->currentIndex() >= 7)
+        {
+            ui->betNumberSpinBox->setEnabled(false);
+        }
+        else
+        {
+            ui->betNumberSpinBox->setEnabled(true);
+        }
+    }
+    else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
+    {
+        ui->betNumberSpinBox->setEnabled(true);
+    }
+}
+
+void GamePage::updateGameType()
+{
+    clearGameTypeBox();
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        ui->rewardRatioSpinBox->setValue(36);
+        ui->rewardRatioSpinBox->setEnabled(false);
+        ui->betTypeComboBox->setEnabled(true);
+    }
+    else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
+    {
+        ui->rewardRatioSpinBox->setEnabled(true);
+        ui->betTypeComboBox->setCurrentIndex(0);
+        ui->betTypeComboBox->setEnabled(false);
+    }
+    updateRewardView();
+}
+
+void GamePage::deleteBet()
+{
+    QListWidgetItem *it;
+    it = ui->betListWidget->currentItem();
+    delete ui->betListWidget->takeItem(ui->betListWidget->row(it));
+
+    updateRewardView();
+}
+
+void GamePage::addBet()
+{
+    if(ui->betNumberSpinBox->value() > ui->rewardRatioSpinBox->value())
+    {
+        QMessageBox msgBox;
+        msgBox.setText("Bet number is greater than reward ratio");
+        msgBox.exec();
+        return;
+    }
+
+    QString betString;
+    double amount=ui->amountSpinBox->value();
+    if(amount<=0.0)
+    {
+        QMessageBox msgBox;
+        msgBox.setText("Amount is out of range");
+        msgBox.exec();
+        return;
+    }
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        betString+=ui->betTypeComboBox->currentText().toLower();
+        if(ui->betTypeComboBox->currentIndex() < 7)
+        {
+            betString+=QString("_");
+            betString+=QString::number(ui->betNumberSpinBox->value());
+        }
+        betString+=QString("@");
+        betString+=QString::number(amount, 'f', 9);
+
+        QListWidgetItem *newItem = new QListWidgetItem;
+        newItem->setText(betString);
+        ui->betListWidget->insertItem(0, newItem);
+    }
+    else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
+    {
+        betString+=QString::number(ui->betNumberSpinBox->value());
+        betString+=QString("@");
+        betString+=QString::number(amount, 'f', 9);
+
+        QListWidgetItem *newItem = new QListWidgetItem;
+        newItem->setText(betString);
+        ui->betListWidget->insertItem(0, newItem);
+    }
+
+    updateRewardView();
+}
+
+void GamePage::updateRewardView()
+{
+    int reward;
+    double betAmount;
+    int* betArray;
+    int betLen;
+    std::string betType;
+    double payoff=0.0;
+    
+    QListWidgetItem *it;
+    it = ui->betListWidget->currentItem();
+    if(it!=nullptr)
+    {
+        std::string betTypePattern=it->text().toStdString();
+        if(!betTypePattern.empty())
+        {
+            try
+            {
+                if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+                {
+                    int range=36;
+                    getRouletteBet(betTypePattern, betArray, betLen, reward, betAmount, betType, range);
+                }
+                else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
+                {
+                    int range=ui->rewardRatioSpinBox->value();
+                    getModuloBet(betTypePattern, betArray, betLen, reward, betAmount, betType, range);
+                }
+            }
+            catch(std::exception const& e)
+            {
+                QMessageBox msgBox;
+                msgBox.setText(e.what());
+                msgBox.exec();
+            }
+            payoff=(betAmount*reward);
+        }
+    }
+
+    if(walletModel && walletModel->getOptionsModel())
+    {
+        ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(payoff*COIN)));
+    }
 }
 
 void GamePage::unlockWallet()
@@ -331,81 +501,18 @@ void GamePage::loadListFromFile(const QString& fileName)
     }
 }
 
-void GamePage::loadRewardRatioFrom(int from)
+std::string GamePage::makeBetPattern()
 {
-    /*for(int i=1;i<=MAX_BET_REWARD_POW;++i)
+    std::string betTypePattern;
+    for(int i=0;i<ui->betListWidget->count();++i)
     {
-        int num = (1<<i);
-        if(num>=from)
+        if(!betTypePattern.empty())
         {
-            ui->rewardRatioComboBox->addItem(QString("x")+QString::number(num));
+            betTypePattern+=std::string("+");
         }
-    }*/
-}
-
-void GamePage::clearRewardRatio()
-{
-    int count = ui->rewardRatioComboBox->count();
-    for(int i=0;i<count;++i)
-    {
-        ui->rewardRatioComboBox->removeItem(0);
+        betTypePattern+=ui->betListWidget->item(i)->text().toStdString();
     }
-}
-
-void GamePage::updateRewardRatioFrom(int from)
-{
-    int currentRewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
-    clearRewardRatio();
-    loadRewardRatioFrom(from);
-    if(from<=currentRewardMult)
-    {
-        int index = ui->rewardRatioComboBox->findText(QString("x")+QString::number(currentRewardMult));
-        ui->rewardRatioComboBox->setCurrentIndex(index);
-    }
-}
-
-void GamePage::updateRewardView()
-{
-    /*int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
-    int mask = getMask(rewardMult-1);
-
-    double betAmount = ui->amountLineEdit->text().toDouble();
-    double reward = maskToReward(mask)*betAmount;
-    if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
-    {
-        reward = 0.0;
-    }
-    if(walletModel && walletModel->getOptionsModel())
-    {
-        ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(reward*COIN)));
-    }*/
-}
-
-void GamePage::updateRewardViewByBetNum()
-{
-    int betNumber = ui->betNumberLineEdit->text().toInt();
-    //int mask = getMask(betNumber);
-    int mask = 2;
-
-    //int minReward = maskToReward(mask);
-    int minReward = 2;
-    int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
-
-    updateRewardRatioFrom(minReward);
-    rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
-    //mask = getMask(rewardMult-1);
-
-    double betAmount = ui->amountLineEdit->text().toDouble();
-    //double reward = maskToReward(mask)*betAmount;
-    double reward = 0.1;
-    if(ui->amountLineEdit->text().length()==0 || ui->betNumberLineEdit->text().length()==0)
-    {
-        reward = 0.0;
-    }
-    if(walletModel && walletModel->getOptionsModel())
-    {
-        ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(reward*COIN)));
-    }
+    return betTypePattern;
 }
 
 void GamePage::makeBet()
@@ -418,48 +525,24 @@ void GamePage::makeBet()
             if(wallet != nullptr)
             {
                 CWallet* const pwallet=wallet.get();
-
-                if(ui->betNumberLineEdit->text().length()==0)
-                {
-                    throw std::runtime_error(std::string("Bet number must be provided"));
-                }
-                int betNumber = ui->betNumberLineEdit->text().toInt();
-
-                if(ui->amountLineEdit->text().length()==0)
-                {
-                    throw std::runtime_error(std::string("Amount must be provided"));
-                }
-
-                //if(betNumber < 0 || betNumber >= MAX_BET_REWARD)//<-----
-                if(betNumber < 0)
-                {
-                    //throw std::runtime_error(std::string("Bet number is out of range <0, ")+std::to_string(MAX_BET_REWARD)+std::string(">"));
-                    throw std::runtime_error(std::string("Bet number is out of range"));
-                }
-                const Consensus::Params& params = Params().GetConsensus();
-                double blockSubsidy = static_cast<double>(GetBlockSubsidy(chainActive.Height(), params)/COIN);
-                double betAmount = ui->amountLineEdit->text().toDouble();
-                //if(betAmount <= 0 || betAmount >= (ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy))
-                if(betAmount <= 0)
-                {
-                    //throw std::runtime_error(std::string("Amount is out of range <0, ")+std::to_string(ACCUMULATED_BET_REWARD_FOR_BLOCK*blockSubsidy)+std::string(">"));
-                    throw std::runtime_error(std::string("Amount is out of range"));
-                }
-
-                /*int mask = getMask(betNumber);
-                int minReward = maskToReward(mask);
-                int rewardMult = ui->rewardRatioComboBox->currentText().mid(1).toInt();
-                if( !(rewardMult > 0 && ((rewardMult & (rewardMult-1)) == 0)) )
-                {
-                    throw std::runtime_error(std::string("Reward ratio must be power of 2"));
-                }
-                if(rewardMult<minReward)
-                {
-                    throw std::runtime_error(std::string("Reward ratio must be at least ")+std::to_string(minReward));
-                }                
-                mask = getMask(rewardMult-1);*/
                 
-                constexpr size_t txSize=265;
+                std::vector<double> betAmounts;
+                std::vector<std::string> betTypes;
+                std::vector<std::vector<int> > betArrays;
+
+                std::string betTypePattern=makeBetPattern();
+                int range=range=ui->rewardRatioSpinBox->value();
+                parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays);
+
+                size_t opReturnSize=0;
+                for(std::vector<std::string>::iterator it=betTypes.begin();it!=betTypes.end();++it)
+                {
+                    opReturnSize+=it->size();
+                }
+                size_t txSize=265+
+                (36*(betTypes.size()-1))+//script size
+                opReturnSize;
+
                 double fee;
 
                 CCoinControl coin_control;
@@ -472,7 +555,8 @@ void GamePage::makeBet()
                 ProcessUnspent processUnspent(pwallet, addresses);
 
                 UniValue inputs(UniValue::VARR);
-                if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, betAmount, fee))
+                double betAmountAcc=std::accumulate(betAmounts.begin(), betAmounts.end(), 0.0);
+                if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, betAmountAcc, fee))
                 {
                     throw std::runtime_error(std::string("Insufficient funds"));
                 }
@@ -488,29 +572,41 @@ void GamePage::makeBet()
                 }
 
                 UniValue sendTo(UniValue::VARR);
-                
-                UniValue bet(UniValue::VOBJ);
-                bet.pushKV("betNumber", betNumber);
-                bet.pushKV("betAmount", betAmount);
-                //bet.pushKV("mask", mask);
-                sendTo.push_back(bet);
-
-                /*int reward=maskToReward(mask);
-                if(reward>MAX_BET_REWARD)
+                UniValue rangeObj(UniValue::VOBJ);
+                rangeObj.pushKV("argument", range);
+                sendTo.push_back(rangeObj);
+                for(size_t i=0;i<betArrays.size();++i)
                 {
-                    throw std::runtime_error(strprintf("Potential reward is greater than %d", MAX_BET_REWARD));
-                }
-                std::string msg(byte2str(reinterpret_cast<unsigned char*>(&reward),sizeof(reward))+byte2str(reinterpret_cast<unsigned char*>(&betNumber),sizeof(betNumber)));*/
-                std::string msg;
-                UniValue betReward(UniValue::VOBJ);
-                betReward.pushKV("data", msg);
-                sendTo.push_back(betReward);
+                    UniValue obj(UniValue::VOBJ);
+                    UniValue betNumbers(UniValue::VARR);
+                    for(size_t j=0;j<betArrays[i].size();++j)
+                    {
+                        betNumbers.push_back(betArrays[i][j]);
+                    }
+                    obj.pushKV("betNumbers", betNumbers);
+                    obj.pushKV("betAmount", double2str(betAmounts[i]));
 
+                    sendTo.push_back(obj);
+                }
+                std::string arg=int2hex(range)+std::string("_");
+                std::string msg=HexStr(arg.begin(), arg.end());
+                std::string plus_msg("+");
+                for(size_t i=0;i<betArrays.size();++i)
+                {
+                    msg+=HexStr(betTypes[i].begin(), betTypes[i].end());
+                    if(i<betArrays.size()-1)
+                    {
+                        msg+=HexStr(plus_msg.begin(), plus_msg.end());
+                    }
+                }
+                UniValue opReturn(UniValue::VOBJ);
+                opReturn.pushKV("data", msg);
+                sendTo.push_back(opReturn);
                 UniValue change(UniValue::VOBJ);
-                change.pushKV(changeAddress, computeChange(inputs, betAmount+fee));
+                change.pushKV(changeAddress, computeChange(inputs, betAmountAcc+fee));
                 sendTo.push_back(change);
 
-                MakeBetTxs tx(pwallet, inputs, sendTo, 0, ui->optInRBF->isChecked());
+                MakeBetTxs tx(pwallet, inputs, sendTo, (MAKE_MODULO_GAME_INDICATOR | CTransaction::CURRENT_VERSION), 0, ui->optInRBF->isChecked(), false);
                 unlockWallet();
                 tx.signTx();
                 std::string txid=tx.sendTx().get_str();
@@ -545,6 +641,7 @@ void GamePage::getBet()
 {
     if(walletModel)
     {
+        bool txRemoveFlag=false;
         try
         {
             std::shared_ptr<CWallet> wallet = GetWallets()[0];
@@ -565,46 +662,81 @@ void GamePage::getBet()
                 UniValue prevTxBlockHash(UniValue::VSTR);
                 prevTxBlockHash=txPrev["blockhash"].get_str();
                 
-                constexpr int voutIdx=0;
-                UniValue vout(UniValue::VOBJ);
-                vout=txPrev["vout"][voutIdx];
+                std::string address = ui->addressLineEdit->text().toStdString();
 
-                constexpr size_t txSize=265;
                 CCoinControl coin_control;
                 updateCoinControlState(coin_control);
                 int returned_target;
                 FeeReason reason;
                 CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
-                double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
 
-                if(fee>(static_cast<double>(maxTxFee)/COIN))
+                std::string txid;
+                size_t nPrevOut=txPrev["vout"].size()-2;
+                for(size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx)
                 {
-                    fee=(static_cast<double>(maxTxFee)/COIN);
+                    UniValue vout(UniValue::VOBJ);
+                    vout=txPrev["vout"][voutIdx];
+
+                    UniValue scriptPubKeyStr(UniValue::VSTR);
+                    scriptPubKeyStr=vout["scriptPubKey"]["hex"];
+
+                    const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
+                    size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
+
+                    size_t txSize=200+redeemScriptSize;
+                    double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
+                    if(fee>(static_cast<double>(maxTxFee)/COIN))
+                    {
+                        fee=(static_cast<double>(maxTxFee)/COIN);
+                    }
+
+                    int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+                    std::string amount=double2str(reward*vout["value"].get_real()-fee);
+
+                    UniValue txIn(UniValue::VOBJ);
+                    txIn.pushKV("txid", txidIn);
+                    txIn.pushKV("vout", voutIdx);
+
+                    UniValue sendTo(UniValue::VOBJ);
+                    sendTo.pushKV("address", address);
+                    sendTo.pushKV("amount", amount);
+
+                    ModuloOperation operation;
+                    GetBetTxs tx(pwallet, txIn, sendTo, prevTxBlockHash, &operation, 0, ui->optInRBF->isChecked());
+                    unlockWallet();
+                    try
+                    {
+                        tx.signTx();
+                    }
+                    catch(std::exception const& e)
+                    {
+                        if(!txid.empty())
+                        {
+                            txid+=std::string("\n");
+                        }
+                        txid+=e.what();
+                        continue;
+                    }
+                    catch(...)
+                    {
+                        if(!txid.empty())
+                        {
+                            txid+=std::string("\n");
+                        }
+                        txid+=std::string("unknown exception occured");
+                        continue;
+                    }
+                    
+                    if(!txid.empty())
+                    {
+                        txid+=std::string("\n");
+                    }
+                    txid+=tx.sendTx().get_str();
+                    txRemoveFlag=true;//no exception means signing at least one input succeeded
                 }
 
-                UniValue scriptPubKeyStr(UniValue::VSTR);
-                scriptPubKeyStr=vout["scriptPubKey"]["hex"];
-                //int reward=getReward<int>(pwallet, scriptPubKeyStr.get_str());//<-----
-                int reward=1;
-                std::string amount=double2str(reward*vout["value"].get_real()-fee);
-                
-                UniValue txIn(UniValue::VOBJ);
-                txIn.pushKV("txid", txidIn);
-                txIn.pushKV("vout", voutIdx);
-
-                std::string address = ui->addressLineEdit->text().toStdString();
-                
-                UniValue sendTo(UniValue::VOBJ);
-                sendTo.pushKV("address", address);
-                sendTo.pushKV("amount", amount);
-
-                GetBetTxs tx(pwallet, txIn, sendTo, prevTxBlockHash, 0, ui->optInRBF->isChecked());
-                unlockWallet();
-                tx.signTx();
-                std::string txid=tx.sendTx().get_str();
-
                 QMessageBox msgBox;
-                msgBox.setWindowTitle("Winning transaction ID:");
+                msgBox.setWindowTitle("Getting bet status:");
                 msgBox.setText(QString::fromStdString(txid));
                 msgBox.exec();
 
@@ -620,7 +752,8 @@ void GamePage::getBet()
         {
             std::string info=e.what();
             if(info==std::string("Script failed an OP_EQUALVERIFY operation") || 
-               info==std::string("Input not found or already spent"))
+               info==std::string("Input not found or already spent") ||
+               txRemoveFlag==true)
             {
                 delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
                 dumpListToFile(QString("bets.dat"));

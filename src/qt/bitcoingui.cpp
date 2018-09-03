@@ -299,10 +299,10 @@ void BitcoinGUI::createActions()
     connect(dataAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(dataMenuAction, SIGNAL(triggered()), this, SLOT(gotoDataPage()));
 
-    /*connect(gameAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(gameAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(gameAction, SIGNAL(triggered()), this, SLOT(gotoGamePage()));
     connect(gameAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(gameMenuAction, SIGNAL(triggered()), this, SLOT(gotoGamePage()));*/
+    connect(gameMenuAction, SIGNAL(triggered()), this, SLOT(gotoGamePage()));
 
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));

@@ -53,9 +53,9 @@ private:
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
     void updateCoinControlState(CCoinControl& ctrl);
-    void loadRewardRatioFrom(int from);
-    void clearRewardRatio();
-    void updateRewardRatioFrom(int from);
+    
+    void clearGameTypeBox();
+    std::string makeBetPattern();
 
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);
@@ -63,8 +63,13 @@ public Q_SLOTS:
 private Q_SLOTS:
     void makeBet();
     void getBet();
+    
+    void updateGameType();
+    void updateBetType();
+    void addBet();
+    void deleteBet();
+    
     void updateRewardView();
-    void updateRewardViewByBetNum();
 
     void on_buttonChooseFee_clicked();
     void on_buttonMinimizeFee_clicked();
