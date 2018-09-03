@@ -273,7 +273,7 @@ void BitcoinGUI::createActions()
     dataMenuAction->setStatusTip(dataAction->statusTip());
     dataMenuAction->setToolTip(dataMenuAction->statusTip());
 
-    gameAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Game"), this);
+    gameAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Bets"), this);
     gameAction->setStatusTip(tr("Make bet to play game"));
     gameAction->setToolTip(gameAction->statusTip());
     gameAction->setCheckable(true);
