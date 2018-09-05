@@ -96,7 +96,7 @@ namespace modulo
             {
                 throw std::runtime_error(std::string("Possible numbers for corner type are 1, 2, ...22"));
             }
-            bet = const_cast<int* >(corner[betNum]);
+            bet = const_cast<int* >(corner[betNum-1]);
             len = 4;
             reward = range/len;
         }
