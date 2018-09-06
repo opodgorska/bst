@@ -20,7 +20,7 @@ namespace modulo
     {
         blockHash%=argument;
         ++blockHash;
-        
+
         return blockHash;
     };
 

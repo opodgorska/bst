@@ -2,19 +2,25 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <validation.h>
 #include <games/gamesutils.h>
 #include <games/gamestxs.h>
 #include <games/gamesverify.h>
 
+static unsigned int blockHashStr2Int(const std::string& hashStr)
+{
+    unsigned int hash;
+    std::vector<unsigned char> binaryBlockHash(hashStr.length()/2, 0);
+    hex2bin(binaryBlockHash, hashStr);
+    std::vector<unsigned char> blockhashVector(binaryBlockHash.end()-4, binaryBlockHash.end());
+    array2typeRev(blockhashVector, hash);
+    
+    return hash;
+}
+
 static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsigned int argument, ArgumentOperation* operation)
 {
-    std::vector<unsigned char> binaryBlockHash(makeTxBlockHash.length()/2, 0);
-    hex2bin(binaryBlockHash, makeTxBlockHash);
-    std::vector<unsigned char> blockhash(binaryBlockHash.end()-4, binaryBlockHash.end());
-
-    unsigned int blockhashTmp;
-    array2typeRev(blockhash, blockhashTmp);
-    
+    unsigned int blockhashTmp=blockHashStr2Int(makeTxBlockHash);
     operation->setArgument(argument);
     return (*operation)(blockhashTmp);
 }
@@ -49,7 +55,7 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
 
     unsigned int blockhashFromScript;
     array2type(blockhashFromScript_, blockhashFromScript);
-    
+
     if(blockhash!=blockhashFromScript)
     {
         LogPrintf("txVerify: blockhash-mismatch\n");
@@ -116,7 +122,7 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
             size_t pos_=betType.find("_");
             std::string opReturnArg=betType.substr(0,pos_);
             betType=betType.substr(pos_+1);
-            
+
             unsigned int opReturnArgNum;
             sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
             if(opReturnArgNum != argument)
@@ -124,7 +130,7 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
                 LogPrintf("txVerify: opReturnArgNum: %x != argument: %x \n", opReturnArgNum, argument);
                 return false;
             }
-            
+
             uint32_t nPrevOut=tx.vin[0].prevout.n;
             for(uint32_t n=0;n<nPrevOut;++n)
             {
@@ -139,7 +145,7 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
     catch(const std::out_of_range& oor)
     {
         LogPrintf("txVerify: betType is out-of-range\n");
-        return false;        
+        return false;
     }
     if(betType.empty())
     {
@@ -204,7 +210,7 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
         LogPrintf("txVerify: transaction format check failed\n");
         return false;
     }
-    
+
     const int scriptReward=argument/numOfBetsNumbers;
     //LogPrintf("txVerify scriptReward: %d\n", scriptReward);
     if(opReturnReward != scriptReward)
@@ -312,25 +318,142 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
         LogPrintf("txVerify: script length check failed\n");
         return false;
     }
-    
+
     fee=(scriptReward*in)-out;
     if(out > scriptReward*in)
     {
         LogPrintf("txVerify: out > scriptReward*in\n");
         return false;
     }
-    
+
     if(out>maxPayoff)
     {
         LogPrintf("txVerify: out > maxPayoff\n");
-        return false;        
+        return false;
     }
-    
+
     if(opReturnReward>maxReward || scriptReward>maxReward)
     {
         LogPrintf("txVerify: maxReward exceeded\n");
-        return false;        
+        return false;
     }
 
     return true;
+}
+
+VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_, int32_t makeBetIndicator_, CAmount maxPayoff_) : 
+                                     block(block_), argumentOperation(argumentOperation_), getReward(getReward_), verifyMakeBetTx(verifyMakeBetTx_), makeBetIndicator(makeBetIndicator_), maxPayoff(maxPayoff_)
+{
+    blockSubsidy=GetBlockSubsidy(chainActive.Height(), params);
+    uint256 hash=block.GetHash();
+    blockHash=blockHashStr2Int(hash.ToString());
+}
+
+std::string VerifyBlockReward::getBetType(const CTransaction& tx)
+{
+    for(size_t i=1;i<tx.vout.size();++i)
+    {
+        CScript::const_iterator it_beg=tx.vout[i].scriptPubKey.begin();
+        CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
+        std::string hexStr;
+        int order = *(it_beg+1);
+        if(*it_beg==OP_RETURN)
+        {
+            if(order<=0x4b)
+            {
+                hexStr=std::string(it_beg+3, it_end);
+            }
+            else if(order==0x4c)
+            {
+                hexStr=std::string(it_beg+4, it_end);
+            }
+            else if(order==0x4d)
+            {
+                hexStr=std::string(it_beg+5, it_end);
+            }
+            else if(order==0x4e)
+            {
+                hexStr=std::string(it_beg+7, it_end);
+            }
+            else
+            {
+                LogPrintf("VerifyBlockReward: getBetType length is too-large\n");
+                return std::string("");
+            }
+            //LogPrintf("VerifyBlockReward: getBetType: %s\n", hexStr);
+            return hexStr;
+        }
+    }
+    LogPrintf("VerifyBlockReward: getBetType no op-return\n");
+    return std::string("");
+}
+
+unsigned int VerifyBlockReward::getArgument(std::string& betType)
+{
+    size_t pos_=betType.find("_");
+    std::string opReturnArg=betType.substr(0,pos_);
+    betType=betType.substr(pos_+1);
+
+    unsigned int opReturnArgNum;
+    sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
+
+    return opReturnArgNum;
+}
+
+bool VerifyBlockReward::isMakeBetTx(const CTransaction& tx)
+{
+    int32_t txMakeBetVersion=(tx.nVersion ^ makeBetIndicator);
+    if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool VerifyBlockReward::isBetPayoffExceeded()
+{
+    CAmount inAcc=0;
+    CAmount payoffAcc=0;
+    for (const auto& tx : block.vtx)
+    {
+        if(isMakeBetTx(*tx))
+        {
+            std::string betType=getBetType(*tx);
+            unsigned int argument=getArgument(betType);
+            argumentOperation->setArgument(argument);
+            argumentResult=(*argumentOperation)(blockHash);
+            for(size_t i=0;true;++i)//all tx.otputs
+            {
+                size_t pos=betType.find("+");
+                if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
+                {
+                    int reward=(*getReward)(betType.substr(0,pos), argument);
+                    CAmount payoff=tx->vout[i].nValue * reward;
+                    payoffAcc+=payoff;
+                    inAcc+=tx->vout[i].nValue;
+                }
+
+                if(pos==std::string::npos)
+                {
+                    break;
+                }
+                betType=betType.substr(pos+1);
+            }
+        }
+    }
+
+    if(static_cast<double>(inAcc) >= 0.9*static_cast<double>(blockSubsidy))
+    {
+        if(payoffAcc>=inAcc+blockSubsidy)
+        {
+            return true;
+        }
+    }
+
+    if(payoffAcc>=maxPayoff)
+    {
+        return true;
+    }
+
+    return false;
 }

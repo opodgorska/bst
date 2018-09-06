@@ -16,7 +16,14 @@ namespace modulo
         virtual int operator()(const std::string& betType, unsigned int modulo) override;
     };
 
+    class VerifyMakeModuloBetTx : public VerifyMakeBetTx
+    {
+    public:
+        virtual bool isWinning(const std::string& betType, unsigned int maxArgument, unsigned int argument) override;
+    };
+
     bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
+    bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
 
 }
 

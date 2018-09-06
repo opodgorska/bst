@@ -10,7 +10,6 @@
 #include <outputtype.h>
 
 UniValue findTx(const std::string& txid);
-bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params, int32_t makeBetIndicator, double accumulatedBetReward);
 
 class ArgumentOperation
 {

@@ -5,6 +5,7 @@
 #include <games/gamesverify.h>
 #include <games/modulo/moduloverify.h>
 #include <games/modulo/modulotxs.h>
+#include <games/modulo/moduloutils.h>
 
 namespace modulo
 {
@@ -66,11 +67,209 @@ namespace modulo
         return 0;
     }
 
+    bool VerifyMakeModuloBetTx::isWinning(const std::string& betType, unsigned int maxArgument, unsigned int argument)
+    {
+        int* bet;
+        int len=1;
+        if(betType.find_first_not_of( "0123456789" ) == std::string::npos)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType);
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>maxArgument)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: ")+std::to_string(maxArgument));
+            }
+            straight = betNum;
+            bet = const_cast<int* >(&straight);
+            len = 1;
+        }
+        else if((betType.find("straight_")==0 || betType.find("STRAIGHT_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("straight_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>36)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 36"));
+            }
+            straight = betNum;
+            bet = const_cast<int* >(&straight);
+            len = 1;
+        }
+        else if((betType.find("split_")==0 || betType.find("SPLIT_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("split_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>33)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 33"));
+            }
+            bet = const_cast<int* >(split[betNum-1]);
+            len = 2;
+        }
+        else if((betType.find("street_")==0 || betType.find("STREET_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("street_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }        
+            if(betNum<1 || betNum>12)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 12"));
+            }
+            bet = const_cast<int* >(street[betNum-1]);
+            len = 3;
+        }
+        else if((betType.find("corner_")==0 || betType.find("CORNER_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("corner_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>22)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 22"));
+            }
+            bet = const_cast<int* >(corner[betNum-1]);
+            len = 4;
+        }
+        else if((betType.find("line_")==0 || betType.find("LINE_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("line_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>11)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 11"));
+            }
+            bet = const_cast<int* >(line[betNum-1]);
+            len = 6;
+        }
+        else if((betType.find("column_")==0 || betType.find("COLUMN_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("column_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>3)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 3"));
+            }
+            bet = const_cast<int* >(column[betNum-1]);
+            len = 12;
+        }
+        else if((betType.find("dozen_")==0 || betType.find("DOZEN_")==0) && maxArgument==36)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betType.substr(std::string("dozen_").length()));
+            }
+            catch(...)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+            }
+            if(betNum<1 || betNum>3)
+            {
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 3"));
+            }
+            bet = const_cast<int* >(dozen[betNum-1]);
+            len = 12;
+        }
+        else if((betType.find("low")==0 || betType.find("LOW")==0) && maxArgument==36)
+        {
+            bet = const_cast<int* >(low);
+            len = 18;
+        }
+        else if((betType.find("high")==0 || betType.find("HIGH")==0) && maxArgument==36)
+        {
+            bet = const_cast<int* >(high);
+            len = 18;
+        }
+        else if((betType.find("even")==0 || betType.find("EVEN")==0) && maxArgument==36)
+        {
+            bet = const_cast<int* >(even);
+            len = 18;
+        }
+        else if((betType.find("odd")==0 || betType.find("ODD")==0) && maxArgument==36)
+        {
+            bet = const_cast<int* >(odd);
+            len = 18;
+        }
+        else if((betType.find("red")==0 || betType.find("RED")==0) && maxArgument==36)
+        {
+            bet = const_cast<int* >(red);
+            len = 18;
+        }
+        else if((betType.find("black")==0 || betType.find("BLACK")==0) && maxArgument==36)
+        {
+            bet = const_cast<int* >(black);
+            len = 18;
+        }
+
+        int *item = std::find(bet, bet+len, argument);
+        if (item != bet+len) 
+        {
+            return true;
+        }
+        return false;
+    }
+
     bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
     {
         ModuloOperation moduloOperation;
         GetModuloReward getModuloReward;
         return txVerify(tx, in, out, fee, &moduloOperation, &getModuloReward, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+    };
+
+    bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block)
+    {
+        VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+        ModuloOperation moduloOperation;
+        GetModuloReward getModuloReward;
+        VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
+        return verifyBlockReward.isBetPayoffExceeded();
     };
 
 }
