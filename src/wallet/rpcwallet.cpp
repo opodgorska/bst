@@ -1870,7 +1870,11 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
                 }
                 entry.pushKV("vout", r.vout);
                 if (fLong)
+		{
                     WalletTxToJSON(wtx, entry);
+                    size_t dataSize=wtx.tx->GetOP_ReturnSize();
+                    entry.pushKV("datasize", static_cast<int>(dataSize));
+		}
                 ret.push_back(entry);
             }
         }
@@ -1937,6 +1941,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "    \"comment\": \"...\",       (string) If a comment is associated with the transaction.\n"
             "    \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
             "                                                     may be unknown for unconfirmed transactions not in the mempool\n"
+            "    \"datasize\": xxx,          (numeric) Size of user data in bytes\n"
             "    \"abandoned\": xxx          (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
             "                                         'send' category of transactions.\n"
             "  }\n"
@@ -1994,6 +1999,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "                                          negative amounts).\n"
             "    \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
             "                                                     may be unknown for unconfirmed transactions not in the mempool\n"
+            "    \"datasize\": xxx,          (numeric) Size of user data in bytes\n"
             "    \"abandoned\": xxx          (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
             "                                         'send' category of transactions.\n"
             "  }\n"

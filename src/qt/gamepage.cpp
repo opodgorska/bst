@@ -90,7 +90,7 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
 
     ui->betNumberSpinBox->setMinimum(1);
     ui->rewardRatioSpinBox->setMinimum(2);
-    ui->amountSpinBox->setDecimals(9);
+    ui->amountSpinBox->setDecimals(8);
     ui->amountSpinBox->setMaximum(MAX_PAYOFF/COIN);
 
     loadListFromFile(QString("bets.dat"));
@@ -376,7 +376,7 @@ void GamePage::addBet()
             betString+=QString::number(ui->betNumberSpinBox->value());
         }
         betString+=QString("@");
-        betString+=QString::number(amount, 'f', 9);
+        betString+=QString::number(amount, 'f', 8);
 
         QListWidgetItem *newItem = new QListWidgetItem;
         newItem->setText(betString);
@@ -386,7 +386,7 @@ void GamePage::addBet()
     {
         betString+=QString::number(ui->betNumberSpinBox->value());
         betString+=QString("@");
-        betString+=QString::number(amount, 'f', 9);
+        betString+=QString::number(amount, 'f', 8);
 
         QListWidgetItem *newItem = new QListWidgetItem;
         newItem->setText(betString);
