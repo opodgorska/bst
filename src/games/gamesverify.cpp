@@ -361,19 +361,19 @@ std::string VerifyBlockReward::getBetType(const CTransaction& tx)
         {
             if(order<=0x4b)
             {
-                hexStr=std::string(it_beg+3, it_end);
+                hexStr=std::string(it_beg+2, it_end);
             }
             else if(order==0x4c)
             {
-                hexStr=std::string(it_beg+4, it_end);
+                hexStr=std::string(it_beg+3, it_end);
             }
             else if(order==0x4d)
             {
-                hexStr=std::string(it_beg+5, it_end);
+                hexStr=std::string(it_beg+4, it_end);
             }
             else if(order==0x4e)
             {
-                hexStr=std::string(it_beg+7, it_end);
+                hexStr=std::string(it_beg+6, it_end);
             }
             else
             {
