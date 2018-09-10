@@ -90,6 +90,7 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
 
     ui->betNumberSpinBox->setMinimum(1);
     ui->rewardRatioSpinBox->setMinimum(2);
+    ui->rewardRatioSpinBox->setMaximum(MAX_REWARD);
     ui->amountSpinBox->setDecimals(8);
     ui->amountSpinBox->setMaximum(MAX_PAYOFF/COIN);
 
