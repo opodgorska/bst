@@ -103,6 +103,7 @@ The above transaction contains 3 bets:
 3. even with amount 0.7 BST
 Each bet within a transaction creates one output. 
 
+Makebet transaction is signaled by 30`th bit in the transaction version field, 1 at this position (0x40000000) means makebet transaction.
 Bets outputs occupies outputs beginning from index 0. After bets output there is an op_return output containing a description of the bets included in this transaction.
 The last output is for change purpose. The change takes into account a fee.
 
@@ -156,6 +157,17 @@ street_3 - didn't win
 even - won
 so, the total reward is 0.7*2-fee=1.4-fee3 BST.
 
+To successfuly redeem the reward by getbet two conditions must be met:
+1. lucky number(s) in makebet must match the last 4 bytes word of block hash divided modulo by the modulo argument and increased by 1
+2. keys must match (as in the P2PKH transactions)
+
+Making bets has following limitation:
+1. Maximum modulo argument (reward ratio) is 2^30
+2. Maximum reward 2^20 BST
+
+In addition to the conditions above, a mining policy exists. The rule is that:
+1. If a sum of input amounts for winning makebet transactions included in a given block is greater or equal 0.9 of a current block subsidy, then the block is rejected.
+2. If a sum of payoffs for winning makebet transactions included in a given block is greater or equal than maximum reward (2^20 BST), then the block is rejected.
 
 For the roulette following bets are available:
 ```
