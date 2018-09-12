@@ -283,7 +283,7 @@ UniValue getbet(const JSONRPCRequest& request)
 
         UniValue txIn(UniValue::VOBJ);
         txIn.pushKV("txid", txidIn);
-        txIn.pushKV("vout", voutIdx);
+        txIn.pushKV("vout", static_cast<int>(voutIdx));
 
         UniValue sendTo(UniValue::VOBJ);
         sendTo.pushKV("address", address);

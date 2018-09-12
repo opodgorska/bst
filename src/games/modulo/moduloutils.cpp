@@ -6,6 +6,7 @@
 #include <amount.h>
 #include <games/modulo/moduloutils.h>
 #include <games/modulo/modulotxs.h>
+#include <clocale>
 
 namespace modulo
 {

@@ -98,8 +98,8 @@ makebet straight_2@0.1+street_3@0.05+even@0.7
 ```
 
 The above transaction contains 3 bets:
-1. straight with valaue 2 and amount 0.1 BST
-2. street with valaue 3 and amount 0.05 BST
+1. straight with value 2 and amount 0.1 BST
+2. street with value 3 and amount 0.05 BST
 3. even with amount 0.7 BST
 Each bet within a transaction creates one output. 
 
