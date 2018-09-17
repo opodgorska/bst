@@ -48,4 +48,6 @@ private:
     const CAmount maxPayoff;
 };
 
+bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
+
 #endif

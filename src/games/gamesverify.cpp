@@ -14,7 +14,7 @@ static unsigned int blockHashStr2Int(const std::string& hashStr)
     hex2bin(binaryBlockHash, hashStr);
     std::vector<unsigned char> blockhashVector(binaryBlockHash.end()-4, binaryBlockHash.end());
     array2typeRev(blockhashVector, hash);
-    
+
     return hash;
 }
 
@@ -455,5 +455,15 @@ bool VerifyBlockReward::isBetPayoffExceeded()
         return true;
     }
 
+    return false;
+}
+
+bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator)
+{
+    int32_t txMakeBetVersion=(tx.nVersion ^ makeBetIndicator);
+    if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)
+    {
+        return true;
+    }
     return false;
 }

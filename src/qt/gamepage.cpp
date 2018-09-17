@@ -42,6 +42,8 @@
 #include <games/modulo/modulotxs.h>
 #include <games/modulo/moduloutils.h>
 
+#include <qt/transactiontablemodel.h>
+
 using namespace modulo;
 
 static const std::array<QString, 13> betTypes = { {QString("Straight"), QString("Split"), QString("Street"), 
@@ -292,7 +294,28 @@ void GamePage::setModel(WalletModel *model)
     connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
     connect(ui->getBetButton, SIGNAL(clicked()), this, SLOT(getBet()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
+
+    connect(walletModel->getTransactionTableModel(), SIGNAL(newTx(const QString& )), this, SLOT(newTx(const QString& )));
+    connect(walletModel->getTransactionTableModel(), SIGNAL(deletedTx(const QString& )), this, SLOT(deletedTx(const QString& )));
 }
+
+void GamePage::deletedTx(const QString &hash)
+{
+    if(removeTxidFromList(hash))
+    {
+        std::cout<<"deletedTx: "<<hash.toStdString()<<std::endl;
+        dumpListToFile(QString("bets.dat"));
+    }
+}
+
+void GamePage::newTx(const QString &hash)
+{
+    if(addTxidToList(hash))
+    {
+        dumpListToFile(QString("bets.dat"));
+    }
+}
+
 
 void GamePage::clearGameTypeBox()
 {
@@ -502,6 +525,43 @@ void GamePage::loadListFromFile(const QString& fileName)
     }
 }
 
+bool GamePage::isTxidInList(const QString& txid)
+{
+    for(int i = 0; i < ui->transactionListWidget->count(); ++i)
+    {
+        if(txid==ui->transactionListWidget->item(i)->text())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool GamePage::addTxidToList(const QString& txid)
+{
+    if(!isTxidInList(txid))
+    {
+        QListWidgetItem *newItem = new QListWidgetItem;
+        newItem->setText(txid);
+        ui->transactionListWidget->insertItem(0, newItem);
+        return true;
+    }
+    return false;
+}
+
+bool GamePage::removeTxidFromList(const QString& txid)
+{
+    for(int i = 0; i < ui->transactionListWidget->count(); ++i)
+    {
+        if(txid==ui->transactionListWidget->item(i)->text())
+        {
+            delete ui->transactionListWidget->takeItem(i);
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string GamePage::makeBetPattern()
 {
     std::string betTypePattern;
@@ -611,12 +671,6 @@ void GamePage::makeBet()
                 unlockWallet();
                 tx.signTx();
                 std::string txid=tx.sendTx().get_str();
-
-                QListWidgetItem *newItem = new QListWidgetItem;
-                newItem->setText(QString::fromStdString(txid));
-                ui->transactionListWidget->insertItem(0, newItem);
-
-                dumpListToFile(QString("bets.dat"));
             }
             else
             {

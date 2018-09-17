@@ -330,8 +330,8 @@ UniValue getbet(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
-    { "blockchain",         "makebet",                      &makebet,                   {"type_of_bet", "range", "replaceable", "conf_target", "estimate_mode"} },
-    { "blockchain",         "getbet",                       &getbet,                    {"txid", "address", "replaceable", "conf_target", "estimate_mode"} },
+    { "wallet",             "makebet",                      &makebet,                   {"type_of_bet", "range", "replaceable", "conf_target", "estimate_mode"} },
+    { "wallet",             "getbet",                       &getbet,                    {"txid", "address", "replaceable", "conf_target", "estimate_mode"} },
 };
 
 void RegisterGameRPCCommands(CRPCTable &t)

@@ -22,6 +22,7 @@ namespace modulo
         virtual bool isWinning(const std::string& betType, unsigned int maxArgument, unsigned int argument) override;
     };
 
+    bool isMakeBetTx(const CTransaction& tx);
     bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
     bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
 

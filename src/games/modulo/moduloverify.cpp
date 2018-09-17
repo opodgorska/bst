@@ -256,6 +256,11 @@ namespace modulo
         return false;
     }
 
+    bool isMakeBetTx(const CTransaction& tx)
+    {
+        return isMakeBetTx(tx, MAKE_MODULO_GAME_INDICATOR);
+    }
+
     bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
     {
         ModuloOperation moduloOperation;

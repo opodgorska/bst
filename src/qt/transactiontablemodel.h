@@ -107,6 +107,10 @@ private:
     QVariant txWatchonlyDecoration(const TransactionRecord *wtx) const;
     QVariant txAddressDecoration(const TransactionRecord *wtx) const;
 
+Q_SIGNALS:
+    void newTx(const QString& hash);
+    void deletedTx(const QString& hash);
+
 public Q_SLOTS:
     /* New transaction, or transaction changed status */
     void updateTransaction(const QString &hash, int status, bool showTransaction);
