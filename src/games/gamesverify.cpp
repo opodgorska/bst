@@ -430,8 +430,8 @@ bool VerifyBlockReward::isBetPayoffExceeded()
                     int reward=(*getReward)(betType.substr(0,pos), argument);
                     CAmount payoff=tx->vout[i].nValue * reward;
                     payoffAcc+=payoff;
-                    inAcc+=tx->vout[i].nValue;
                 }
+                inAcc+=tx->vout[i].nValue;
 
                 if(pos==std::string::npos)
                 {
