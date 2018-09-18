@@ -56,9 +56,9 @@ private:
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
     void updateCoinControlState(CCoinControl& ctrl);
-    
     void clearGameTypeBox();
     std::string makeBetPattern();
+    void updateBetNumberLimit();
 
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);

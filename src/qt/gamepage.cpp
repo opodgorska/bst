@@ -297,6 +297,8 @@ void GamePage::setModel(WalletModel *model)
 
     connect(walletModel->getTransactionTableModel(), SIGNAL(newTx(const QString& )), this, SLOT(newTx(const QString& )));
     connect(walletModel->getTransactionTableModel(), SIGNAL(deletedTx(const QString& )), this, SLOT(deletedTx(const QString& )));
+    
+    updateBetNumberLimit();
 }
 
 void GamePage::deletedTx(const QString &hash)
@@ -343,6 +345,7 @@ void GamePage::updateBetType()
     {
         ui->betNumberSpinBox->setEnabled(true);
     }
+    updateBetNumberLimit();
 }
 
 void GamePage::updateGameType()
@@ -361,6 +364,46 @@ void GamePage::updateGameType()
         ui->betTypeComboBox->setEnabled(false);
     }
     updateRewardView();
+    updateBetNumberLimit();
+}
+
+void GamePage::updateBetNumberLimit()
+{
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        if(ui->betTypeComboBox->currentText()==QString("Straight"))
+        {
+            ui->betNumberSpinBox->setMaximum(ui->rewardRatioSpinBox->value());
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Split"))
+        {
+            ui->betNumberSpinBox->setMaximum(splitBetsNum);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Street"))
+        {
+            ui->betNumberSpinBox->setMaximum(streetBetsNum);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Corner"))
+        {
+            ui->betNumberSpinBox->setMaximum(cornerBetsNum);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Line"))
+        {
+            ui->betNumberSpinBox->setMaximum(lineBetsNum);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Column"))
+        {
+            ui->betNumberSpinBox->setMaximum(columnBetsNum);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Dozen"))
+        {
+            ui->betNumberSpinBox->setMaximum(dozenBetsNum);
+        }
+    }
+    else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
+    {
+        ui->betNumberSpinBox->setMaximum(ui->rewardRatioSpinBox->value());
+    }
 }
 
 void GamePage::deleteBet()
@@ -463,6 +506,7 @@ void GamePage::updateRewardView()
     {
         ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), static_cast<CAmount>(payoff*COIN)));
     }
+    updateBetNumberLimit();
 }
 
 void GamePage::unlockWallet()

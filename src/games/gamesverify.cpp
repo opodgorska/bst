@@ -444,13 +444,13 @@ bool VerifyBlockReward::isBetPayoffExceeded()
 
     if(static_cast<double>(inAcc) >= 0.9*static_cast<double>(blockSubsidy))
     {
-        if(payoffAcc>=inAcc+blockSubsidy)
+        if(payoffAcc>inAcc+blockSubsidy)
         {
             return true;
         }
     }
 
-    if(payoffAcc>=maxPayoff)
+    if(payoffAcc>maxPayoff)
     {
         return true;
     }

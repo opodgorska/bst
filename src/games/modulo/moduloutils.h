@@ -13,7 +13,14 @@ namespace modulo
 
     static int straight;
 
-    static int const split[33][2]=
+    static size_t const splitBetsNum=57;
+    static size_t const streetBetsNum=12;
+    static size_t const cornerBetsNum=22;
+    static size_t const lineBetsNum=11;
+    static size_t const columnBetsNum=3;
+    static size_t const dozenBetsNum=3;
+
+    static int const split[57][2]=
     {
         {1, 4},
         {4, 7},
@@ -47,7 +54,31 @@ namespace modulo
         {24, 27},
         {27, 30},
         {30, 33},
-        {33, 36}
+        {33, 36},
+        {1, 2},
+        {2, 3},
+        {4, 5},
+        {5, 6},
+        {7, 8},
+        {8, 9},
+        {10, 11},
+        {11, 12},
+        {13, 14},
+        {14, 15},
+        {16, 17},
+        {17, 18},
+        {19, 20},
+        {20, 21},
+        {22, 23},
+        {23, 24},
+        {25, 26},
+        {26, 27},
+        {28, 29},
+        {29, 30},
+        {31, 32},
+        {32, 33},
+        {34, 35},
+        {35, 36}
     };
 
     static int const street[12][3]=

@@ -41,14 +41,14 @@ from the root of the repository.
 Build Bitcoin Core
 ------------------------
 
-1. Clone the bst source code and cd into `bst`
+1. Clone the BST source code and cd into `bst`
 
         git clone https://github.com/BlockStamp/bst.git
         cd bst
 
-2.  Build bst-core:
+2.  Build Bst Core:
 
-    Configure and build the headless bst binaries as well as the GUI (if Qt is found).
+    Configure and build the headless BST binaries as well as the GUI (if Qt is found).
 
     You can disable the GUI build by passing `--without-gui` to configure.
 
@@ -64,12 +64,23 @@ Build Bitcoin Core
 
         make deploy
 
+Disable-wallet mode
+--------------------
+When the intention is to run only a P2P node without a wallet, Bitcoin Core may be compiled in
+disable-wallet mode with:
+
+    ./configure --disable-wallet
+
+In this case there is no dependency on Berkeley DB 4.8.
+
+Mining is also possible in disable-wallet mode using the `getblocktemplate` RPC call.
+
 Running
 -------
 
 Bitcoin Core is now available at `./src/bstd`
 
-Before running, it's recommended you create an RPC configuration file.
+Before running, it's recommended that you create an RPC configuration file.
 
     echo -e "rpcuser=bitcoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/BST/bst.conf"
 

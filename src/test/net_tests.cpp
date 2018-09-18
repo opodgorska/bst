@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2017 The Bitcoin Core developers
+// Copyright (c) 2012-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <addrman.h>
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(caddrdb_read)
         unsigned char pchMsgTmp[4];
         ssPeers1 >> pchMsgTmp;
         ssPeers1 >> addrman1;
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         exceptionThrown = true;
     }
 
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(caddrdb_read_corrupted)
         unsigned char pchMsgTmp[4];
         ssPeers1 >> pchMsgTmp;
         ssPeers1 >> addrman1;
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         exceptionThrown = true;
     }
     // Even through de-serialization failed addrman is not left in a clean state.
