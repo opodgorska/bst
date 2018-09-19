@@ -65,7 +65,7 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         strNetworkID = "main";
-        consensus.nSubsidyHalvingInterval = 1050000; //every 2 yers for 1 minute target spacing
+        consensus.nSubsidyHalvingInterval = 1050000; //every 2 years for 1 minute target spacing
 
         consensus.BIP16Exception = uint256S("8000000049a2e26b0185be50b4b8ed58b707c8893762959f0b1673641cae1828");
         consensus.BIP34Height = 1024;
