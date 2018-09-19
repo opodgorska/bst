@@ -268,7 +268,7 @@ namespace modulo
 
             if(static_cast<CAmount>(betAmount*COIN)*static_cast<CAmount>(reward) > MAX_PAYOFF)
             {
-                throw std::runtime_error(std::string("Reward exceedes the limit: ")+std::to_string(MAX_PAYOFF));
+                throw std::runtime_error(std::string("Reward exceedes the limit of: ")+std::to_string(MAX_PAYOFF/COIN)+std::string(" BST"));
             }
 
             std::vector<int> betVec;
