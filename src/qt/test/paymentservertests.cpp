@@ -204,6 +204,8 @@ void PaymentServerTests::paymentServerTests()
         if (ExtractDestination(sendingTo.first, dest))
             QCOMPARE(PaymentServer::verifyAmount(sendingTo.second), true);//BST amount limit is 5*21000000, therefore we must set true here
     }
+    QCOMPARE(PaymentServer::verifyAmount(5*21000000*COIN), true);
+    QCOMPARE(PaymentServer::verifyAmount((5*21000000*COIN)+1), false);
 
     delete server;
 }
