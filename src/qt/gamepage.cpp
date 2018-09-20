@@ -255,7 +255,7 @@ void GamePage::setModel(WalletModel *model)
     updateFeeSectionControls();
     updateMinFeeLabel();
     updateSmartFeeLabel();
-    
+
     // set default rbf checkbox state
     ui->optInRBF->setCheckState(Qt::Checked);
 
@@ -275,16 +275,16 @@ void GamePage::setModel(WalletModel *model)
 
     ui->gameTypeComboBox->addItem(QString("Roulette"));
     ui->gameTypeComboBox->addItem(QString("Lottery"));
-    
+
     ui->rewardRatioSpinBox->setValue(36);
     ui->rewardRatioSpinBox->setEnabled(false);
-    
+
     for(size_t i=0; i<betTypes.size(); ++i)
     {
         ui->betTypeComboBox->addItem(betTypes[i]);
     }
     ui->betTypeComboBox->setEnabled(true);
-    
+
     connect(ui->gameTypeComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateGameType()));
     connect(ui->betTypeComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateBetType()));
     connect(ui->rewardRatioSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateRewardView()));
@@ -297,7 +297,7 @@ void GamePage::setModel(WalletModel *model)
 
     connect(walletModel->getTransactionTableModel(), SIGNAL(newTx(const QString& )), this, SLOT(newTx(const QString& )));
     connect(walletModel->getTransactionTableModel(), SIGNAL(deletedTx(const QString& )), this, SLOT(deletedTx(const QString& )));
-    
+
     updateBetNumberLimit();
 }
 
@@ -305,7 +305,6 @@ void GamePage::deletedTx(const QString &hash)
 {
     if(removeTxidFromList(hash))
     {
-        std::cout<<"deletedTx: "<<hash.toStdString()<<std::endl;
         dumpListToFile(QString("bets.dat"));
     }
 }
