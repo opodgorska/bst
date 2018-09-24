@@ -1,18 +1,17 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2017 The Bitcoin Core developers
+// Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <consensus/merkle.h>
 
+#include <chainparamsseeds.h>
+#include <consensus/merkle.h>
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
 
 #include <assert.h>
-
-#include <chainparamsseeds.h>
 
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
@@ -62,19 +61,11 @@ void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64
 /**
  * Main network
  */
-/**
- * What makes a good checkpoint block?
- * + Is surrounded by blocks with reasonable timestamps
- *   (no blocks before with a timestamp after, none after with
- *    timestamp before)
- * + Contains no strange transactions
- */
-
 class CMainParams : public CChainParams {
 public:
     CMainParams() {
         strNetworkID = "main";
-        consensus.nSubsidyHalvingInterval = 1050000; //every 2 yers for 1 minute target spacing
+        consensus.nSubsidyHalvingInterval = 1050000; //every 2 years for 1 minute target spacing
 
         consensus.BIP16Exception = uint256S("8000000049a2e26b0185be50b4b8ed58b707c8893762959f0b1673641cae1828");
         consensus.BIP34Height = 1024;
@@ -177,6 +168,7 @@ public:
         consensus.BIP34Hash = uint256S("0x0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8");
         consensus.BIP65Height = 581885; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 330776; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
+        consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60;
@@ -219,11 +211,6 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.bitcoin.jonasschnelli.ch");
-        vSeeds.emplace_back("seed.tbtc.petertodd.org");
-        vSeeds.emplace_back("seed.testnet.bitcoin.sprovoost.nl");
-        vSeeds.emplace_back("testnet-seed.bluematt.me"); // Just a static list of stable node(s), only supports x9
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
@@ -265,19 +252,20 @@ class CRegTestParams : public CChainParams {
 public:
     CRegTestParams() {
         strNetworkID = "regtest";
-        consensus.nSubsidyHalvingInterval = 150;
+        consensus.nSubsidyHalvingInterval = 1500;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in rpc activation tests)
+        consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.nPowTargetSpacing = 10 * 60;
+        consensus.nPowTargetSpacing = 1 * 60; // one minute
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
-        consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
+        consensus.nRuleChangeActivationThreshold = 15121; // 75% of testchains
+        consensus.nMinerConfirmationWindow = 20160; // Faster than normal for regtest (144 instead of 20160)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
@@ -301,11 +289,11 @@ public:
         nDefaultPort = 18444;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1521717929, 2, 0x207fffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1534749679, 1, 0x207fffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-	uint256 picoHash = uint256S("b4549459c4129e81fa7b3c7f00b2be969879b7c2bbf7872fb48d9b78f29dc650");
-	assert(consensus.hashGenesisBlock == picoHash);
-        assert(genesis.hashMerkleRoot == uint256S("0xb2f63819a53936baa63d9f42bd2a5a63dbc8475e7e63d6d0b214d332aaeedc69"));
+        uint256 picoHash = uint256S("84cd117a4a11a3636095b58fb2462408a8119b6f7e97a5f8d376b471d2ac17ed");
+        assert(consensus.hashGenesisBlock == picoHash);
+        assert(genesis.hashMerkleRoot == uint256S("6f244d2d32e34b70fd35d149614c5cfc15842fd48dfd556b5bd06528fc6cced7"));
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
@@ -316,7 +304,7 @@ public:
 
         checkpointData = {
             {
-		{0, picoHash},
+                {0, picoHash},
             }
         };
 

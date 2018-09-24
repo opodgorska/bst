@@ -53,11 +53,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("Possible numbers for split type are 1, 2, ...33"));
+                throw std::runtime_error(std::string("Possible numbers for split type are 1, 2, ...57"));
             }
-            if(betNum<1 || betNum>33)
+            if(betNum<1 || betNum>57)
             {
-                throw std::runtime_error(std::string("Possible numbers for split type are 1, 2, ...33"));
+                throw std::runtime_error(std::string("Possible numbers for split type are 1, 2, ...57"));
             }
             bet = const_cast<int* >(split[betNum-1]);
             len = 2;
@@ -261,9 +261,14 @@ namespace modulo
                 throw std::runtime_error(std::string("Incorrect type of bet"));
             }
 
-            if(betAmount <= 0 || (static_cast<CAmount>(betAmount*COIN)*static_cast<CAmount>(reward) > MAX_PAYOFF))
+            if(betAmount <= 0)
             {
-                throw std::runtime_error(std::string("Amount is out of range"));
+                throw std::runtime_error(std::string("Amount must be greater than 0"));
+            }
+
+            if(static_cast<CAmount>(betAmount*COIN)*static_cast<CAmount>(reward) > MAX_PAYOFF)
+            {
+                throw std::runtime_error(std::string("Reward exceedes the limit of: ")+std::to_string(MAX_PAYOFF/COIN)+std::string(" BST"));
             }
 
             std::vector<int> betVec;

@@ -80,11 +80,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             if(betNum<1 || betNum>maxArgument)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: ")+std::to_string(maxArgument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: ")+std::to_string(maxArgument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             straight = betNum;
             bet = const_cast<int* >(&straight);
@@ -99,11 +99,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             if(betNum<1 || betNum>36)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 36"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             straight = betNum;
             bet = const_cast<int* >(&straight);
@@ -118,11 +118,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
-            if(betNum<1 || betNum>33)
+            if(betNum<1 || betNum>57)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 33"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             bet = const_cast<int* >(split[betNum-1]);
             len = 2;
@@ -136,11 +136,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }        
             if(betNum<1 || betNum>12)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 12"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             bet = const_cast<int* >(street[betNum-1]);
             len = 3;
@@ -154,11 +154,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             if(betNum<1 || betNum>22)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 22"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             bet = const_cast<int* >(corner[betNum-1]);
             len = 4;
@@ -172,11 +172,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             if(betNum<1 || betNum>11)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 11"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             bet = const_cast<int* >(line[betNum-1]);
             len = 6;
@@ -190,11 +190,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             if(betNum<1 || betNum>3)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 3"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             bet = const_cast<int* >(column[betNum-1]);
             len = 12;
@@ -208,11 +208,11 @@ namespace modulo
             }
             catch(...)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" betNum: ")+std::to_string(betNum));
             }
             if(betNum<1 || betNum>3)
             {
-                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string("maxArgument: 3"));
+                throw std::runtime_error(std::string("VerifyMakeModuloBetTx::isWinning argument failed: ")+std::to_string(argument)+std::string(" maxArgument: 36")+std::string(" betNum: ")+std::to_string(betNum));
             }
             bet = const_cast<int* >(dozen[betNum-1]);
             len = 12;

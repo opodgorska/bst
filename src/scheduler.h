@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017 The Bitcoin Core developers
+// Copyright (c) 2015-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -111,7 +111,7 @@ public:
     /**
      * Add a callback to be executed. Callbacks are executed serially
      * and memory is release-acquire consistent between callback executions.
-     * Practially, this means that callbacks can behave as if they are executed
+     * Practically, this means that callbacks can behave as if they are executed
      * in order by a single thread.
      */
     void AddToProcessQueue(std::function<void (void)> func);

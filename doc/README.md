@@ -73,6 +73,7 @@ The BST repo's [root README](/README.md) contains relevant information on the de
 - [Tor Support](tor.md)
 - [Init Scripts (systemd/upstart/openrc)](init.md)
 - [ZMQ](zmq.md)
+- [PSBT support](psbt.md)
 
 License
 ---------------------
