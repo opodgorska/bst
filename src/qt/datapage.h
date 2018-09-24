@@ -55,7 +55,8 @@ private:
     void displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize);
     void unlockWallet();
     std::string computeHash(QByteArray binaryData);
-    std::string getHexStr();
+    void computeHash(QByteArray binaryData, std::vector<unsigned char>& hash);
+    std::vector<unsigned char> getData();
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
     void updateCoinControlState(CCoinControl& ctrl);

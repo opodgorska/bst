@@ -23,11 +23,12 @@
 #ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
 #endif
+#include <net.h>
+#include <utilmoneystr.h>
+#include <consensus/validation.h>
 
 #include <data/datautils.h>
-#include <data/processunspent.h>
 #include <data/retrievedatatxs.h>
-#include <data/storedatatxs.h>
 
 #include <QSettings>
 #include <QButtonGroup>
@@ -414,9 +415,22 @@ std::string DataPage::computeHash(QByteArray binaryData)
     return byte2str(&fileHash[0], static_cast<int>(hashSize));                
 }
 
-std::string DataPage::getHexStr()
+void DataPage::computeHash(QByteArray binaryData, std::vector<unsigned char>& hash)
 {
-    std::string retStr;
+    constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
+    unsigned char fileHash[hashSize];
+
+    CHash256 fileHasher;
+
+    fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size());
+    fileHasher.Finalize(fileHash);
+
+    hash.insert(hash.end(), &fileHash[0], &fileHash[hashSize]);
+}
+
+std::vector<unsigned char> DataPage::getData()
+{
+    std::vector<unsigned char> retData;
     if(ui->storeMessageRadioButton->isChecked())
     {
         QString qs=ui->messageStoreEdit->toPlainText();
@@ -427,7 +441,8 @@ std::string DataPage::getHexStr()
             throw std::runtime_error(strprintf("Data size is grater than %d bytes", maxDataSize));
         }
 
-        retStr = HexStr(str.begin(), str.end());
+        std::vector<unsigned char> retData_(str.begin(), str.end());
+        retData.swap(retData_);
     }
     else if(ui->storeFileRadioButton->isChecked() || ui->storeFileHashRadioButton->isChecked())
     {
@@ -442,15 +457,16 @@ std::string DataPage::getHexStr()
                 throw std::runtime_error(strprintf("Data size is grater than %d bytes", maxDataSize));
             }
 
-            retStr = byte2str(reinterpret_cast<const unsigned char* >(binaryData.data()), binaryData.size());
+            std::vector<unsigned char> retData_(binaryData.begin(), binaryData.end());
+            retData.swap(retData_);
         }
         else if(ui->storeFileHashRadioButton->isChecked())
         {
-            retStr = computeHash(binaryData);
+            computeHash(binaryData, retData);
         }
     }
     
-    return retStr;
+    return retData;
 }
 
 void DataPage::storeMessageRadioClicked()
@@ -501,47 +517,52 @@ void DataPage::store()
             if(wallet != nullptr)
             {
                 CWallet* const pwallet=wallet.get();
-                std::vector<std::string> addresses;
-                ProcessUnspent processUnspent(pwallet, addresses);
+                
+                pwallet->BlockUntilSyncedToCurrentChain();
+
+                LOCK2(cs_main, pwallet->cs_wallet);
+                
+                CAmount curBalance = pwallet->GetBalance();
+
+                std::vector<unsigned char> data = getData();
+
+                CRecipient recipient;
+                recipient.scriptPubKey << OP_RETURN << data;
+                recipient.nAmount=0;
+                recipient.fSubtractFeeFromAmount=false;
+                
+                std::vector<CRecipient> vecSend;
+                vecSend.push_back(recipient);
+
+                CReserveKey reservekey(pwallet);
+                CAmount nFeeRequired;
+                int nChangePosInOut=1;
+                std::string strFailReason;
+                CTransactionRef tx;
+
+                unlockWallet();
 
                 CCoinControl coin_control;
                 updateCoinControlState(coin_control);
-                int returned_target;
-                FeeReason reason;
-                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
 
-                std::string hexStr=getHexStr();
-                constexpr size_t txEmptySize=145;
-                size_t txSize=txEmptySize+hexStr.length()/2;
-                double fee;
-                UniValue inputs(UniValue::VARR);
-                if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, 0.0, fee))
+                if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
                 {
-                    throw std::runtime_error(std::string("Insufficient funds"));
-                }
-
-                if(fee>(static_cast<double>(maxTxFee)/COIN))
-                {
-                    fee=(static_cast<double>(maxTxFee)/COIN);
-                }
-
-                if(changeAddress.empty())
-                {
-                    changeAddress=getChangeAddress(pwallet);
+                    if (nFeeRequired > curBalance)
+                    {
+                        strFailReason = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+                    }        
+                    throw std::runtime_error(std::string("CreateTransaction failed with reason: ")+strFailReason);
                 }
                 
-                UniValue sendTo(UniValue::VOBJ);                
-                sendTo.pushKV(changeAddress, computeChange(inputs, fee));
-                sendTo.pushKV("data", hexStr);
+                CValidationState state;
+                if(!pwallet->CommitTransaction(tx, {}, {}, reservekey, g_connman.get(), state))
+                {
+                    throw std::runtime_error(std::string("CommitTransaction failed with reason: ")+FormatStateMessage(state));
+                }
 
-                StoreDataTxs storeDataTxs(pwallet, inputs, sendTo, 0, ui->optInRBF->isChecked());
-                unlockWallet();
-                storeDataTxs.signTx();
-                std::string txid=storeDataTxs.sendTx().get_str();
-
-                QString qtxid=QString::fromStdString(txid);
+                QString qtxid=QString::fromStdString(tx->GetHash().GetHex());
                 
-                StoreTxDialog *dlg = new StoreTxDialog(qtxid, fee, walletModel->getOptionsModel()->getDisplayUnit());
+                StoreTxDialog *dlg = new StoreTxDialog(qtxid, static_cast<double>(nFeeRequired)/COIN, walletModel->getOptionsModel()->getDisplayUnit());
                 dlg->setAttribute(Qt::WA_DeleteOnClose);
                 dlg->show();
 

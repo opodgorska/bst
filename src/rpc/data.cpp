@@ -4,13 +4,16 @@
 
 #include <rpc/server.h>
 #include <rpc/client.h>
+#include <consensus/validation.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <utilstrencodings.h>
 #include <stdint.h>
 #include <amount.h>
 #include <hash.h>
+#include <net.h>
 #include <rpc/mining.h>
+#include <utilmoneystr.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 
@@ -18,16 +21,37 @@
 #include <boost/algorithm/string.hpp>
 
 #include <data/datautils.h>
-#include <data/processunspent.h>
 #include <data/retrievedatatxs.h>
-#include <data/storedatatxs.h>
 
 static constexpr size_t maxDataSize=MAX_OP_RETURN_RELAY-6;
 static std::string changeAddress("");
 
-class FileReader
+template 
+<
+        class T
+>
+struct char_traits { };
+
+template<> struct char_traits
+<
+        char
+> 
+{
+        typedef char char_type;
+};
+
+template<> struct char_traits
+<
+        unsigned char
+> 
+{
+        typedef unsigned char char_type;
+};
+
+template <class T> class FileReader
 {
 public:
+    typedef typename char_traits<T>::char_type char_type;
     FileReader(const std::string& fileName_) : file(fileName_.c_str(), std::ios::in|std::ios::binary|std::ios::ate)
     {
         if(!file.is_open())
@@ -45,13 +69,13 @@ public:
         }
     }
 
-    void read(std::vector<char>& binaryData)
+    void read(std::vector<char_type>& binaryData)
     {
         if(file.is_open())
         {
             binaryData.resize(size);
             file.seekg(0, std::ios::beg);
-            file.read(binaryData.data(), size);
+            file.read(reinterpret_cast<char*>(binaryData.data()), size);
         }
     }
 
@@ -104,6 +128,19 @@ static std::string computeHash(char* binaryData, size_t size)
     return byte2str(&fileHash[0], static_cast<int>(hashSize));                
 }
 
+static void computeHash(char* binaryData, size_t size, std::vector<unsigned char>& hash)
+{
+    constexpr size_t hashSize=CSHA256::OUTPUT_SIZE;
+    unsigned char fileHash[hashSize];
+
+    CHash256 fileHasher;
+
+    fileHasher.Write(reinterpret_cast<unsigned char*>(binaryData), size);
+    fileHasher.Finalize(fileHash);
+
+    hash.insert(hash.end(), &fileHash[0], &fileHash[hashSize]);
+}
+
 static UniValue callRPC(std::string args)
 {
     std::vector<std::string> vArgs;
@@ -131,7 +168,7 @@ static std::string getOPreturnData(const std::string& txid)
     return retrieveDataTxs.getTxData();
 }
 
-UniValue setOPreturnData(const std::string& hexMsg, CCoinControl& coin_control)
+UniValue setOPreturnData(const std::vector<unsigned char>& data, CCoinControl& coin_control)
 {
     UniValue res(UniValue::VARR);
     
@@ -141,42 +178,45 @@ UniValue setOPreturnData(const std::string& hexMsg, CCoinControl& coin_control)
         throw std::runtime_error(std::string("No wallet found"));
     }
     CWallet* const pwallet=wallet.get();
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    LOCK2(cs_main, pwallet->cs_wallet);
     
-    constexpr size_t txEmptySize=145;
-    size_t txSize=txEmptySize+hexMsg.length()/2;
-    double fee;
+    CAmount curBalance = pwallet->GetBalance();
 
-    FeeCalculation fee_calc;
-    CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
+    CRecipient recipient;
+    recipient.scriptPubKey << OP_RETURN << data;
+    recipient.nAmount=0;
+    recipient.fSubtractFeeFromAmount=false;
     
-    std::vector<std::string> addresses;
-    ProcessUnspent processUnspent(pwallet, addresses);
+    std::vector<CRecipient> vecSend;
+    vecSend.push_back(recipient);
 
-    UniValue inputs(UniValue::VARR);
-    if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, 0.0, fee))
-    {
-        throw std::runtime_error(std::string("Insufficient funds"));
-    }
+    CReserveKey reservekey(pwallet);
+    CAmount nFeeRequired;
+    int nChangePosInOut=1;
+    std::string strFailReason;
+    CTransactionRef tx;
 
-    if(fee>(static_cast<double>(maxTxFee)/COIN))
-    {
-        fee=(static_cast<double>(maxTxFee)/COIN);
-    }
-
-    if(changeAddress.empty())
-    {
-        changeAddress=getChangeAddress(pwallet);
-    }
-
-    UniValue sendTo(UniValue::VOBJ);                
-    sendTo.pushKV(changeAddress, computeChange(inputs, fee));
-    sendTo.pushKV("data", hexMsg);
-
-    StoreDataTxs storeDataTxs(pwallet, inputs, sendTo, 0, coin_control.m_signal_bip125_rbf.get_value_or(false));
     EnsureWalletIsUnlocked(pwallet);
-    storeDataTxs.signTx();
-    std::string txid=storeDataTxs.sendTx().get_str();
 
+    if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
+    {
+        if (nFeeRequired > curBalance)
+        {
+            strFailReason = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+        }        
+        throw std::runtime_error(std::string("CreateTransaction failed with reason: ")+strFailReason);
+    }
+    
+    CValidationState state;
+    if(!pwallet->CommitTransaction(tx, {}, {}, reservekey, g_connman.get(), state))
+    {
+        throw std::runtime_error(std::string("CommitTransaction failed with reason: ")+FormatStateMessage(state));
+    }
+
+    std::string txid=tx->GetHash().GetHex();
     return UniValue(UniValue::VSTR, txid);
 }
 
@@ -290,8 +330,6 @@ UniValue storemessage(const JSONRPCRequest& request)
         throw std::runtime_error(strprintf("data size is grater than %d bytes", maxDataSize));
     }
 
-    std::string hexMsg=HexStr(msg.begin(), msg.end());
-
     CCoinControl coin_control;
     if (!request.params[1].isNull())
     {
@@ -309,7 +347,8 @@ UniValue storemessage(const JSONRPCRequest& request)
             throw std::runtime_error("Invalid estimate_mode parameter");
         }
     }
-    return setOPreturnData(hexMsg, coin_control);
+    std::vector<unsigned char> data(msg.begin(), msg.end());
+    return setOPreturnData(data, coin_control);
 }
 
 UniValue storesignature(const JSONRPCRequest& request)
@@ -344,9 +383,10 @@ UniValue storesignature(const JSONRPCRequest& request)
     std::string filePath=request.params[0].get_str();
 
     std::vector<char> binaryData;
-    FileReader fileReader(filePath);
+    FileReader<char> fileReader(filePath);
     fileReader.read(binaryData);
-    std::string hashStr = computeHash(binaryData.data(), binaryData.size());
+    std::vector<unsigned char> data;
+    computeHash(binaryData.data(), binaryData.size(), data);
 
     CCoinControl coin_control;
     if (!request.params[1].isNull())
@@ -365,8 +405,7 @@ UniValue storesignature(const JSONRPCRequest& request)
             throw std::runtime_error("Invalid estimate_mode parameter");
         }
     }
-
-    return setOPreturnData(hashStr, coin_control);
+    return setOPreturnData(data, coin_control);
 }
 
 UniValue storedata(const JSONRPCRequest& request)
@@ -400,9 +439,9 @@ UniValue storedata(const JSONRPCRequest& request)
 
     std::string filePath=request.params[0].get_str();
 
-    std::vector<char> binaryData;
+    std::vector<unsigned char> binaryData;
 
-    FileReader fileReader(filePath);
+    FileReader<unsigned char> fileReader(filePath);
     fileReader.read(binaryData);
 
     if(binaryData.size()>maxDataSize)
@@ -427,7 +466,7 @@ UniValue storedata(const JSONRPCRequest& request)
             throw std::runtime_error("Invalid estimate_mode parameter");
         }
     }
-    return setOPreturnData(byte2str(reinterpret_cast<unsigned char*>(binaryData.data()), binaryData.size()), coin_control);
+    return setOPreturnData(binaryData, coin_control);
 }
 
 UniValue checkmessage(const JSONRPCRequest& request)
@@ -515,7 +554,7 @@ UniValue checkdata(const JSONRPCRequest& request)
         std::string filePath=request.params[1].get_str();
         std::vector<char> binaryData;
 
-        FileReader fileReader(filePath);
+        FileReader<char> fileReader(filePath);
         fileReader.read(binaryData);
 
         if(binaryData.size()>maxDataSize)
@@ -567,7 +606,7 @@ UniValue checksignature(const JSONRPCRequest& request)
         std::string filePath=request.params[1].get_str();
         std::vector<char> binaryData;
 
-        FileReader fileReader(filePath);
+        FileReader<char> fileReader(filePath);
         fileReader.read(binaryData);
 
         if(binaryData.size()>maxDataSize)
