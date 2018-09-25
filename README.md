@@ -1,6 +1,6 @@
 # BlockStamp
 
-BlockStamp (BST) is a new digital currency intended to store user data in blockchain. It is based on Bitcon peer-to-peer technolgy to operate with no central authority. The goal was to create a new fast and effective blockchain that could be used for trusted timestamping of documents. Prove of concept of the soluction involves online gambling platform, where the BlockStamp blockchain is used as the core.
+BlockStamp (BST) is a new digital currency intended to store user data in blockchain. It is based on Bitcon peer-to-peer technology to operate with no central authority. The goal was to create a new fast and effective blockchain that could be used for trusted timestamping of documents. Proof of concept of the solution involves online gambling platform, where the BlockStamp blockchain is used as the core.
 
 
 ## Details
@@ -11,18 +11,18 @@ Here you can find same useful links:
 - https://en.bitcoin.it/wiki/Main_Page
 - https://bitcoin.org/en/developer-documentation
 
-To distinguish from Bitcoin, BlockStamp uses hashes of blocks begining with the most significant bit set to one (0x80000000.... instead of 0x00000000...). The blockchain will be used to offer transactions for timestamping of documents with minimal mining fee. The BST-client will enable the submission of the hash of a document or the whole document in a transaction to be recorded on the blockchain. 
+To distinguish from Bitcoin, BlockStamp uses hashes of blocks beginning with the most significant bit set to one (0x80000000.... instead of 0x00000000...). The blockchain will be used to offer transactions for timestamping of documents with minimal mining fee. The BST-client will enable the submission of the hash of a document or the whole document in a transaction to be recorded on the blockchain. 
 
 The timestamping is already being tested on the online gambling portal. Chaining the blocks, like with BTC blockchain, makes it impossible to modify each block without modifying all the subsequent blocks. This is due to the hash of previous block being included in the following block. Given that a block’s hash is generated based on its content, the block’s content modifications would alter the hash and all subsequent blocks either. This characteristics of a blockchain is used for ensuring that no transactions, as well as wins and loses, would be tampered with.
 
 ## Current status
 
-BlockStamp project is under development and new features are continously added. Currently, new RPC commands facilitating data manipulation are under development. There is already a working node available you can connect to. It is available online at blockstamp.info. 
+BlockStamp project is under development and new features are continuously added. Currently, new RPC commands facilitating data manipulation are under development. There is already a working node available you can connect to. It is available online at blockstamp.info. 
 
 
 ## Installation
 
-To start using BlockStamp you shoud build the project and run a node with option -txindex to enable blockchain transaction queries.
+To start using BlockStamp you should build the project and run a node with option -txindex to enable blockchain transaction queries.
 The node default configuration let you connect to our working nodes. When you connect them, your node should start downloading blocks.
 After downloading process is done you can start working with BlockStamp.
 
@@ -117,13 +117,13 @@ Making bets has following limitation, by design:
 2. Maximum reward 2^20 BST
 3. Minimum bet is 0.00000001BST
 
-As for the actual transaction syntax, it looks as follows. Makebet transaction is signaled by 30’th bit in the transaction version field. Value 1 at this position (0x40000000) sets transaction type to makebet transaction. Bets outputs occupies outputs beginning from index 0. Next to bets output, there is an op_return output containing the description of the bets included in the transaction. The op_return string begins with hexadecimal number defining a modulo argument (e.g. 0x24 for roulette, 0x48 for lottery drawing 1 out of 72 numbers, and 0xB for ouble dice), followed with user bets. The modulo argument is separated by underscore, bets are separated by plus.
+As for the actual transaction syntax, it looks as follows. Makebet transaction is signaled by 30’th bit in the transaction version field. Value 1 at this position (0x40000000) sets transaction type to makebet transaction. Bets outputs occupies outputs beginning from index 0. Next to bets output, there is an op_return output containing the description of the bets included in the transaction. The op_return string begins with hexadecimal number defining a modulo argument (e.g. 0x24 for roulette, 0x48 for lottery drawing 1 out of 72 numbers, and 0xB for double dice), followed with user bets. The modulo argument is separated by underscore, bets are separated by plus.
 
 The last output field is reserved for change purpose, where change is transaction input minus bets amount minus fee, i.e.:
 prev_txs_outs_amount-Bet1_amount-Bet2_amount-Bet3_amount-...-fee
 In case then the transaction input is 50BST (which is the standard block reward), and 3 bets for 0.1BST, 0.05BST, and 0.7BST, and fee=0.0004 BST the change field would contain 49.1496 BST (50-0.1-0.05-0.7-0.0004 = 49.1496 BST).
 
-The op_return string begins with hexadecimal number defining a modulo argument (0x24 for roulette), followed with user bets. The modulo argument is separeted by underscore, bets are separated by plus. 
+The op_return string begins with hexadecimal number defining a modulo argument (0x24 for roulette), followed with user bets. The modulo argument is separated by underscore, bets are separated by plus. 
 
 Calling makebet RPC returns transaction ids.
 This transaction id is used as an input to getbet RPC.
@@ -135,9 +135,9 @@ makebet straight_2@0.1+street_3@0.05+even@0.7
 
 getbet 123d6c76257605431b644b43472ee3666c4f27cc665ec8fc48c2551a88f9906e 36TARZ3BhxUYaJcZ2EF5FCT32RnQPHSxYB
 ```
-where the first argument for getbet is transaction id, the second is an address where you want to sent a pontential reward.
+where the first argument for getbet is transaction id, the second is an address where you want to sent a potential reward.
 
-In a case of complex bet (considered example is complex because it has 3 bets in one makebet transaction), the getbet RPC produces 3 transactions. Every of the transaction tries to redeem one bet output of the makebet transaction. If it redeems an output, a reward is sent to the provided address. This reward is reduced by a fee. The total reward is a sum of rewards from all successfuly redeemed outputs minus total fee.
+In a case of complex bet (considered example is complex because it has 3 bets in one makebet transaction), the getbet RPC produces 3 transactions. Every of the transaction tries to redeem one bet output of the makebet transaction. If it redeems an output, a reward is sent to the provided address. This reward is reduced by a fee. The total reward is a sum of rewards from all successfully redeemed outputs minus total fee.
 
 A single reward is counted as output amount multiplied by reward ratio minus fee.
 
@@ -147,7 +147,7 @@ Here we could have:
 3. 0.7*2-fee=1.4-fee3 BST
 If all outputs win, we will have 5.6-fee1-fee2-fee3 BST
 
-The getbet RPC returns transaction id for successfuly redeemd outputs plus errors for the rest of outputs.
+The getbet RPC returns transaction id for successfully redeemed outputs plus errors for the rest of outputs.
 
 For example:
 ```
@@ -175,8 +175,8 @@ When accepted by pool, a bet is put into a block. The last 4 bytes word of block
 
 For example, let’s imagine that a user bets on roulette result to be 12. The bet is put into a transaction and the transaction is part of a freshly mined block. The hash of the block is then truncated to obtain only the last 4 bytes, decimalised, and divided modulo 36. The result of the equation is increased by 1. If the increased value is equal 12 then the bet is a winning one.
 
-To successfuly redeem the reward by getbet two conditions must be met:
-1. At least one of the nunmbers betten in makebet must match the last 4 bytes word of block hash divided modulo by the modulo argument and increased by 1
+To successfully redeem the reward by getbet two conditions must be met:
+1. At least one of the numbers betted in makebet must match the last 4 bytes word of block hash divided modulo by the modulo argument and increased by 1
 2. keys must match (as in the P2PKH transactions)
 
 ### Jackpot
@@ -361,4 +361,10 @@ Getbet RPC works the same way as in the roulette model, i.e. it accepts transact
 
 ### Your own game: double dice example
 
-The BlockStamp platform can be treated as a hosting platform for user’s own game. Makebet and getbet transactions are available for this option and work as they do in the lottery game. User’s own game rules determine the bets and modulo, where module is the reward ratio. For example, if dice is to be implemented, the bets should accept numbers from 1 to 6 and modulo should be set to 6. If two dices are to be rolled together, numbers would be from 2 to 12 and modulo should be set to 11. To avoid 0, the result of hash modulo operation is plused one and only after that it is compared with the number user betted on. 
+The BlockStamp platform can be treated as a hosting platform for user’s own game. Makebet and getbet transactions are available for this option and work as they do in the lottery game. User’s own game rules determine the bets and modulo, where modulo is the reward ratio at the same time. For example, if dice is to be implemented, the bets should accept numbers from 1 to 6 and modulo should be set to 6. If two dices are to be rolled together, numbers would be from 2 to 12 and modulo should be set to 11. To avoid 0, the result of hash modulo operation is plused one and only after that it is compared with the number user betted on. So the makebet could look as follows:
+
+```
+makebet 2@0.1+11@0.05 11
+```
+
+This means that a user bets on double dice rolling 2 (1+1) with 0.1BST and 11 (5+6) with 0.05BST. Modulo is set to 11, and the block of the hash which would contain the bet would be divided by 11 and then added 1.  
