@@ -10,6 +10,7 @@ Most of the Bitcoin documentation refers directly to BlockStamp as well.
 Here you can find same useful links:
 - https://en.bitcoin.it/wiki/Main_Page
 - https://bitcoin.org/en/developer-documentation
+
 To distinguish from Bitcoin, BlockStamp uses hashes of blocks begining with the most significant bit set to one (0x80000000.... instead of 0x00000000...). The blockchain will be used to offer transactions for timestamping of documents with minimal mining fee. The BST-client will enable the submission of the hash of a document or the whole document in a transaction to be recorded on the blockchain. 
 
 The timestamping is already being tested on the online gambling portal. Chaining the blocks, like with BTC blockchain, makes it impossible to modify each block without modifying all the subsequent blocks. This is due to the hash of previous block being included in the following block. Given that a block’s hash is generated based on its content, the block’s content modifications would alter the hash and all subsequent blocks either. This characteristics of a blockchain is used for ensuring that no transactions, as well as wins and loses, would be tampered with.
