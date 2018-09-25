@@ -13,10 +13,10 @@ class RetrieveDataTxs
 public:
     RetrieveDataTxs(const std::string& txid, const std::string& blockHash = "");
     ~RetrieveDataTxs();
-    std::string getTxData();
+    std::vector<char> getTxData();
 
 private:
-    UniValue transaction;
+    CTransactionRef tx;
 };
 
 #endif

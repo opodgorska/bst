@@ -15,13 +15,10 @@
 #include <data/datautils.h>
 #include <data/retrievedatatxs.h>
 
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
-
-RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blockHash) : transaction(UniValue::VOBJ)
+RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blockHash)
 {
     LOCK(cs_main);
 
-    bool in_active_chain = true;
     uint256 hash = uint256S(txid);
     CBlockIndex* blockindex = nullptr;
 
@@ -39,7 +36,6 @@ RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blo
         {
             throw std::runtime_error(std::string("Block hash not found"));
         }
-        in_active_chain = chainActive.Contains(blockindex);
     }
 
     bool f_txindex_ready = false;
@@ -48,7 +44,6 @@ RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blo
         f_txindex_ready = g_txindex->BlockUntilSyncedToCurrentChain();
     }
 
-    CTransactionRef tx;
     uint256 hash_block;
     if (!GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
     {
@@ -69,61 +64,43 @@ RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blo
         }
         throw std::runtime_error(errmsg + std::string(". Use gettransaction for wallet transactions."));
     }
-
-    if (blockindex) 
-    {
-        transaction.pushKV("in_active_chain", in_active_chain);
-    }
-    TxToJSON(*tx, hash_block, transaction);
 }
 
 
 RetrieveDataTxs::~RetrieveDataTxs() {}
 
-std::string RetrieveDataTxs::getTxData()
+std::vector<char> RetrieveDataTxs::getTxData()
 {
-    if(transaction.exists(std::string("vout")))
-    {		
-        UniValue vout=transaction[std::string("vout")];
-
-        for(size_t i=0;i<vout.size();++i)
+    std::vector<char> retHex;
+    for(size_t i=0;i<tx->vout.size();++i)
+    {
+        CScript::const_iterator it_beg=tx->vout[i].scriptPubKey.begin();
+        CScript::const_iterator it_end=tx->vout[i].scriptPubKey.end();
+        int order = *(it_beg+1);
+        if(*it_beg==OP_RETURN)
         {
-            if(vout[i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
+            if(order<=0x4b)
             {
-                int length=0;
-                int offset=0;
-                std::string hexStr=vout[i][std::string("scriptPubKey")][std::string("hex")].get_str();
-                int order=std::stoi(hexStr.substr(2,2),nullptr,16);
-                if(order<=0x4b)
-                {
-                    length=order;
-                    offset=4;
-                }
-                else if(order==0x4c)
-                {
-                    length=std::stoi(hexStr.substr(4,2),nullptr,16);
-                    offset=6;
-                }
-                else if(order==0x4d)
-                {
-                    std::string strLength=hexStr.substr(4,4);
-                    reverseEndianess(strLength);
-                    length=std::stoi(strLength,nullptr,16);
-                    offset=8;
-                }
-                else if(order==0x4e)
-                {
-                    std::string strLength=hexStr.substr(4,8);
-                    reverseEndianess(strLength);
-                    length=std::stoi(strLength,nullptr,16);
-                    offset=12;
-                }
-
-                length*=2;
-                return hexStr.substr(offset, length);
+                retHex=std::vector<char>(it_beg+2, it_end);
             }
+            else if(order==0x4c)
+            {
+                retHex=std::vector<char>(it_beg+3, it_end);
+            }
+            else if(order==0x4d)
+            {
+                retHex=std::vector<char>(it_beg+4, it_end);
+            }
+            else if(order==0x4e)
+            {
+                retHex=std::vector<char>(it_beg+6, it_end);
+            }
+            else
+            {
+                return retHex;
+            }
+            return retHex;
         }
-        return std::string("");
     }
-    return std::string("");
+    return retHex;
 }

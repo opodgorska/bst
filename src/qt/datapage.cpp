@@ -356,10 +356,11 @@ void DataPage::retrieve()
     {
         std::string txid=ui->txidRetrieveEdit->text().toStdString();
         RetrieveDataTxs retrieveDataTxs(txid);
-        std::string txData=retrieveDataTxs.getTxData();
+        std::vector<char> txData=retrieveDataTxs.getTxData();
+        QByteArray dataArray(txData.data(), txData.size());
 
-        hexaValue = QString::fromStdString(txData);
-        textValue = QString::fromLocal8Bit(QByteArray::fromHex(hexaValue.toLatin1()));
+        textValue = QString::fromUtf8(dataArray);
+        hexaValue = dataArray.toHex();
         
         if(ui->hexRadioButton->isChecked())
         {
@@ -375,11 +376,8 @@ void DataPage::retrieve()
             }
             ui->messageRetrieveEdit->setPlainText(textValue);
         }
-
-        QByteArray data=QByteArray::fromHex(hexaValue.toUtf8());
-
         FileWriter fileWriter(ui->fileRetrieveEdit->text());
-        fileWriter.write(data);
+        fileWriter.write(dataArray);
     }
     catch(std::exception const& e)
     {
@@ -596,14 +594,13 @@ void DataPage::check()
         std::string blockchainHash;
         std::string txid=ui->checkLineEdit->text().toStdString();
         RetrieveDataTxs retrieveDataTxs(txid);
-        std::string txData=retrieveDataTxs.getTxData();
-        
+        std::vector<char> txData=retrieveDataTxs.getTxData();
+        QByteArray dataArray(txData.data(), txData.size());
+
         if(ui->checkFileRadioButton->isChecked() || ui->checkMessageRadioButton->isChecked())
         {
-            QString hexaValue = QString::fromStdString(txData);
-            QByteArray blockchainBinaryData=QByteArray::fromHex(hexaValue.toUtf8());
-            blockchainHash = computeHash(blockchainBinaryData);
-            
+            blockchainHash = computeHash(dataArray);
+
             QByteArray binaryData;
             if(ui->checkFileRadioButton->isChecked())
             {
@@ -613,23 +610,13 @@ void DataPage::check()
             else if(ui->checkMessageRadioButton->isChecked())
             {
                 QString qs=ui->checkTextEdit->toPlainText();
-                std::string str=qs.toUtf8().constData();
-                
-                if(str.length()>maxDataSize)
-                {
-                    throw std::runtime_error(strprintf("Message size is grater than %d bytes", maxDataSize));
-                }
-
-                std::string hexStr = HexStr(str.begin(), str.end());
-                QString hexaValue = QString::fromStdString(hexStr);
-                binaryData=QByteArray::fromHex(hexaValue.toUtf8());
+                binaryData = qs.toUtf8();
             }
             dataHash = computeHash(binaryData);
         }
         else
         {
-            blockchainHash=txData;
-            std::transform(blockchainHash.begin(), blockchainHash.end(), blockchainHash.begin(), ::toupper);
+            blockchainHash = dataArray.toHex().toUpper().toStdString();
 
             QByteArray binaryData;
             FileReader fileReader(ui->fileCheckEdit->text());
@@ -637,8 +624,6 @@ void DataPage::check()
             dataHash = computeHash(binaryData);
         }
 
-        //LogPrintf("blockchainHash: %s\n", blockchainHash);
-        //LogPrintf("dataHash: %s\n", dataHash);
         QMessageBox msgBox;
         if(dataHash.compare(blockchainHash)==0)
         {

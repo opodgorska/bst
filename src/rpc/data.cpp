@@ -162,7 +162,7 @@ static UniValue callRPC(std::string args)
     }
 }
 
-static std::string getOPreturnData(const std::string& txid)
+static std::vector<char> getOPreturnData(const std::string& txid)
 {
     RetrieveDataTxs retrieveDataTxs(txid);
     return retrieveDataTxs.getTxData();
@@ -222,78 +222,73 @@ UniValue setOPreturnData(const std::vector<unsigned char>& data, CCoinControl& c
 
 UniValue retrievedata(const JSONRPCRequest& request)
 {
-	RPCTypeCheck(request.params, {UniValue::VSTR});
-	
-	if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
-	throw std::runtime_error(
-		"retrievedata \"txid\" \n"
-		"\nRetrieves user data from a blockchain.\n"
+    RPCTypeCheck(request.params, {UniValue::VSTR});
 
-		"\nArguments:\n"
-		"1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
-		"2. \"path to the file\"            (string, optional) A path to the file\n"
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    throw std::runtime_error(
+        "retrievedata \"txid\" \n"
+        "\nRetrieves user data from a blockchain.\n"
 
-		"\nResult:\n"
-		"\"string\"                         (string) A retrieved user data string\n"
+        "\nArguments:\n"
+        "1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+        "2. \"path to the file\"            (string, optional) A path to the file\n"
+
+        "\nResult:\n"
+        "\"string\"                         (string) A retrieved user data string\n"
 
 
-		"\nExamples:\n"
-		+ HelpExampleCli("retrievedata", "\"txid\"")
-		+ HelpExampleRpc("retrievedata", "\"txid\"")
-		+ HelpExampleCli("retrievedata", "\"txid\" \"/home/myfile.bin\"")
-		+ HelpExampleRpc("retrievedata", "\"txid\" \"/home/myfile.bin\"")
-	);
+        "\nExamples:\n"
+        + HelpExampleCli("retrievedata", "\"txid\"")
+        + HelpExampleRpc("retrievedata", "\"txid\"")
+        + HelpExampleCli("retrievedata", "\"txid\" \"/home/myfile.bin\"")
+        + HelpExampleRpc("retrievedata", "\"txid\" \"/home/myfile.bin\"")
+    );
 
-	std::string txid=request.params[0].get_str();
-	std::string OPreturnData=getOPreturnData(txid);
+    std::string txid=request.params[0].get_str();
+    std::vector<char> OPreturnData=getOPreturnData(txid);
 
-	if(!request.params[1].isNull())
-	{
-		std::string filePath=request.params[1].get_str();
-		std::vector<char> OPreturnBinaryData;
-		OPreturnBinaryData.resize(OPreturnData.length()/2);
-		hex2bin(OPreturnBinaryData, OPreturnData);
-		
-		FileWriter fileWriter(filePath);
-		fileWriter.write(OPreturnBinaryData);
+    if(!request.params[1].isNull())
+    {
+        std::string filePath=request.params[1].get_str();
+        FileWriter fileWriter(filePath);
+        fileWriter.write(OPreturnData);
 
-		return UniValue(UniValue::VSTR);
-	}
-	
-	return UniValue(UniValue::VSTR, std::string("\"")+OPreturnData+std::string("\""));
+        return UniValue(UniValue::VSTR);
+    }
+
+    std::string retStr=byte2str(reinterpret_cast<unsigned char*>(OPreturnData.data()), OPreturnData.size());
+    return UniValue(UniValue::VSTR, std::string("\"")+retStr+std::string("\""));
 }
 
 UniValue retrievemessage(const JSONRPCRequest& request)
 {
-	RPCTypeCheck(request.params, {UniValue::VSTR});
-	
-	if (request.fHelp || request.params.size() != 1)
-	throw std::runtime_error(
-		"retrievemessage \"txid\" \n"
-		"\nRetrieves user data string from a blockchain.\n"
+    RPCTypeCheck(request.params, {UniValue::VSTR});
 
-		"\nArguments:\n"
-		"1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+    if (request.fHelp || request.params.size() != 1)
+    throw std::runtime_error(
+        "retrievemessage \"txid\" \n"
+        "\nRetrieves user data string from a blockchain.\n"
 
-		"\nResult:\n"
-		"\"string\"                         (string) A retrieved user data string\n"
+        "\nArguments:\n"
+        "1. \"txid\"                        (string, required) A hex-encoded transaction id string\n"
+
+        "\nResult:\n"
+        "\"string\"                         (string) A retrieved user data string\n"
 
 
-		"\nExamples:\n"
-		+ HelpExampleCli("retrievemessage", "\"txid\"")
-		+ HelpExampleRpc("retrievemessage", "\"txid\"")
-	);
+        "\nExamples:\n"
+        + HelpExampleCli("retrievemessage", "\"txid\"")
+        + HelpExampleRpc("retrievemessage", "\"txid\"")
+    );
 
-	std::string txid=request.params[0].get_str();
-	std::string OPreturnData=getOPreturnData(txid);
-	if(!OPreturnData.empty())
-	{
-		std::string asciiStr;
-		hex2ascii(OPreturnData, asciiStr);				
-		return UniValue(UniValue::VSTR, std::string("\"")+asciiStr+std::string("\""));
-	}
-	
-	return UniValue(UniValue::VSTR, std::string("\"\""));
+    std::string txid=request.params[0].get_str();
+    std::vector<char> OPreturnData=getOPreturnData(txid);
+    if(!OPreturnData.empty())
+    {
+        return UniValue(UniValue::VSTR, std::string("\"")+std::string(OPreturnData.begin(), OPreturnData.end())+std::string("\""));
+    }
+
+    return UniValue(UniValue::VSTR, std::string("\"\""));
 }
 
 UniValue storemessage(const JSONRPCRequest& request)
@@ -492,13 +487,10 @@ UniValue checkmessage(const JSONRPCRequest& request)
     );
 
     std::string txid=request.params[0].get_str();
-    std::string OPreturnData=getOPreturnData(txid);
+    std::vector<char> OPreturnData=getOPreturnData(txid);
     if(!OPreturnData.empty())
     {
-        std::vector<char> OPreturnBinaryData;
-        OPreturnBinaryData.resize(OPreturnData.length()/2);
-        hex2bin(OPreturnBinaryData, OPreturnData);
-        std::string blockchainHash=computeHash(OPreturnBinaryData.data(), OPreturnBinaryData.size());
+        std::string blockchainHash=computeHash(OPreturnData.data(), OPreturnData.size());
 
         std::string  message=request.params[1].get_str();
         std::string hexMsg=HexStr(message.begin(), message.end());
@@ -542,14 +534,11 @@ UniValue checkdata(const JSONRPCRequest& request)
 
 
     std::string txid=request.params[0].get_str();
-    std::string OPreturnData=getOPreturnData(txid);
+    std::vector<char> OPreturnData=getOPreturnData(txid);
 
     if(!request.params[1].isNull())
     {
-        std::vector<char> OPreturnBinaryData;
-        OPreturnBinaryData.resize(OPreturnData.length()/2);
-        hex2bin(OPreturnBinaryData, OPreturnData);
-        std::string blockchainHash=computeHash(OPreturnBinaryData.data(), OPreturnBinaryData.size());
+        std::string blockchainHash=computeHash(OPreturnData.data(), OPreturnData.size());
 
         std::string filePath=request.params[1].get_str();
         std::vector<char> binaryData;
@@ -598,8 +587,9 @@ UniValue checksignature(const JSONRPCRequest& request)
 
 
     std::string txid=request.params[0].get_str();
-    std::string OPreturnData=getOPreturnData(txid);
-    std::transform(OPreturnData.begin(), OPreturnData.end(), OPreturnData.begin(), ::toupper);
+    std::vector<char> OPreturnData=getOPreturnData(txid);
+    std::string OPreturnDataStr=byte2str(reinterpret_cast<unsigned char*>(OPreturnData.data()), OPreturnData.size());
+    std::transform(OPreturnDataStr.begin(), OPreturnDataStr.end(), OPreturnDataStr.begin(), ::toupper);
 
     if(!request.params[1].isNull())
     {
@@ -615,7 +605,7 @@ UniValue checksignature(const JSONRPCRequest& request)
         }
 
         std::string dataHash=computeHash(binaryData.data(), binaryData.size());
-        if(dataHash.compare(OPreturnData))
+        if(dataHash.compare(OPreturnDataStr))
         {
             return UniValue(UniValue::VSTR, std::string("FAIL"));
         }
