@@ -236,7 +236,7 @@ namespace modulo
         return stringLen;
     }
 
-    void parseBetType(std::string& betTypePattern, int range, std::vector<double>& betAmounts, std::vector<std::string>& betTypes, std::vector<std::vector<int> >& betArrays)
+    void parseBetType(std::string& betTypePattern, int range, std::vector<double>& betAmounts, std::vector<std::string>& betTypes, std::vector<std::vector<int> >& betArrays, bool isRoulette)
     {
         for(int i=0;true;++i)
         {
@@ -247,7 +247,7 @@ namespace modulo
             std::string betType;
             size_t len;
 
-            if(range == 36)
+            if(isRoulette)
             {
                 len=getRouletteBet(betTypePattern, betArray, betLen, reward, betAmount, betType, range);
             }

@@ -91,13 +91,15 @@ UniValue makebet(const JSONRPCRequest& request)
 
     std::string betTypePattern=request.params[0].get_str();
 
+    bool isRoulette=true;
     int range=36;//by default roulette range
     if(!request.params[1].isNull())
     {
         range=request.params[1].get_int();
+        isRoulette=false;
     }
 
-    parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays);
+    parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays, isRoulette);
 
     size_t opReturnSize=0;
     for(std::vector<std::string>::iterator it=betTypes.begin();it!=betTypes.end();++it)

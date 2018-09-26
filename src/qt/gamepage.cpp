@@ -636,7 +636,12 @@ void GamePage::makeBet()
 
                 std::string betTypePattern=makeBetPattern();
                 int range=range=ui->rewardRatioSpinBox->value();
-                parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays);
+                bool isRoulette=false;//lottery
+                if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+                {
+                    isRoulette=true;
+                }
+                parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays, isRoulette);
 
                 size_t opReturnSize=0;
                 for(std::vector<std::string>::iterator it=betTypes.begin();it!=betTypes.end();++it)
