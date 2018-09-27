@@ -96,7 +96,10 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
     ui->amountSpinBox->setDecimals(8);
     ui->amountSpinBox->setMaximum(MAX_PAYOFF/COIN);
 
-    loadListFromFile(QString("bets.dat"));
+    {
+        std::lock_guard<std::mutex> lck(mtx);
+        loadListFromFile(QString("bets.dat"));
+    }
 }
 
 GamePage::~GamePage()
@@ -303,6 +306,7 @@ void GamePage::setModel(WalletModel *model)
 
 void GamePage::deletedTx(const QString &hash)
 {
+    std::lock_guard<std::mutex> lck(mtx);
     if(removeTxidFromList(hash))
     {
         dumpListToFile(QString("bets.dat"));
@@ -311,6 +315,7 @@ void GamePage::deletedTx(const QString &hash)
 
 void GamePage::newTx(const QString &hash)
 {
+    std::lock_guard<std::mutex> lck(mtx);
     if(addTxidToList(hash))
     {
         dumpListToFile(QString("bets.dat"));
@@ -842,9 +847,11 @@ void GamePage::getBet()
                 msgBox.setWindowTitle("Getting bet status:");
                 msgBox.setText(QString::fromStdString(txid));
                 msgBox.exec();
-
-                delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
-                dumpListToFile(QString("bets.dat"));
+		{
+		    std::lock_guard<std::mutex> lck(mtx);
+		    delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
+		    dumpListToFile(QString("bets.dat"));
+		}
             }
             else
             {
@@ -858,6 +865,7 @@ void GamePage::getBet()
                info==std::string("Input not found or already spent") ||
                txRemoveFlag==true)
             {
+                std::lock_guard<std::mutex> lck(mtx);
                 delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
                 dumpListToFile(QString("bets.dat"));
             }

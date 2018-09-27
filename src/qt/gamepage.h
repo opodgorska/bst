@@ -5,6 +5,7 @@
 #ifndef BITCOIN_QT_GAMEPAGE_H
 #define BITCOIN_QT_GAMEPAGE_H
 
+#include <mutex>
 #include <policy/feerate.h>
 #include <qt/walletmodel.h>
 
@@ -45,6 +46,7 @@ private:
     bool fFeeMinimized;
     CFeeRate feeRate;
     QButtonGroup *groupFee;
+    std::mutex mtx;
 
 private:
     void unlockWallet();
