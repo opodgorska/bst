@@ -1,5 +1,5 @@
 ![https://blocstamp.info](https://scontent.fpoz2-1.fna.fbcdn.net/v/t1.0-9/39846700_539781366457428_902301362497257472_n.png?_nc_cat=104&oh=39ee3d11d124146d487b78f102fef956&oe=5C1B784A)
-For more information, please visit --> [Project's Website](blockstamp.info)  --> [Whitepaper](https://whitepaper.blockstamp.info)  --> [GitHub Wiki](https://github.com/adshares/ads/wiki)  --> [Blockchain Explorer](https://explorer.blockstamp.info)
+For more information, please visit --> [Project's Website](blockstamp.info)  --> [Whitepaper](https://whitepaper.blockstamp.info)  --> [GitHub Wiki](https://github.com/BlockStamp/bst/wiki)  --> [Blockchain Explorer](https://explorer.blockstamp.info)
 
 # What is BlockStamp
 
