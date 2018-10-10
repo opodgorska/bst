@@ -15,12 +15,28 @@
 #include <data/datautils.h>
 #include <data/retrievedatatxs.h>
 
-RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, const std::string& blockHash)
-{
-    LOCK(cs_main);
 
-    uint256 hash = uint256S(txid);
+RetrieveDataTxs::RetrieveDataTxs(const std::string& txid, CWallet* const pwallet, const std::string& blockHash)
+{
+    uint256 hash;
+    hash.SetHex(txid);
     CBlockIndex* blockindex = nullptr;
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    if(pwallet)
+    {
+        LOCK2(cs_main, pwallet->cs_wallet);
+        
+        auto it = pwallet->mapWallet.find(hash);
+        if (it != pwallet->mapWallet.end()) 
+        {
+            const CWalletTx& wtx = it->second;
+            tx=wtx.tx;
+            return;
+        }
+    }
+    
+    LOCK(cs_main);
 
     if (hash == Params().GenesisBlock().hashMerkleRoot) 
     {

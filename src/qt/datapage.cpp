@@ -354,8 +354,15 @@ void DataPage::retrieve()
 {
     try
     {
+        std::shared_ptr<CWallet> wallet = GetWallets()[0];
+        CWallet* pwallet=nullptr;
+        if(wallet!=nullptr)
+        {
+            pwallet=wallet.get();
+        }
+    
         std::string txid=ui->txidRetrieveEdit->text().toStdString();
-        RetrieveDataTxs retrieveDataTxs(txid);
+        RetrieveDataTxs retrieveDataTxs(txid, pwallet);
         std::vector<char> txData=retrieveDataTxs.getTxData();
         QByteArray dataArray(txData.data(), txData.size());
 
@@ -593,7 +600,15 @@ void DataPage::check()
         std::string dataHash;
         std::string blockchainHash;
         std::string txid=ui->checkLineEdit->text().toStdString();
-        RetrieveDataTxs retrieveDataTxs(txid);
+
+        std::shared_ptr<CWallet> wallet = GetWallets()[0];
+        CWallet* pwallet=nullptr;
+        if(wallet!=nullptr)
+        {
+            pwallet=wallet.get();
+        }
+            
+        RetrieveDataTxs retrieveDataTxs(txid, pwallet);
         std::vector<char> txData=retrieveDataTxs.getTxData();
         QByteArray dataArray(txData.data(), txData.size());
 
@@ -636,7 +651,6 @@ void DataPage::check()
             msgBox.setIconPixmap(QPixmap(":/icons/transaction_conflicted"));
         }
         msgBox.exec();
-
     }
     catch(std::exception const& e)
     {

@@ -164,7 +164,14 @@ static UniValue callRPC(std::string args)
 
 static std::vector<char> getOPreturnData(const std::string& txid)
 {
-    RetrieveDataTxs retrieveDataTxs(txid);
+    std::shared_ptr<CWallet> wallet = GetWallets()[0];
+    CWallet* pwallet=nullptr;
+    if(wallet!=nullptr)
+    {
+        pwallet=wallet.get();
+    }
+    
+    RetrieveDataTxs retrieveDataTxs(txid, pwallet);
     return retrieveDataTxs.getTxData();
 }
 

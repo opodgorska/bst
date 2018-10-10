@@ -5,13 +5,13 @@
 #ifndef RETRIEVEDATATXS_H
 #define RETRIEVEDATATXS_H
 
-
+#include <wallet/wallet.h>
 #include <univalue.h>
 
 class RetrieveDataTxs
 {
 public:
-    RetrieveDataTxs(const std::string& txid, const std::string& blockHash = "");
+    RetrieveDataTxs(const std::string& txid, CWallet* const pwallet=nullptr, const std::string& blockHash = "");
     ~RetrieveDataTxs();
     std::vector<char> getTxData();
 
