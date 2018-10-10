@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <core_io.h>
+#include <index/txindex.h>
 #include <key_io.h>
 #include <logging.h>
 #include <rpc/server.h>
@@ -30,39 +31,30 @@ void ArgumentOperation::setArgument(unsigned int argument_)
 
 UniValue findTx(const std::string& txid)
 {
-    LOCK(cs_main);
-
-    bool in_active_chain = true;
-    uint256 hash = ParseHashV(txid, "parameter 1");
+    uint256 hash;
+    hash.SetHex(txid);
     CBlockIndex* blockindex = nullptr;
     CTransactionRef tx;
     uint256 hash_block;
     UniValue result(UniValue::VOBJ);
 
-    int i;
-    for(i=chainActive.Height();i>=0;--i)
+    if (g_txindex)
     {
-        blockindex = chainActive[i];
+        g_txindex->BlockUntilSyncedToCurrentChain();
+    }
 
-        if (hash == Params().GenesisBlock().hashMerkleRoot)
-        {
-            // Special exception for the genesis block coinbase transaction
-            throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
-        }
+    if (hash == Params().GenesisBlock().hashMerkleRoot)
+    {
+        // Special exception for the genesis block coinbase transaction
+        throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
+    }
 
-        if (GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
-        {
-            if(blockindex)
-            {
-                result.pushKV("in_active_chain", in_active_chain);
-            }
-            TxToJSON(*tx, hash_block, result);
-            result.pushKV("blockhash", hash_block.ToString());
-            break;
-        }
+    if (GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
+    {
+        TxToJSON(*tx, hash_block, result);
     }
     
-    if(i<0)
+    if(hash_block.IsNull())
     {
         throw std::runtime_error(std::string("Transaction not in blockchain"));
     }
