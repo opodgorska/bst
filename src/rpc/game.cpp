@@ -5,13 +5,16 @@
 #include <numeric>
 #include <rpc/server.h>
 #include <rpc/client.h>
+#include <consensus/validation.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <utilstrencodings.h>
 #include <stdint.h>
 #include <amount.h>
 #include <chainparams.h>
+#include <net.h>
 #include <rpc/mining.h>
+#include <utilmoneystr.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 
@@ -101,17 +104,6 @@ UniValue makebet(const JSONRPCRequest& request)
 
     parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays, isRoulette);
 
-    size_t opReturnSize=0;
-    for(std::vector<std::string>::iterator it=betTypes.begin();it!=betTypes.end();++it)
-    {
-        opReturnSize+=it->size();
-    }
-    size_t txSize=265+
-    (36*(betTypes.size()-1))+//script size
-    opReturnSize;
-    
-    double fee;
-
     CCoinControl coin_control;
     if (!request.params[2].isNull())
     {
@@ -128,29 +120,6 @@ UniValue makebet(const JSONRPCRequest& request)
         if (!FeeModeFromString(request.params[4].get_str(), coin_control.m_fee_mode)) {
             throw std::runtime_error("Invalid estimate_mode parameter");
         }
-    }
-
-    FeeCalculation fee_calc;
-    CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
-
-    std::vector<std::string> addresses;
-    ProcessUnspent processUnspent(pwallet, addresses);
-
-    UniValue inputs(UniValue::VARR);
-    double betAmountAcc=std::accumulate(betAmounts.begin(), betAmounts.end(), 0.0);
-    if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, betAmountAcc, fee))
-    {
-        throw std::runtime_error(std::string("Insufficient funds"));
-    }
-
-    if(fee>(static_cast<double>(maxTxFee)/COIN))
-    {
-        fee=(static_cast<double>(maxTxFee)/COIN);
-    }
-
-    if(changeAddress.empty())
-    {
-        changeAddress=getChangeAddress(pwallet);
     }
 
     UniValue sendTo(UniValue::VARR);
@@ -184,15 +153,38 @@ UniValue makebet(const JSONRPCRequest& request)
     UniValue opReturn(UniValue::VOBJ);
     opReturn.pushKV("data", msg);
     sendTo.push_back(opReturn);
-    UniValue change(UniValue::VOBJ);
-    change.pushKV(changeAddress, computeChange(inputs, betAmountAcc+fee));
-    sendTo.push_back(change);
+    
+    std::vector<CRecipient> vecSend;
+    createMakeBetDestination(pwallet, sendTo, vecSend);
 
-    MakeBetTxs tx(pwallet, inputs, sendTo, (MAKE_MODULO_GAME_INDICATOR | CTransaction::CURRENT_VERSION), 0, coin_control.m_signal_bip125_rbf.get_value_or(false), false);
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    CAmount curBalance = pwallet->GetBalance();
+
+    CReserveKey reservekey(pwallet);
+    CAmount nFeeRequired;
+    int nChangePosInOut=betArrays.size()+1;
+    std::string strFailReason;
+    CTransactionRef tx;
+
     EnsureWalletIsUnlocked(pwallet);
-    tx.signTx();
-    std::string txid=tx.sendTx().get_str();
 
+    if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
+    {
+        if (nFeeRequired > curBalance)
+        {
+            strFailReason = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+        }        
+        throw std::runtime_error(std::string("CreateTransaction failed with reason: ")+strFailReason);
+    }
+
+    CValidationState state;
+    if(!pwallet->CommitTransaction(tx, {}, {}, reservekey, g_connman.get(), state))
+    {
+        throw std::runtime_error(std::string("CommitTransaction failed with reason: ")+FormatStateMessage(state));
+    }
+
+    std::string txid=tx->GetHash().GetHex();
     return UniValue(UniValue::VSTR, txid);
 }
 

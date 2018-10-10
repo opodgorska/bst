@@ -35,7 +35,6 @@ private:
     virtual UniValue sendTxImp();
     
 protected:
-    UniValue getnewaddress(CTxDestination& dest, OutputType output_type = OutputType::LEGACY);
     bool Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion);
     CScript PushAll(const std::vector<valtype>& values);
 };

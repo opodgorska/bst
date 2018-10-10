@@ -87,88 +87,45 @@ public:
     }
 };
 
-CScript GetScriptForBetDest(const CTxDestination& dest, const std::vector<int>& betNumbers, int argument)
+static CScript GetScriptForBetDest(const CTxDestination& dest, const std::vector<int>& betNumbers, int argument)
 {
     CScript script;
-
+    if(argument<=0)
+    {
+        throw std::runtime_error(std::string("Argument is equal or lower than 0"));
+    }
     boost::apply_visitor(CScriptBetVisitor(&script, betNumbers, argument), dest);
     return script;
 }
 
-MakeBetTxs::MakeBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, int32_t txVersion_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
-                      : Txs(txVersion_, pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), isNewAddrGenerated(false)
+static UniValue getnewaddress(CWallet* const pwallet, CTxDestination& dest, OutputType output_type = OutputType::LEGACY)
 {
-    createTxImp(inputs, sendTo);
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
+    }
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey))
+    {
+        throw std::runtime_error(std::string("Error: Keypool ran out, please call keypoolrefill first"));
+    }
+    pwallet->LearnRelatedScripts(newKey, output_type);
+    dest = GetDestinationForKey(newKey, output_type);
+
+    std::string strAccount("");
+    pwallet->SetAddressBook(dest, strAccount, "receive");
+
+    return EncodeDestination(dest);
 }
 
-MakeBetTxs::~MakeBetTxs() {}
-
-UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
+void createMakeBetDestination(CWallet* const pwallet, const UniValue& sendTo, std::vector<CRecipient>& vecSend)
 {
-    CMutableTransaction& rawTx=mtx;
-
-    if (nLockTime < 0 || nLockTime > std::numeric_limits<uint32_t>::max())
-    {
-        throw std::runtime_error(std::string("Invalid parameter, locktime out of range"));
-    }
-    rawTx.nLockTime = nLockTime;
-
-    
-    for (unsigned int idx = 0; idx < inputs.size(); idx++)
-    {
-        const UniValue& input = inputs[idx];
-        const UniValue& o = input.get_obj();
-
-        uint256 txid = ParseHashO(o, "txid");
-
-        const UniValue& vout_v = find_value(o, "vout");
-        if (!vout_v.isNum())
-        {
-            throw std::runtime_error(std::string("Invalid parameter, missing vout key"));
-        }
-        int nOutput = vout_v.get_int();
-        if (nOutput < 0)
-        {
-            throw std::runtime_error(std::string("Invalid parameter, vout must be positive"));
-        }
-
-        uint32_t nSequence;
-        if (rbfOptIn) 
-        {
-            nSequence = MAX_BIP125_RBF_SEQUENCE;
-        } 
-        else if (rawTx.nLockTime) 
-        {
-            nSequence = std::numeric_limits<uint32_t>::max() - 1;
-        } 
-        else 
-        {
-            nSequence = std::numeric_limits<uint32_t>::max();
-        }
-
-        // set the sequence number if passed in the parameters object
-        const UniValue& sequenceObj = find_value(o, "sequence");
-        if (sequenceObj.isNum()) 
-        {
-            int64_t seqNr64 = sequenceObj.get_int64();
-            if (seqNr64 < 0 || seqNr64 > std::numeric_limits<uint32_t>::max()) 
-            {
-                throw std::runtime_error(std::string("Invalid parameter, sequence number is out of range"));
-            } 
-            else 
-            {
-                nSequence = (uint32_t)seqNr64;
-            }
-        }
-
-        CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
-
-        rawTx.vin.push_back(in);
-    }
-
+    int argument=0;
     for (unsigned int idx = 0; idx < sendTo.size(); idx++)
     {
-        int argument;
         std::vector<int> betNumbers;
         const UniValue& sendToObj = sendTo[idx].get_obj();
         std::vector<std::string> addrList = sendToObj.getKeys();
@@ -178,9 +135,12 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
             if (name_ == "data") 
             {
                 std::vector<unsigned char> data = ParseHexV(sendToObj[name_].getValStr(),"Data");
-
-                CTxOut out(0, CScript() << OP_RETURN << data);
-                rawTx.vout.push_back(out);
+                
+                CRecipient recipient;
+                recipient.scriptPubKey << OP_RETURN << data;
+                recipient.nAmount=0;
+                recipient.fSubtractFeeFromAmount=false;
+                vecSend.push_back(recipient);
             }
             else if(name_=="argument")
             {
@@ -198,13 +158,10 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
                 CAmount nAmount = AmountFromValue(sendToObj[name_].getValStr());
 
                 //we generate a new address type of OUTPUT_TYPE_LEGACY
-                if(!isNewAddrGenerated)
-                {
-                    getnewaddress(dest);
-                    isNewAddrGenerated=true;
-                }
+                CTxDestination destinationAddr;
+                getnewaddress(pwallet, destinationAddr);
+                CScript redeemScript = GetScriptForBetDest(destinationAddr, betNumbers, argument);
 
-                redeemScript = GetScriptForBetDest(dest, betNumbers, argument);
                 if(!pwallet->AddCScript(redeemScript))
                 {
                     throw std::runtime_error(std::string("Adding script failed"));
@@ -213,9 +170,12 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
                 CScript scriptPubKey;
                 scriptPubKey.clear();
                 scriptPubKey << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
-
-                CTxOut out(nAmount, scriptPubKey);
-                rawTx.vout.push_back(out);
+                
+                CRecipient recipient;
+                recipient.scriptPubKey=scriptPubKey;
+                recipient.nAmount=nAmount;
+                recipient.fSubtractFeeFromAmount=false;
+                vecSend.push_back(recipient);
             }
             else 
             {
@@ -227,35 +187,17 @@ UniValue MakeBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
 
                 CScript scriptPubKey = GetScriptForDestination(destination);
                 CAmount nAmount = AmountFromValue(sendToObj[name_].getValStr());
-
-                CTxOut out(nAmount, scriptPubKey);
-                rawTx.vout.push_back(out);
+                
+                CRecipient recipient;
+                recipient.scriptPubKey=scriptPubKey;
+                recipient.nAmount=nAmount;
+                recipient.fSubtractFeeFromAmount=false;
+                vecSend.push_back(recipient);
             }
         }
     }
-
-    if (rbfOptIn != SignalsOptInRBF(rawTx)) 
-    {
-        throw std::runtime_error(std::string("Invalid parameter combination: Sequence number(s) contradict replaceable option"));
-    }
-    return EncodeHexTx(rawTx);
 }
 
-UniValue MakeBetTxs::signTxImp()
-{
-    // Sign the transaction
-    UniValue prevTxsUnival;
-    prevTxsUnival.setNull();
-    const UniValue hashType(std::string("ALL"));
-
-    LOCK2(cs_main, pwallet->cs_wallet);
-    return SignTransaction(mtx, prevTxsUnival, pwallet, false, hashType);
-}
-
-UniValue MakeBetTxs::getTx()
-{
-    return EncodeHexTx(mtx);
-}
 
 /***********************************************************************/
 //redeeming transaction

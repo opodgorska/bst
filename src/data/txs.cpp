@@ -117,29 +117,6 @@ UniValue Txs::sendTxImp()
     return hashTx.GetHex();
 }
 
-UniValue Txs::getnewaddress(CTxDestination& dest, OutputType output_type)
-{
-    LOCK2(cs_main, pwallet->cs_wallet);
-
-    if (!pwallet->IsLocked()) {
-        pwallet->TopUpKeyPool();
-    }
-
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey))
-    {
-        throw std::runtime_error(std::string("Error: Keypool ran out, please call keypoolrefill first"));
-    }
-    pwallet->LearnRelatedScripts(newKey, output_type);
-    dest = GetDestinationForKey(newKey, output_type);
-
-    std::string strAccount("");
-    pwallet->SetAddressBook(dest, strAccount, "receive");
-
-    return EncodeDestination(dest);
-}
-
 // scriptSig:    <sig> <sig...> <serialized_script>
 // scriptPubKey: HASH160 <hash> EQUAL
 bool Txs::Sign1(const SigningProvider& provider, const CKeyID& address, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion)

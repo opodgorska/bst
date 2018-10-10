@@ -20,6 +20,7 @@
 #include <qt/askpassphrasedialog.h>
 #include <qt/storetxdialog.h>
 
+#include <consensus/validation.h>
 #include <wallet/coincontrol.h>
 #include <validation.h>
 #include <wallet/wallet.h>
@@ -29,6 +30,8 @@
 #include <stdint.h>
 #include <amount.h>
 #include <chainparams.h>
+#include <net.h>
+#include <utilmoneystr.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 
@@ -648,43 +651,6 @@ void GamePage::makeBet()
                 }
                 parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays, isRoulette);
 
-                size_t opReturnSize=0;
-                for(std::vector<std::string>::iterator it=betTypes.begin();it!=betTypes.end();++it)
-                {
-                    opReturnSize+=it->size();
-                }
-                size_t txSize=265+
-                (36*(betTypes.size()-1))+//script size
-                opReturnSize;
-
-                double fee;
-
-                CCoinControl coin_control;
-                updateCoinControlState(coin_control);
-                int returned_target;
-                FeeReason reason;
-                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
-
-                std::vector<std::string> addresses;
-                ProcessUnspent processUnspent(pwallet, addresses);
-
-                UniValue inputs(UniValue::VARR);
-                double betAmountAcc=std::accumulate(betAmounts.begin(), betAmounts.end(), 0.0);
-                if(!processUnspent.getUtxForAmount(inputs, feeRate, txSize, betAmountAcc, fee))
-                {
-                    throw std::runtime_error(std::string("Insufficient funds"));
-                }
-
-                if(fee>(static_cast<double>(maxTxFee)/COIN))
-                {
-                    fee=(static_cast<double>(maxTxFee)/COIN);
-                }
-
-                if(changeAddress.empty())
-                {
-                    changeAddress=getChangeAddress(pwallet);
-                }
-
                 UniValue sendTo(UniValue::VARR);
                 UniValue rangeObj(UniValue::VOBJ);
                 rangeObj.pushKV("argument", range);
@@ -716,14 +682,41 @@ void GamePage::makeBet()
                 UniValue opReturn(UniValue::VOBJ);
                 opReturn.pushKV("data", msg);
                 sendTo.push_back(opReturn);
-                UniValue change(UniValue::VOBJ);
-                change.pushKV(changeAddress, computeChange(inputs, betAmountAcc+fee));
-                sendTo.push_back(change);
 
-                MakeBetTxs tx(pwallet, inputs, sendTo, (MAKE_MODULO_GAME_INDICATOR | CTransaction::CURRENT_VERSION), 0, ui->optInRBF->isChecked(), false);
+                CCoinControl coin_control;
+                updateCoinControlState(coin_control);
+
+                std::vector<CRecipient> vecSend;
+                createMakeBetDestination(pwallet, sendTo, vecSend);
+
+                LOCK2(cs_main, pwallet->cs_wallet);
+
+                CAmount curBalance = pwallet->GetBalance();
+
+                CReserveKey reservekey(pwallet);
+                CAmount nFeeRequired;
+                int nChangePosInOut=betArrays.size()+1;
+                std::string strFailReason;
+                CTransactionRef tx;
+
                 unlockWallet();
-                tx.signTx();
-                std::string txid=tx.sendTx().get_str();
+
+                if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
+                {
+                    if (nFeeRequired > curBalance)
+                    {
+                        strFailReason = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+                    }        
+                    throw std::runtime_error(std::string("CreateTransaction failed with reason: ")+strFailReason);
+                }
+
+                CValidationState state;
+                if(!pwallet->CommitTransaction(tx, {}, {}, reservekey, g_connman.get(), state))
+                {
+                    throw std::runtime_error(std::string("CommitTransaction failed with reason: ")+FormatStateMessage(state));
+                }
+
+                std::string txid=tx->GetHash().GetHex();
             }
             else
             {

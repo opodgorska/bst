@@ -2559,7 +2559,7 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 }
 
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
-                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, bool isMakeBetTx)
 {
     CAmount nValue = 0;
     int nChangePosRequest = nChangePosInOut;
@@ -2583,6 +2583,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     }
 
     CMutableTransaction txNew;
+    if(isMakeBetTx)
+    {
+        txNew.nVersion=(MAKE_MODULO_GAME_INDICATOR | CTransaction::CURRENT_VERSION);
+    }
 
     // Discourage fee sniping.
     //

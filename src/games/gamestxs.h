@@ -12,25 +12,7 @@
 #include <data/txs.h>
 #include <games/gamesutils.h>
 
-class MakeBetTxs : public Txs
-{
-public:
-    MakeBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, int32_t txVersion, int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
-    ~MakeBetTxs();
-
-    UniValue getTx();
-    static bool checkBetRewardSum(double& rewardAcc, const CTransaction& tx, const Consensus::Params& params);
-
-private:
-    bool isNewAddrGenerated;
-    CTxDestination dest;
-    CScript redeemScript;
-
-private:
-    UniValue createTxImp(const UniValue& inputs, const UniValue& sendTo) override;
-    UniValue signTxImp() override;
-};
-
+void createMakeBetDestination(CWallet* const pwallet, const UniValue& sendTo, std::vector<CRecipient>& vecSend);
 
 class GetBetTxs : public Txs
 {
