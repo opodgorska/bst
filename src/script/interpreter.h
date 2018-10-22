@@ -115,6 +115,10 @@ enum
     // Making OP_CODESEPARATOR and FindAndDelete fail any non-segwit scripts
     //
     SCRIPT_VERIFY_CONST_SCRIPTCODE = (1U << 16),
+
+    // Perform name checks in "mempool" mode.  This allows / disallows
+    // certain stuff (e. g., it allows immature spending of name_new's).
+    SCRIPT_VERIFY_NAMES_MEMPOOL = (1U << 24),
 };
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);

@@ -23,6 +23,7 @@
 #include <key.h>
 #include <validation.h>
 #include <miner.h>
+#include <names/encoding.h>
 #include <netbase.h>
 #include <net.h>
 #include <net_processing.h>
@@ -368,6 +369,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-namehistory", strprintf("Keep track of the full name history (default: %u)", 0), false, OptionsCategory::OPTIONS);
 
     gArgs.AddArg("-addnode=<ip>", "Add a node to connect to and attempt to keep the connection open (see the `addnode` RPC command help for more info). This option can be specified multiple times to add multiple nodes.", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-banscore=<n>", strprintf("Threshold for disconnecting misbehaving peers (default: %u)", DEFAULT_BANSCORE_THRESHOLD), false, OptionsCategory::CONNECTION);
@@ -497,6 +499,9 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE), true, OptionsCategory::RPC);
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", false, OptionsCategory::RPC);
 
+    gArgs.AddArg("-nameencoding=<enc>", strprintf("Sets the default encoding used for names in the RPC interface (default: %s)", EncodingToString(DEFAULT_NAME_ENCODING)), false, OptionsCategory::RPC);
+    gArgs.AddArg("-valueencoding=<enc>", strprintf("Sets the default encoding used for values in the RPC interface (default: %s)", EncodingToString(DEFAULT_VALUE_ENCODING)), false, OptionsCategory::RPC);
+
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
 #else
@@ -509,9 +514,9 @@ void SetupServerArgs()
 
 std::string LicenseInfo()
 {
-    const std::string URL_SOURCE_CODE = "<https://github.com/bitcoin/bitcoin>";
-    const std::string URL_WEBSITE = "<https://bitcoincore.org>";
-
+    const std::string URL_SOURCE_CODE = "<https://github.com/BlockStamp/bst>";
+    const std::string URL_WEBSITE = "<https://blockstamp.info/>";
+    // todo: remove urls from translations on next change
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
@@ -1471,6 +1476,12 @@ bool AppInitMain()
                 // (we're likely using a testnet datadir, or the other way around).
                 if (!mapBlockIndex.empty() && !LookupBlockIndex(chainparams.GetConsensus().hashGenesisBlock)) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
+                }
+
+                // Check for changed -namehistory state
+                if (fNameHistory != gArgs.GetBoolArg("-namehistory", false)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -namehistory");
+                    break;
                 }
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks

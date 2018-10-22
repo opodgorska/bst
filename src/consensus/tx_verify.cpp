@@ -5,6 +5,7 @@
 #include <consensus/tx_verify.h>
 
 #include <consensus/consensus.h>
+#include <names/main.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
@@ -130,7 +131,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
         assert(!coin.IsSpent());
         const CTxOut &prevout = coin.out;
-        if (prevout.scriptPubKey.IsPayToScriptHash())
+        if (prevout.scriptPubKey.IsPayToScriptHash(true))
             nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.vin[i].scriptSig);
     }
     return nSigOps;
@@ -206,8 +207,20 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     return true;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee)
+bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, unsigned flags, CAmount& txfee)
 {
+    if (!CheckNameTransaction (tx, nSpendHeight, inputs, state, flags))
+      {
+        /* Add a generic "invalid for name op" error to the state if none
+           was added by CheckNameTransaction already.  */
+        if (state.IsValid ()
+              || state.GetRejectCode () == 0
+              || state.GetRejectReason () == "")
+            state.Invalid (false, REJECT_INVALID, "tx-invalid-nameop",
+                           "Tx invalid for Namecoin");
+        return false;
+      }
+
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputs-missingorspent", false,

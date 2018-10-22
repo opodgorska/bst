@@ -7,6 +7,8 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <key_io.h>
+#include <names/encoding.h>
+#include <script/names.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <serialize.h>
@@ -88,6 +90,7 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
 {
     std::string str;
     opcodetype opcode;
+    opcodetype lastOpcode = OP_0;
     std::vector<unsigned char> vch;
     CScript::const_iterator pc = script.begin();
     while (pc < script.end()) {
@@ -100,7 +103,14 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
         }
         if (0 <= opcode && opcode <= OP_PUSHDATA4) {
             if (vch.size() <= static_cast<std::vector<unsigned char>::size_type>(4)) {
-                str += strprintf("%d", CScriptNum(vch, false).getint());
+                if ((lastOpcode == OP_NAME_NEW
+                      || lastOpcode == OP_NAME_UPDATE
+                      || lastOpcode == OP_NAME_FIRSTUPDATE)
+                    && !vch.empty()) {
+                      str += HexStr(vch);
+                } else {
+                    str += strprintf("%d", CScriptNum(vch, false).getint());
+                }
             } else {
                 // the IsUnspendable check makes sure not to try to decode OP_RETURN data that may match the format of a signature
                 if (fAttemptSighashDecode && !script.IsUnspendable()) {
@@ -124,6 +134,7 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
         } else {
             str += GetOpName(opcode);
         }
+        lastOpcode = opcode;
     }
     return str;
 }
@@ -156,6 +167,10 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     txnouttype type;
     std::vector<CTxDestination> addresses;
     int nRequired;
+
+    const CNameScript nameOp(scriptPubKey);
+    if (nameOp.isNameOp ())
+        out.pushKV ("nameOp", NameOpToUniv (nameOp));
 
     out.pushKV("asm", ScriptToAsmStr(scriptPubKey));
     if (fIncludeHex)
@@ -234,4 +249,40 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     if (include_hex) {
         entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
     }
+}
+
+UniValue NameOpToUniv (const CNameScript& nameOp)
+{
+  assert (nameOp.isNameOp ());
+
+  UniValue result(UniValue::VOBJ);
+  switch (nameOp.getNameOp ())
+    {
+      case OP_NAME_NEW:
+        result.pushKV ("op", "name_new");
+        result.pushKV ("hash", HexStr (nameOp.getOpHash ()));
+        break;
+
+      case OP_NAME_FIRSTUPDATE:
+        result.pushKV ("op", "name_firstupdate");
+        AddEncodedNameToUniv (result, "name", nameOp.getOpName (),
+                              ConfiguredNameEncoding ());
+        AddEncodedNameToUniv (result, "value", nameOp.getOpValue (),
+                              ConfiguredValueEncoding ());
+        result.pushKV ("rand", HexStr (nameOp.getOpRand ()));
+        break;
+
+      case OP_NAME_UPDATE:
+        result.pushKV ("op", "name_update");
+        AddEncodedNameToUniv (result, "name", nameOp.getOpName (),
+                              ConfiguredNameEncoding ());
+        AddEncodedNameToUniv (result, "value", nameOp.getOpValue (),
+                              ConfiguredValueEncoding ());
+        break;
+
+      default:
+        assert (false);
+    }
+
+  return result;
 }

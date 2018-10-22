@@ -6,12 +6,81 @@
 #ifndef BITCOIN_CONSENSUS_PARAMS_H
 #define BITCOIN_CONSENSUS_PARAMS_H
 
+#include <amount.h>
 #include <uint256.h>
 #include <limits>
 #include <map>
 #include <string>
 
+#include <memory>
+
 namespace Consensus {
+
+/**
+ * Interface for classes that define consensus behaviour in more
+ * complex ways than just by a set of constants.
+ */
+class ConsensusRules
+{
+public:
+
+    /* Provide a virtual destructor since we have virtual methods.  */
+    virtual ~ConsensusRules() = default;
+
+    /* Return the expiration depth for names at the given height.  */
+    virtual unsigned NameExpirationDepth(unsigned nHeight) const = 0;
+
+    /* Return minimum locked amount in a name.  */
+    virtual CAmount MinNameCoinAmount(unsigned nHeight) const = 0;
+
+};
+
+class MainNetConsensus : public ConsensusRules
+{
+public:
+
+    unsigned NameExpirationDepth(unsigned nHeight) const
+    {
+        /* Important:  It is assumed (in ExpireNames) that
+           "n - expirationDepth(n)" is increasing!  (This is
+           the update height up to which names expire at height n.)  */
+
+/*        if (nHeight < 240000)
+            return 120000;
+        if (nHeight < 480000)
+            return nHeight - 120000;*/
+
+        return 365*1440;
+    }
+
+    CAmount MinNameCoinAmount(unsigned nHeight) const
+    {
+        return COIN / 10000;
+    }
+
+};
+
+class TestNetConsensus : public MainNetConsensus
+{
+public:
+
+    CAmount MinNameCoinAmount(unsigned) const
+    {
+        return COIN / 10000;
+    }
+
+};
+
+class RegTestConsensus : public TestNetConsensus
+{
+public:
+
+    unsigned NameExpirationDepth (unsigned nHeight) const
+    {
+        return 30;
+    }
+
+};
 
 const uint32_t DAAHeightActive=1444;
 
@@ -79,6 +148,9 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+
+    /** Consensus rule interface.  */
+    std::unique_ptr<ConsensusRules> rules;
 };
 } // namespace Consensus
 

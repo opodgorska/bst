@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <vector>
+#include <utility>
 
 struct SeedSpec6 {
     uint8_t addr[16];
@@ -64,6 +65,8 @@ public:
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
+    /** Default value for -checknamedb argument */
+    virtual int DefaultCheckNameDB() const = 0;
     /** Policy: Filter transactions that do not match well-defined patterns */
     bool RequireStandard() const { return fRequireStandard; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }

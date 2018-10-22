@@ -11,6 +11,7 @@
 #include <core_memusage.h>
 #include <hash.h>
 #include <memusage.h>
+#include <names/common.h>
 #include <serialize.h>
 #include <uint256.h>
 
@@ -163,12 +164,27 @@ public:
     //! the old block hash, in that order.
     virtual std::vector<uint256> GetHeadBlocks() const;
 
+    // Get a name (if it exists)
+    virtual bool GetName(const valtype& name, CNameData& data) const;
+
+    // Get a name's history (if it exists)
+    virtual bool GetNameHistory(const valtype& name, CNameHistory& data) const;
+
+    // Query for names that were updated at the given height
+    virtual bool GetNamesForHeight(unsigned nHeight, std::set<valtype>& names) const;
+
+    // Get a name iterator.
+    virtual CNameIterator* IterateNames() const;
+
     //! Do a bulk modification (multiple Coin changes + BestBlock change).
     //! The passed mapCoins can be modified.
-    virtual bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock);
+    virtual bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock, const CNameCache &names);
 
     //! Get a cursor to iterate over the whole state
     virtual CCoinsViewCursor *Cursor() const;
+
+    // Validate the name database.
+    virtual bool ValidateNameDB() const;
 
     //! As we use CCoinsViews polymorphically, have a virtual destructor
     virtual ~CCoinsView() {}
@@ -190,10 +206,15 @@ public:
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
     std::vector<uint256> GetHeadBlocks() const override;
+    bool GetName(const valtype& name, CNameData& data) const override;
+    bool GetNameHistory(const valtype& name, CNameHistory& data) const override;
+    bool GetNamesForHeight(unsigned nHeight, std::set<valtype>& names) const override;
+    CNameIterator* IterateNames() const override;
     void SetBackend(CCoinsView &viewIn);
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override;
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock, const CNameCache &names) override;
     CCoinsViewCursor *Cursor() const override;
     size_t EstimateSize() const override;
+    bool ValidateNameDB() const override;
 };
 
 
@@ -209,7 +230,11 @@ protected:
     mutable CCoinsMap cacheCoins;
 
     /* Cached dynamic memory usage for the inner Coin objects. */
+    /* TODO: Sum up also name cache usage.  */
     mutable size_t cachedCoinsUsage;
+
+    /** Name changes cache.  */
+    CNameCache cacheNames;
 
 public:
     CCoinsViewCache(CCoinsView *baseIn);
@@ -224,10 +249,18 @@ public:
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
     void SetBestBlock(const uint256 &hashBlock);
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override;
+    bool GetName(const valtype &name, CNameData &data) const override;
+    bool GetNameHistory(const valtype &name, CNameHistory &data) const override;
+    bool GetNamesForHeight(unsigned nHeight, std::set<valtype>& names) const override;
+    CNameIterator* IterateNames() const override;
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock, const CNameCache &names) override;
     CCoinsViewCursor* Cursor() const override {
         throw std::logic_error("CCoinsViewCache cursor iteration not supported.");
     }
+
+    /* Changes to the name database.  */
+    void SetName(const valtype &name, const CNameData &data, bool undo);
+    void DeleteName(const valtype &name);
 
     /**
      * Check if we have the given utxo already loaded in this cache.

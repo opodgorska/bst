@@ -822,7 +822,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
             }
 
             // if redeemScript and private keys were given, add redeemScript to the keystore so it can be signed
-            if (is_temp_keystore && (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsPayToWitnessScriptHash())) {
+            if (is_temp_keystore && (scriptPubKey.IsPayToScriptHash(true) || scriptPubKey.IsPayToWitnessScriptHash(true))) {
                 RPCTypeCheckObj(prevOut,
                     {
                         {"redeemScript", UniValueType(UniValue::VSTR)},

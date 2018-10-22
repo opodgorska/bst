@@ -103,6 +103,8 @@ public:
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x0000000000000000002e63058c023a9a1de233554f28c7b21380b6c9003f36a8"); //534292
 
+	consensus.rules.reset(new Consensus::MainNetConsensus());
+
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -152,6 +154,11 @@ public:
 
         /* disable fallback fee on mainnet */
         m_fallback_fee_enabled = false;
+    }
+    
+    int DefaultCheckNameDB () const
+    {
+        return -1;
     }
 };
 
@@ -243,6 +250,11 @@ public:
         /* enable fallback fee on testnet */
         m_fallback_fee_enabled = true;
     }
+    
+    int DefaultCheckNameDB () const
+    {
+        return -1;
+    }
 };
 
 /**
@@ -324,6 +336,11 @@ public:
 
         /* enable fallback fee on regtest */
         m_fallback_fee_enabled = true;
+    }
+    
+    int DefaultCheckNameDB () const
+    {
+        return 0;
     }
 };
 

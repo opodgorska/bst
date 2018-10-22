@@ -7,12 +7,11 @@
 
 #include <crypto/sha256.h>
 #include <pubkey.h>
+#include <script/names.h>
 #include <script/script.h>
 #include <util.h>
 #include <utilstrencodings.h>
 
-
-typedef std::vector<unsigned char> valtype;
 
 bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
@@ -91,18 +90,22 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
 {
     vSolutionsRet.clear();
 
+    // If we have a name script, strip the prefix
+    const CNameScript nameOp(scriptPubKey);
+    const CScript& script = nameOp.getAddress();
+
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:
     // it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
-    if (scriptPubKey.IsPayToScriptHash())
+    if (script.IsPayToScriptHash(false))
     {
-        std::vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
+        std::vector<unsigned char> hashBytes(script.begin()+2, script.begin()+22);
         vSolutionsRet.push_back(hashBytes);
         return TX_SCRIPTHASH;
     }
 
     int witnessversion;
     std::vector<unsigned char> witnessprogram;
-    if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
+    if (script.IsWitnessProgram(witnessversion, witnessprogram)) {
         if (witnessversion == 0 && witnessprogram.size() == WITNESS_V0_KEYHASH_SIZE) {
             vSolutionsRet.push_back(witnessprogram);
             return TX_WITNESS_V0_KEYHASH;
@@ -124,24 +127,28 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
     // So long as script passes the IsUnspendable() test and all but the first
     // byte passes the IsPushOnly() test we don't care what exactly is in the
     // script.
+    //
+    // Note that this intentionally uses scriptPubKey, and not script (which
+    // has a potential name prefix stripped).  At least for now, we exclude
+    // name operations from here.
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         return TX_NULL_DATA;
     }
 
     std::vector<unsigned char> data;
-    if (MatchPayToPubkey(scriptPubKey, data)) {
+    if (MatchPayToPubkey(script, data)) {
         vSolutionsRet.push_back(std::move(data));
         return TX_PUBKEY;
     }
 
-    if (MatchPayToPubkeyHash(scriptPubKey, data)) {
+    if (MatchPayToPubkeyHash(script, data)) {
         vSolutionsRet.push_back(std::move(data));
         return TX_PUBKEYHASH;
     }
 
     unsigned int required;
     std::vector<std::vector<unsigned char>> keys;
-    if (MatchMultisig(scriptPubKey, required, keys)) {
+    if (MatchMultisig(script, required, keys)) {
         vSolutionsRet.push_back({static_cast<unsigned char>(required)}); // safe as required is in range 1..16
         vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
         vSolutionsRet.push_back({static_cast<unsigned char>(keys.size())}); // safe as size is in range 1..16

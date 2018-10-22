@@ -16,7 +16,8 @@
 
 #include <boost/test/unit_test.hpp>
 
-int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out);
+class CNameCache;
+
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight);
 
 namespace
@@ -29,6 +30,7 @@ bool operator==(const Coin &a, const Coin &b) {
            a.nHeight == b.nHeight &&
            a.out == b.out;
 }
+
 
 class CCoinsViewTest : public CCoinsView
 {
@@ -52,7 +54,7 @@ public:
 
     uint256 GetBestBlock() const override { return hashBestBlock_; }
 
-    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock) override
+    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const CNameCache &names) override
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             if (it->second.flags & CCoinsCacheEntry::DIRTY) {
@@ -588,7 +590,7 @@ void WriteCoinsViewEntry(CCoinsView& view, CAmount value, char flags)
 {
     CCoinsMap map;
     InsertCoinsMapEntry(map, value, flags);
-    view.BatchWrite(map, {});
+    view.BatchWrite(map, {}, {});
 }
 
 class SingleEntryCacheTest

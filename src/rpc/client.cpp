@@ -160,6 +160,18 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "logging", 1, "exclude" },
     { "disconnectnode", 1, "nodeid" },
     { "addwitnessaddress", 1, "p2sh" },
+    { "name_scan", 1, "count" },
+    { "name_filter", 1, "maxage" },
+    { "name_filter", 2, "from" },
+    { "name_filter", 3, "nb" },
+    { "name_new", 1, "options" },
+    { "name_firstupdate", 4, "options" },
+    { "name_firstupdate", 5, "allow_active" },
+    { "name_update", 2, "options" },
+    { "namerawtransaction", 1, "vout" },
+    { "namerawtransaction", 2, "nameop" },
+    { "sendtoname", 1, "amount" },
+    { "sendtoname", 4, "subtractfeefromamount" },
     // Echo with conversion (For testing only)
     { "echojson", 0, "arg0" },
     { "echojson", 1, "arg1" },
@@ -174,6 +186,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rescanblockchain", 0, "start_height"},
     { "rescanblockchain", 1, "stop_height"},
     { "createwallet", 1, "disable_private_keys"},
+    { "getnodeaddresses", 0, "count"},
 };
 // clang-format on
 

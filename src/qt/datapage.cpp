@@ -550,7 +550,7 @@ void DataPage::store()
                 CCoinControl coin_control;
                 updateCoinControlState(coin_control);
 
-                if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
+                if(!pwallet->CreateTransaction(vecSend, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
                 {
                     if (nFeeRequired > curBalance)
                     {

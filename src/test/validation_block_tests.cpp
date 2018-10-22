@@ -30,7 +30,7 @@ struct TestSubscriber : public CValidationInterface {
         BOOST_CHECK_EQUAL(m_expected_tip, pindexNew->GetBlockHash());
     }
 
-    void BlockConnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex, const std::vector<CTransactionRef>& txnConflicted) override
+    void BlockConnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex, const std::vector<CTransactionRef>& txnConflicted, const std::vector<CTransactionRef>& vNameConflicts) override
     {
         BOOST_CHECK_EQUAL(m_expected_tip, block->hashPrevBlock);
         BOOST_CHECK_EQUAL(m_expected_tip, pindex->pprev->GetBlockHash());
@@ -38,7 +38,7 @@ struct TestSubscriber : public CValidationInterface {
         m_expected_tip = block->GetHash();
     }
 
-    void BlockDisconnected(const std::shared_ptr<const CBlock>& block) override
+    void BlockDisconnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindexDelete, const std::vector<CTransactionRef>& vNameConflicts) override
     {
         BOOST_CHECK_EQUAL(m_expected_tip, block->GetHash());
 
@@ -71,9 +71,10 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 {
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
-    while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
-        ++(pblock->nNonce);
-    }
+    /*auto& miningHeader = CAuxPow::initAuxPow(*pblock);
+    while (!CheckProofOfWork(miningHeader.GetHash(), pblock->nBits, Params().GetConsensus())) {
+        ++(miningHeader.nNonce);
+    }*/
 
     return pblock;
 }

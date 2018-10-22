@@ -6,6 +6,7 @@
 #include <primitives/transaction.h>
 
 #include <hash.h>
+#include <script/names.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 
@@ -63,6 +64,12 @@ uint256 CMutableTransaction::GetHash() const
     return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
+void CMutableTransaction::SetNamecoin()
+{
+    assert (nVersion == CTransaction::CURRENT_VERSION);
+    nVersion = CTransaction::NAMECOIN_VERSION;
+}
+
 uint256 CTransaction::ComputeHash() const
 {
     return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
@@ -81,11 +88,12 @@ CTransaction::CTransaction() : vin(), vout(), nVersion(CTransaction::CURRENT_VER
 CTransaction::CTransaction(const CMutableTransaction& tx) : vin(tx.vin), vout(tx.vout), nVersion(tx.nVersion), nLockTime(tx.nLockTime), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 CTransaction::CTransaction(CMutableTransaction&& tx) : vin(std::move(tx.vin)), vout(std::move(tx.vout)), nVersion(tx.nVersion), nLockTime(tx.nLockTime), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 
-CAmount CTransaction::GetValueOut() const
+CAmount CTransaction::GetValueOut(bool fExcludeNames) const
 {
     CAmount nValueOut = 0;
     for (const auto& tx_out : vout) {
-        nValueOut += tx_out.nValue;
+        if (!fExcludeNames || !CNameScript::isNameScript(tx_out.scriptPubKey))
+            nValueOut += tx_out.nValue;
         if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }

@@ -82,13 +82,6 @@ namespace {
     };
 } // anon namespace
 
-enum DisconnectResult
-{
-    DISCONNECT_OK,      // All good.
-    DISCONNECT_UNCLEAN, // Rolled back, but UTXO set was inconsistent with block.
-    DISCONNECT_FAILED   // Something else went wrong.
-};
-
 class ConnectTrace;
 
 /**
@@ -170,9 +163,11 @@ public:
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
-    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view);
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, std::set<valtype>& unexpiredNames);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+                    CCoinsViewCache& view,
+                    std::set<valtype>& expiredNames,
+                    const CChainParams& chainparams, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block disconnection on our pcoinsTip:
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions *disconnectpool);
@@ -641,6 +636,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
     }
 
+    if (!pool.checkNameOps(tx))
+        return false;
+
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
@@ -673,6 +671,21 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // Bring the best block into scope
         view.GetBestBlock();
 
+        /* If this is a name update (or firstupdate), make sure that the
+           existing name entry (if any) is in the dummy cache.  Otherwise
+           tx validation done below (in CheckInputs) will not be correct.  */
+        for (const auto& txout : tx.vout)
+        {
+            const CNameScript nameOp(txout.scriptPubKey);
+            if (nameOp.isNameOp() && nameOp.isAnyUpdate())
+            {
+                const valtype& name = nameOp.getOpName();
+                CNameData data;
+                if (view.GetName(name, data))
+                    view.SetName(name, data, false);
+            }
+        }
+
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
         view.SetBackend(dummy);
 
@@ -685,7 +698,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), nFees)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), SCRIPT_VERIFY_NAMES_MEMPOOL, nFees)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -887,7 +900,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
         }
 
-        constexpr unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+        constexpr unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_NAMES_MEMPOOL;
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
@@ -920,7 +933,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
+        //
+        // Namecoin actually allows some scripts into the mempool that would
+        // not (yet) be valid in a block, namely premature NAME_FIRSTUPDATE's.
+        // Thus add the mempool-flag here.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(chainActive.Tip(), Params().GetConsensus());
+        currentBlockScriptVerifyFlags |= SCRIPT_VERIFY_NAMES_MEMPOOL;
         if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
@@ -1569,7 +1587,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, std::set<valtype>& unexpiredNames)
 {
     bool fClean = true;
 
@@ -1583,6 +1601,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         error("DisconnectBlock(): block and undo data inconsistent");
         return DISCONNECT_FAILED;
     }
+
+    /* Undo name expirations.  We use nHeight+1 here in sync with
+       the call to ExpireNames, because that's the height at which a
+       possible name_update could be (thus it counts for spendability
+       of the name).  This is done first to match the order
+       in which names are expired when connecting blocks.  */
+    if (!UnexpireNames (pindex->nHeight + 1, blockUndo, view, unexpiredNames))
+      fClean = false;
 
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
@@ -1619,6 +1645,12 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             // At this point, all of txundo.vprevout should have been moved out.
         }
     }
+
+    // undo name operations in reverse order
+    std::vector<CNameTxUndo>::const_reverse_iterator nameUndoIter;
+    for (nameUndoIter = blockUndo.vnameundo.rbegin ();
+         nameUndoIter != blockUndo.vnameundo.rend (); ++nameUndoIter)
+      nameUndoIter->apply (view);
 
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
@@ -1796,7 +1828,9 @@ static int64_t nBlocksTotal = 0;
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck)
+                  CCoinsViewCache& view,
+                  std::set<valtype>& expiredNames,
+                  const CChainParams& chainparams, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -1991,7 +2025,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, flags, txfee)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
@@ -2039,6 +2073,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        ApplyNameTransaction(tx, pindex->nHeight, view, blockundo);
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
@@ -2057,6 +2092,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     if (fJustCheck)
         return true;
+
+    /* Remove expired names from the UTXO set.  They become permanently
+       unspendable.  Note that we use nHeight+1 here because a possible
+       spending transaction would be at least at that height.  This has
+       to be done after checking the transactions themselves, because
+       spending a name would still be valid in the current block.  */
+    if (!ExpireNames(pindex->nHeight + 1, view, blockundo, expiredNames))
+        return error("%s : ExpireNames failed", __func__);
 
     if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams))
         return false;
@@ -2296,17 +2339,19 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
 {
     CBlockIndex *pindexDelete = chainActive.Tip();
     assert(pindexDelete);
+    CheckNameDB (true);
     // Read block from disk.
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
     if (!ReadBlockFromDisk(block, pindexDelete, chainparams.GetConsensus()))
         return AbortNode(state, "Failed to read block");
     // Apply the block atomically to the chain state.
+    std::set<valtype> unexpiredNames;
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(pcoinsTip.get());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
-        if (DisconnectBlock(block, pindexDelete, view) != DISCONNECT_OK)
+        if (DisconnectBlock(block, pindexDelete, view, unexpiredNames) != DISCONNECT_OK)
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
@@ -2315,6 +2360,12 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(chainparams, state, FlushStateMode::IF_NEEDED))
         return false;
+
+    AssertLockHeld(cs_main);
+    CNameConflictTracker nameConflicts(mempool);
+
+    // Fix the memool for conflicts due to unexpired names.
+    mempool.removeUnexpireConflicts(unexpiredNames);
 
     if (disconnectpool) {
         // Save transactions to re-add to mempool at end of reorg
@@ -2332,9 +2383,11 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     chainActive.SetTip(pindexDelete->pprev);
 
     UpdateTip(pindexDelete->pprev, chainparams);
+    CheckNameDB (true);
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
-    GetMainSignals().BlockDisconnected(pblock);
+    GetMainSignals().BlockDisconnected(pblock, pindexDelete,
+                                       nameConflicts.GetNameConflicts());
     return true;
 }
 
@@ -2348,7 +2401,9 @@ struct PerBlockConnectTrace {
     CBlockIndex* pindex = nullptr;
     std::shared_ptr<const CBlock> pblock;
     std::shared_ptr<std::vector<CTransactionRef>> conflictedTxs;
-    PerBlockConnectTrace() : conflictedTxs(std::make_shared<std::vector<CTransactionRef>>()) {}
+    std::shared_ptr<std::vector<CTransactionRef>> txNameConflicts;
+    PerBlockConnectTrace() : conflictedTxs(std::make_shared<std::vector<CTransactionRef>>()),
+                             txNameConflicts(std::make_shared<std::vector<CTransactionRef>>()) {}
 };
 /**
  * Used to track blocks whose transactions were applied to the UTXO state as a
@@ -2397,14 +2452,22 @@ public:
         // the last entry here to make sure the list we return is sane.
         assert(!blocksConnected.back().pindex);
         assert(blocksConnected.back().conflictedTxs->empty());
+        assert(blocksConnected.back().txNameConflicts->empty());
         blocksConnected.pop_back();
         return blocksConnected;
     }
 
     void NotifyEntryRemoved(CTransactionRef txRemoved, MemPoolRemovalReason reason) {
         assert(!blocksConnected.back().pindex);
-        if (reason == MemPoolRemovalReason::CONFLICT) {
+        switch (reason) {
+          case MemPoolRemovalReason::CONFLICT:
             blocksConnected.back().conflictedTxs->emplace_back(std::move(txRemoved));
+            break;
+          case MemPoolRemovalReason::NAME_CONFLICT:
+            blocksConnected.back().txNameConflicts->emplace_back(std::move(txRemoved));
+            break;
+          default:
+            break;
         }
     }
 };
@@ -2418,6 +2481,7 @@ public:
 bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool)
 {
     assert(pindexNew->pprev == chainActive.Tip());
+    CheckNameDB (true);
     // Read block from disk.
     int64_t nTime1 = GetTimeMicros();
     std::shared_ptr<const CBlock> pthisBlock;
@@ -2431,12 +2495,13 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     }
     const CBlock& blockConnecting = *pthisBlock;
     // Apply the block atomically to the chain state.
+    std::set<valtype> expiredNames;
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(pcoinsTip.get());
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, chainparams);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, expiredNames, chainparams);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -2457,10 +2522,12 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
     mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
+    mempool.removeExpireConflicts(expiredNames);
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);
     UpdateTip(pindexNew, chainparams);
+    CheckNameDB (false);
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint(BCLog::BENCH, "  - Connect postprocess: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime5) * MILLI, nTimePostConnect * MICRO, nTimePostConnect * MILLI / nBlocksTotal);
@@ -2718,7 +2785,7 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
 
                 for (const PerBlockConnectTrace& trace : connectTrace.GetBlocksConnected()) {
                     assert(trace.pblock && trace.pindex);
-                    GetMainSignals().BlockConnected(trace.pblock, trace.pindex, trace.conflictedTxs);
+                    GetMainSignals().BlockConnected(trace.pblock, trace.pindex, trace.conflictedTxs, trace.txNameConflicts);
                 }
             } while (!chainActive.Tip() || (starting_tip && CBlockIndexWorkComparator()(chainActive.Tip(), starting_tip)));
             if (!blocks_connected) return true;
@@ -3070,6 +3137,36 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
     return true;
 }
 
+/* Temporary check that blocks are compatible with BDB's 10,000 lock limit.
+   This is based on Bitcoin's commit 8c222dca4f961ad13ec64d690134a40d09b20813.
+   Each "object" touched in the DB may cause two locks (one read and one
+   write lock).  Objects are transaction IDs and names.  Thus, count the
+   total number of transaction IDs (tx themselves plus all distinct inputs).
+   In addition, each Namecoin transaction could touch at most one name,
+   so add them as well.  */
+bool CheckDbLockLimit(const std::vector<CTransactionRef>& vtx)
+{
+    std::set<uint256> setTxIds;
+    unsigned nNames = 0;
+    for (const auto& tx : vtx)
+    {
+        setTxIds.insert(tx->GetHash());
+        if (tx->IsNamecoin())
+            ++nNames;
+
+        for (const auto& txIn : tx->vin)
+            setTxIds.insert(txIn.prevout.hash);
+    }
+
+    const unsigned nTotalIds = setTxIds.size() + nNames;
+    if (nTotalIds > 4500)
+        return error("%s : %u locks estimated, that is too much for BDB",
+                     __func__, nTotalIds);
+
+    //LogPrintf ("%s : need %u locks\n", __func__, nTotalIds);
+    return true;
+}
+
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
     // Check proof of work matches claimed amount
@@ -3115,6 +3212,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.vtx.empty() || block.vtx.size() * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT || ::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
 
+    // Enforce the temporary DB lock limit.
+    // TODO: Remove with a hardfork in the future.
+    if (!CheckDbLockLimit(block.vtx))
+        return state.DoS(100, error("%s : DB lock limit failed", __func__),
+                         REJECT_INVALID, "bad-db-locks");
+
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
@@ -3124,7 +3227,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check transactions
     for (const auto& tx : block.vtx)
-        if (!CheckTransaction(*tx, state, false))
+        if (!CheckTransaction(*tx, state, false))//bioinfo: false?true
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
 
@@ -3134,6 +3237,24 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if(modulo::isBetPayoffExceeded(consensusParams, block))
         {
             return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
+        }
+
+        // Check if block contains more than one NAME_NEW transaction
+        int nameNewCount=0;
+        for (const auto& tx : block.vtx)
+        {
+            for (const auto& txout : (*tx).vout)
+            {
+                const CNameScript nameOp(txout.scriptPubKey);
+                if (nameOp.isNameOp() && !nameOp.isAnyUpdate())
+                {
+                    if(nameNewCount>=1)
+                    {
+                        return state.DoS(100, false, REJECT_INVALID, "more-than-one-namenew", false, "More than one name_new");
+                    }
+                    ++nameNewCount;
+                }
+            }
         }
     }
 
@@ -3578,6 +3699,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
 {
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == chainActive.Tip());
+    std::set<valtype> namesDummy;
     CCoinsViewCache viewNew(pcoinsTip.get());
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
@@ -3592,7 +3714,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
+    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, namesDummy, chainparams, true))
         return false;
     assert(state.IsValid());
 
@@ -3933,6 +4055,10 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams) EXCLUSIVE_LOCKS_RE
     pblocktree->ReadReindexing(fReindexing);
     if(fReindexing) fReindex = true;
 
+    // Check whether we have the name history
+    pblocktree->ReadFlag("namehistory", fNameHistory);
+    LogPrintf("LoadBlockIndexDB(): name history %s\n", fNameHistory ? "enabled" : "disabled");
+
     return true;
 }
 
@@ -3991,6 +4117,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
+    std::set<valtype> dummyNames;
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -4033,7 +4160,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
-            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins);
+            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, dummyNames);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -4062,7 +4189,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (!g_chainstate.ConnectBlock(block, state, pindex, coins, chainparams))
+            if (!g_chainstate.ConnectBlock(block, state, pindex, coins, dummyNames, chainparams))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         }
     }
@@ -4133,7 +4260,8 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view)
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache);
+            std::set<valtype> dummyNames;
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, dummyNames);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
@@ -4327,6 +4455,8 @@ bool LoadBlockIndex(const CChainParams& chainparams)
         // needs_init.
 
         LogPrintf("Initializing databases...\n");
+        fNameHistory = gArgs.GetBoolArg("-namehistory", false);
+        pblocktree->WriteFlag("namehistory", fNameHistory);
     }
     return true;
 }

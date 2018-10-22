@@ -5,14 +5,19 @@
 #ifndef BITCOIN_WALLET_RPCWALLET_H
 #define BITCOIN_WALLET_RPCWALLET_H
 
+#include <map>
 #include <string>
 
+class CCoinControl;
 class CRPCTable;
 class CWallet;
+class CWalletTx;
 class JSONRPCRequest;
 class UniValue;
 struct PartiallySignedTransaction;
 class CTransaction;
+
+typedef std::map<std::string, std::string> mapValue_t;
 
 void RegisterWalletRPCCommands(CRPCTable &t);
 
@@ -27,6 +32,11 @@ std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& reques
 std::string HelpRequiringPassphrase(CWallet *);
 void EnsureWalletIsUnlocked(CWallet *);
 bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
+CTransactionRef SendMoneyToScript(CWallet* pwallet, const CScript& scriptPubKey,
+                                  const CTxIn* withInput, CAmount nValue,
+                                  bool fSubtractFeeFromAmount,
+                                  const CCoinControl& coin_control,
+                                  mapValue_t mapValue);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);

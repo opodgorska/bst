@@ -267,6 +267,7 @@ class CTransaction
 public:
     // Default transaction version.
     static const int32_t CURRENT_VERSION=2;
+    static const int32_t NAMECOIN_VERSION=0x7100;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
@@ -318,7 +319,7 @@ public:
     const uint256& GetWitnessHash() const { return m_witness_hash; };
 
     // Return sum of txouts.
-    CAmount GetValueOut() const;
+    CAmount GetValueOut(bool fExclueNames = false) const;
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
@@ -332,6 +333,11 @@ public:
     bool IsCoinBase() const
     {
         return (vin.size() == 1 && vin[0].prevout.IsNull());
+    }
+
+    bool IsNamecoin() const
+    {
+        return nVersion == NAMECOIN_VERSION;
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
@@ -409,6 +415,12 @@ struct CMutableTransaction
         }
         return false;
     }
+
+    /**
+     * Turn this into a Namecoin version transaction.  It is assumed
+     * that it isn't already.
+     */
+    void SetNamecoin();
 };
 
 typedef std::shared_ptr<const CTransaction> CTransactionRef;

@@ -144,6 +144,9 @@ BITCOIN_CORE_H = \
   memusage.h \
   merkleblock.h \
   miner.h \
+  names/common.h \
+  names/encoding.h \
+  names/main.h \
   net.h \
   net_processing.h \
   netaddress.h \
@@ -163,6 +166,7 @@ BITCOIN_CORE_H = \
   rpc/blockchain.h \
   rpc/client.h \
   rpc/mining.h \
+  rpc/names.h \
   rpc/protocol.h \
   rpc/server.h \
   rpc/rawtransaction.h \
@@ -254,6 +258,7 @@ libbitcoin_server_a_SOURCES = \
   dbwrapper.cpp \
   merkleblock.cpp \
   miner.cpp \
+  names/main.cpp \
   net.cpp \
   net_processing.cpp \
   noui.cpp \
@@ -266,6 +271,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \
+  rpc/names.cpp \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
@@ -312,6 +318,7 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/fees.cpp \
   wallet/init.cpp \
   wallet/rpcdump.cpp \
+  wallet/rpcnames.cpp \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
   wallet/walletdb.cpp \
@@ -386,6 +393,8 @@ libbitcoin_consensus_a_SOURCES = \
   script/bitcoinconsensus.cpp \
   script/interpreter.cpp \
   script/interpreter.h \
+  script/names.cpp \
+  script/names.h \
   script/script.cpp \
   script/script.h \
   script/script_error.cpp \
@@ -413,6 +422,8 @@ libbitcoin_common_a_SOURCES = \
   key.cpp \
   key_io.cpp \
   keystore.cpp \
+  names/common.cpp \
+  names/encoding.cpp \
   netaddress.cpp \
   netbase.cpp \
   policy/feerate.cpp \

@@ -27,7 +27,7 @@ public:
     /**
      * Overridden from CValidationInterface.
      */
-    void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexConnected, const std::vector<CTransactionRef>& vtxConflicted) override;
+    void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexConnected, const std::vector<CTransactionRef>& vtxConflicted, const std::vector<CTransactionRef>& vNameConflicts) override;
     /**
      * Overridden from CValidationInterface.
      */
@@ -63,7 +63,7 @@ public:
     /** Consider evicting an outbound peer based on the amount of time they've been behind our tip */
     void ConsiderEviction(CNode *pto, int64_t time_in_seconds) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Evict extra outbound peers. If we think our tip may be stale, connect to an extra outbound */
-    void CheckForStaleTipAndEvictPeers(const Consensus::Params &consensusParams);
+    void CheckForStaleTipAndEvictPeers(const Consensus::Params *consensusParams);
     /** If we have extra outbound peers, try to disconnect the one with the oldest block announcement */
     void EvictExtraOutboundPeers(int64_t time_in_seconds);
 

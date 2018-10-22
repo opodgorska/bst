@@ -852,14 +852,14 @@ PeerLogicValidation::PeerLogicValidation(CConnman* connmanIn, CScheduler &schedu
     // combine them in one function and schedule at the quicker (peer-eviction)
     // timer.
     static_assert(EXTRA_PEER_CHECK_INTERVAL < STALE_CHECK_INTERVAL, "peer eviction timer should be less than stale tip check timer");
-    scheduler.scheduleEvery(std::bind(&PeerLogicValidation::CheckForStaleTipAndEvictPeers, this, consensusParams), EXTRA_PEER_CHECK_INTERVAL * 1000);
+    scheduler.scheduleEvery(std::bind(&PeerLogicValidation::CheckForStaleTipAndEvictPeers, this, &consensusParams), EXTRA_PEER_CHECK_INTERVAL * 1000);
 }
 
 /**
  * Evict orphan txn pool entries (EraseOrphanTx) based on a newly connected
  * block. Also save the time of the last tip update.
  */
-void PeerLogicValidation::BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindex, const std::vector<CTransactionRef>& vtxConflicted) {
+void PeerLogicValidation::BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindex, const std::vector<CTransactionRef>& vtxConflicted, const std::vector<CTransactionRef>& vNameConflicts) {
     LOCK(g_cs_orphans);
 
     std::vector<uint256> vOrphanErase;
@@ -3191,7 +3191,7 @@ void PeerLogicValidation::EvictExtraOutboundPeers(int64_t time_in_seconds)
     }
 }
 
-void PeerLogicValidation::CheckForStaleTipAndEvictPeers(const Consensus::Params &consensusParams)
+void PeerLogicValidation::CheckForStaleTipAndEvictPeers(const Consensus::Params *consensusParams)
 {
     if (connman == nullptr) return;
 
@@ -3203,7 +3203,7 @@ void PeerLogicValidation::CheckForStaleTipAndEvictPeers(const Consensus::Params 
         LOCK(cs_main);
         // Check whether our tip is stale, and if so, allow using an extra
         // outbound peer
-        if (TipMayBeStale(consensusParams)) {
+        if (TipMayBeStale(*consensusParams)) {
             LogPrintf("Potential stale tip detected, will try using extra outbound peer (last tip update: %d seconds ago)\n", time_in_seconds - g_last_tip_update);
             connman->SetTryNewOutboundPeer(true);
         } else if (connman->GetTryNewOutboundPeer()) {

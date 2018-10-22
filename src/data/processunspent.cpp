@@ -59,7 +59,7 @@ ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::st
                 entry.pushKV("account", pwallet->mapAddressBook[address].name);
             }
 
-            if (scriptPubKey.IsPayToScriptHash()) 
+            if (scriptPubKey.IsPayToScriptHash(true))
             {
                 const CScriptID& hash = boost::get<CScriptID>(address);
                 CScript redeemScript;

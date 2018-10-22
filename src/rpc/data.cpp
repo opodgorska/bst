@@ -208,7 +208,7 @@ UniValue setOPreturnData(const std::vector<unsigned char>& data, CCoinControl& c
 
     EnsureWalletIsUnlocked(pwallet);
 
-    if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
+    if(!pwallet->CreateTransaction(vecSend, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
     {
         if (nFeeRequired > curBalance)
         {

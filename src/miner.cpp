@@ -210,9 +210,12 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int64_t packageSigOpsCost
 // - transaction finality (locktime)
 // - premature witness (in case segwit transactions are added to mempool before
 //   segwit activation)
+// - Namecoin maturity conditions
 bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& package)
 {
     for (CTxMemPool::txiter it : package) {
+        if (!TxAllowedForNamecoin(it->GetTx()))
+            return false;
         if (!IsFinalTx(it->GetTx(), nHeight, nLockTimeCutoff))
             return false;
         if (!fIncludeWitness && it->GetTx().HasWitness())
@@ -221,8 +224,110 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
+bool
+BlockAssembler::TxAllowedForNamecoin (const CTransaction& tx) const
+{
+  if (!tx.IsNamecoin ())
+    return true;
+
+  bool nameOutFound = false;
+  CNameScript nameOpOut;
+  for (const auto& txOut : tx.vout)
+    {
+      const CNameScript op(txOut.scriptPubKey);
+      if (op.isNameOp ())
+        {
+          nameOutFound = true;
+          nameOpOut = op;
+          break;
+        }
+    }
+
+  if (nameOutFound && nameOpOut.getNameOp () == OP_NAME_FIRSTUPDATE)
+    {
+      bool nameNewFound = false;
+      for (const auto& txIn : tx.vin)
+        {
+          Coin coin;
+          if (!pcoinsTip->GetCoin (txIn.prevout, coin))
+            continue;
+
+          const CNameScript op(coin.out.scriptPubKey);
+          if (op.isNameOp () && op.getNameOp () == OP_NAME_NEW)
+            {
+              const int minHeight = coin.nHeight + MIN_FIRSTUPDATE_DEPTH;
+              if (minHeight > nHeight)
+                return false;
+              nameNewFound = true;
+            }
+        }
+
+      /* If the name_new is not only immature but actually unconfirmed, then
+         the GetCoin lookup above fails for it and we never reach the height
+         check.  In this case, nameNewFound is false and we should not yet
+         include the transaction in a mined block.  */
+      if (!nameNewFound)
+        return false;
+    }
+
+  return true;
+}
+
+bool
+BlockAssembler::DbLockLimitOk (const CTxMemPool::setEntries& candidates) const
+{
+  std::vector<CTransactionRef> vtx;
+  for (const auto& iter : inBlock)
+    vtx.push_back(MakeTransactionRef(iter->GetTx()));
+  for (const auto& iter : candidates)
+    vtx.push_back(MakeTransactionRef(iter->GetTx()));
+
+  return CheckDbLockLimit (vtx);
+}
+
+bool BlockAssembler::isNameNew(const CTransaction& tx) const
+{
+    if(tx.IsNamecoin())
+    {
+        for (const auto& txout : tx.vout)
+        {
+            const CNameScript nameOp(txout.scriptPubKey);
+            if (nameOp.isNameOp() && !nameOp.isAnyUpdate())
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool BlockAssembler::hasNameNew() const
+{
+    for(size_t i=0;i<pblock->vtx.size();++i)
+    {
+        if(pblock->vtx[i])
+        {
+            const CTransaction& tx = *(pblock->vtx[i]);
+            if(isNameNew(tx))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
 {
+    const CTransaction& txIn = *(iter->GetSharedTx());
+    if(isNameNew(txIn))
+    {    
+        if(hasNameNew())
+        {
+            return;
+        }
+    }
+
     pblock->vtx.emplace_back(iter->GetSharedTx());
     pblocktemplate->vTxFees.push_back(iter->GetFee());
     pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
@@ -405,7 +510,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         ancestors.insert(iter);
 
         // Test if all tx's are Final
-        if (!TestPackageTransactions(ancestors)) {
+        if (!TestPackageTransactions(ancestors) || !DbLockLimitOk(ancestors)) {
             if (fUsingModified) {
                 mapModifiedTx.get<ancestor_score>().erase(modit);
                 failedTx.insert(iter);
@@ -420,8 +525,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
-        for (size_t i=0; i<sortedEntries.size(); ++i) 
-        {
+        for (size_t i=0; i<sortedEntries.size(); ++i) {
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);

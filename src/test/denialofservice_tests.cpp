@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
         AddRandomOutboundPeer(vNodes, *peerLogic);
     }
 
-    peerLogic->CheckForStaleTipAndEvictPeers(consensusParams);
+    peerLogic->CheckForStaleTipAndEvictPeers(&consensusParams);
 
     // No nodes should be marked for disconnection while we have no extra peers
     for (const CNode *node : vNodes) {
@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
 
     // Now tip should definitely be stale, and we should look for an extra
     // outbound peer
-    peerLogic->CheckForStaleTipAndEvictPeers(consensusParams);
+    peerLogic->CheckForStaleTipAndEvictPeers(&consensusParams);
     BOOST_CHECK(connman->GetTryNewOutboundPeer());
 
     // Still no peers should be marked for disconnection
@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
     // required time connected check should be satisfied).
     AddRandomOutboundPeer(vNodes, *peerLogic);
 
-    peerLogic->CheckForStaleTipAndEvictPeers(consensusParams);
+    peerLogic->CheckForStaleTipAndEvictPeers(&consensusParams);
     for (int i=0; i<nMaxOutbound; ++i) {
         BOOST_CHECK(vNodes[i]->fDisconnect == false);
     }
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
     // peer, and check that the next newest node gets evicted.
     UpdateLastBlockAnnounceTime(vNodes.back()->GetId(), GetTime());
 
-    peerLogic->CheckForStaleTipAndEvictPeers(consensusParams);
+    peerLogic->CheckForStaleTipAndEvictPeers(&consensusParams);
     for (int i=0; i<nMaxOutbound-1; ++i) {
         BOOST_CHECK(vNodes[i]->fDisconnect == false);
     }

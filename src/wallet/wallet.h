@@ -15,6 +15,7 @@
 #include <utilstrencodings.h>
 #include <validationinterface.h>
 #include <script/ismine.h>
+#include <script/names.h>
 #include <script/sign.h>
 #include <util.h>
 #include <wallet/crypter.h>
@@ -200,6 +201,7 @@ static inline void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
 struct COutputEntry
 {
     CTxDestination destination;
+    std::string nameOp;
     CAmount amount;
     int vout;
 };
@@ -355,10 +357,12 @@ public:
     mutable bool fChangeCached;
     mutable bool fInMempool;
     mutable CAmount nDebitCached;
+    mutable CAmount nDebitWithNamesCached;
     mutable CAmount nCreditCached;
     mutable CAmount nImmatureCreditCached;
     mutable CAmount nAvailableCreditCached;
     mutable CAmount nWatchDebitCached;
+    mutable CAmount nWatchDebitWithNamesCached;
     mutable CAmount nWatchCreditCached;
     mutable CAmount nImmatureWatchCreditCached;
     mutable CAmount nAvailableWatchCreditCached;
@@ -389,10 +393,12 @@ public:
         fChangeCached = false;
         fInMempool = false;
         nDebitCached = 0;
+        nDebitWithNamesCached = 0;
         nCreditCached = 0;
         nImmatureCreditCached = 0;
         nAvailableCreditCached = 0;
         nWatchDebitCached = 0;
+        nWatchDebitWithNamesCached = 0;
         nWatchCreditCached = 0;
         nAvailableWatchCreditCached = 0;
         nImmatureWatchCreditCached = 0;
@@ -457,7 +463,7 @@ public:
     }
 
     //! filter decides which addresses will count towards the debit
-    CAmount GetDebit(const isminefilter& filter) const;
+    CAmount GetDebit(const isminefilter& filter, bool fExcludeNames = true) const;
     CAmount GetCredit(const isminefilter& filter) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     CAmount GetImmatureCredit(bool fUseCache=true) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     CAmount GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -639,6 +645,9 @@ private:
     /* Used by TransactionAddedToMemorypool/BlockConnected/Disconnected/ScanForWalletTransactions.
      * Should be called with pindexBlock and posInBlock if this is for a transaction that is included in a block. */
     void SyncTransaction(const CTransactionRef& tx, const CBlockIndex *pindex = nullptr, int posInBlock = 0, bool update_tx = true) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
+    /* Mark a transaction conflict due to name operations.  */
+    void NameConflict(const CTransactionRef& tx, const uint256& hashBlock);
 
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
@@ -858,8 +867,8 @@ public:
     bool AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose=true);
     void LoadToWallet(const CWalletTx& wtxIn);
     void TransactionAddedToMempool(const CTransactionRef& tx) override;
-    void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted) override;
-    void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
+    void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted, const std::vector<CTransactionRef>& vNameConflicts) override;
+    void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindexDelete, const std::vector<CTransactionRef>& vNameConflicts) override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
     CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
@@ -885,11 +894,21 @@ public:
     bool SignTransaction(CMutableTransaction& tx) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
+     * Find the amount in the given tx input.  This must only be called with
+     * Namecoin inputs as used for CreateTransaction.
+     */
+    bool FindValueInNameInput (const CTxIn& nameInput,
+                               CAmount& value, const CWalletTx*& walletTx,
+                               std::string& strFailReason) const;
+
+    /**
      * Create a new transaction paying the recipients with a set of coins
      * selected by SelectCoins(); Also create the change output, when needed
      * @note passing nChangePosInOut as -1 will result in setting a random position
      */
-    bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
+    bool CreateTransaction(const std::vector<CRecipient>& vecSend,
+                           const CTxIn* withInput,
+                           CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
                            std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, bool isMakeBetTx = false);
     bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CReserveKey& reservekey, CConnman* connman, CValidationState& state);
 
@@ -957,7 +976,7 @@ public:
      * Returns amount of debit if the input matches the
      * filter, otherwise returns 0
      */
-    CAmount GetDebit(const CTxIn& txin, const isminefilter& filter) const;
+    CAmount GetDebit(const CTxIn& txin, const isminefilter& filter, bool fExcludeNames = true) const;
     isminetype IsMine(const CTxOut& txout) const;
     CAmount GetCredit(const CTxOut& txout, const isminefilter& filter) const;
     bool IsChange(const CTxOut& txout) const;
@@ -965,7 +984,7 @@ public:
     bool IsMine(const CTransaction& tx) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
-    CAmount GetDebit(const CTransaction& tx, const isminefilter& filter) const;
+    CAmount GetDebit(const CTransaction& tx, const isminefilter& filter, bool fExcludeNames = true) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;

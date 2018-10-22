@@ -12,9 +12,11 @@
 #include <core_io.h>
 #include <key_io.h>
 #include <keystore.h>
+#include <names/encoding.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
+#include <script/names.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <univalue.h>
@@ -39,6 +41,8 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("-create", "Create new, empty TX.", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-json", "Select JSON output", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txid", "Output only the hex-encoded transaction id of the resultant transaction.", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-nameencoding", strprintf("The encoding to use for names in the JSON output (default: %s)", EncodingToString(DEFAULT_NAME_ENCODING)), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-valueencoding", strprintf("The encoding to use for values in the JSON output (default: %s)", EncodingToString(DEFAULT_VALUE_ENCODING)), false, OptionsCategory::OPTIONS);
     SetupChainParamsBaseOptions();
 
     gArgs.AddArg("delin=N", "Delete input N from TX", false, OptionsCategory::COMMANDS);
@@ -479,6 +483,84 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& str
     tx.vout.push_back(txout);
 }
 
+namespace
+{
+
+/**
+ * Mutates a transaction by turning an output indicated by the value string
+ * into a name operation.  This is a common function, since the different
+ * possible name operations share a lot of logic (like most argument parding).
+ */
+void
+MutateTxNameOutput (CMutableTransaction& tx, const std::string& command,
+                    const std::string& value)
+{
+  /* First, we parse the value string.  For all commands, it is supposed to
+     start with the output index and then have some hex-encoded data
+     arguments.  */
+
+  std::vector<std::string> valueParts;
+  boost::split (valueParts, value, boost::is_any_of (":"));
+  if (valueParts.size () < 1)
+    throw std::runtime_error ("name operation missing output index");
+
+  int64_t index;
+  if (!ParseInt64 (valueParts[0], &index)
+        || index < 0
+        || index >= static_cast<int> (tx.vout.size ()))
+    {
+      std::ostringstream msg;
+      msg << "invalid tx output index '" << valueParts[0] << "'"
+          << " for name operation";
+      throw std::runtime_error (msg.str ());
+    }
+
+  std::vector<valtype> data;
+  for (size_t i = 1; i < valueParts.size (); ++i)
+    {
+      if (!IsHex (valueParts[i]))
+        {
+          std::ostringstream msg;
+          msg << "invalid hex argument '" << valueParts[i] << "'"
+              << " for name operation";
+          throw std::runtime_error (msg.str ());
+        }
+      data.push_back (ParseHex (valueParts[i]));
+    }
+
+  /* Next, fetch the output script we want to modify.  */
+  const CScript& addr = tx.vout[index].scriptPubKey;
+
+  /* Build the name script according to the command.  */
+  CScript nameOp;
+  if (command == "namenew")
+    {
+      if (data.size () != 2)
+        throw std::runtime_error ("namenew expects N:NAME:RAND");
+      nameOp = CNameScript::buildNameNew (addr, data[0], data[1]);
+    }
+  else if (command == "namefirstupdate")
+    {
+      if (data.size () != 3)
+        throw std::runtime_error ("namefirstupdate expects N:NAME:VALUE:RAND");
+      nameOp = CNameScript::buildNameFirstupdate (addr, data[0], data[1],
+                                                  data[2]);
+    }
+  else if (command == "nameupdate")
+    {
+      if (data.size () != 2)
+        throw std::runtime_error ("nameupdate expects N:NAME:VALUE");
+      nameOp = CNameScript::buildNameUpdate (addr, data[0], data[1]);
+    }
+  else
+    assert (false);
+
+  /* Update the transaction.  */
+  tx.vout[index].scriptPubKey = nameOp;
+}
+
+} // anonymous namespace
+
 static void MutateTxDelInput(CMutableTransaction& tx, const std::string& strInIdx)
 {
     // parse requested deletion index
@@ -620,7 +702,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 
             // if redeemScript given and private keys given,
             // add redeemScript to the tempKeystore so it can be signed:
-            if ((scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsPayToWitnessScriptHash()) &&
+            if ((scriptPubKey.IsPayToScriptHash(true) || scriptPubKey.IsPayToWitnessScriptHash(true)) &&
                 prevOut.exists("redeemScript")) {
                 UniValue v = prevOut["redeemScript"];
                 std::vector<unsigned char> rsData(ParseHexUV(v, "redeemScript"));
@@ -700,6 +782,11 @@ static void MutateTx(CMutableTransaction& tx, const std::string& command,
         MutateTxAddOutScript(tx, commandVal);
     else if (command == "outdata")
         MutateTxAddOutData(tx, commandVal);
+
+    else if (command == "namenew"
+              || command == "namefirstupdate"
+              || command == "nameupdate")
+        MutateTxNameOutput(tx, command, commandVal);
 
     else if (command == "sign") {
         ecc.reset(new Secp256k1Init());

@@ -20,6 +20,7 @@
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
+#include <script/names.h>
 #include <script/sign.h>
 #include <shutdown.h>
 #include <timedata.h>
@@ -292,32 +293,53 @@ static UniValue setlabel(const JSONRPCRequest& request)
 
 static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue)
 {
+    // Parse Bitcoin address
+    CScript scriptPubKey = GetScriptForDestination(address);
+
+    return SendMoneyToScript(pwallet, scriptPubKey, nullptr, nValue, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
+}
+
+CTransactionRef SendMoneyToScript(
+    CWallet* const pwallet, const CScript &scriptPubKey,
+    const CTxIn* withInput, CAmount nValue, bool fSubtractFeeFromAmount,
+    const CCoinControl& coin_control, mapValue_t mapValue)
+{
     CAmount curBalance = pwallet->GetBalance();
 
     // Check amount
     if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > curBalance)
+    /* If we have an additional input that is a name, we have to take this
+       name's value into account as well for the balance check.  Otherwise one
+       sees spurious "Insufficient funds" errors when updating names when the
+       wallet's balance it smaller than the amount locked in the name.  */
+    CAmount lockedValue = 0;
+    std::string strError;
+    if (withInput)
+      {
+        const CWalletTx* dummyWalletTx;
+        if (!pwallet->FindValueInNameInput (*withInput, lockedValue,
+                                            dummyWalletTx, strError))
+          throw JSONRPCError(RPC_WALLET_ERROR, strError);
+      }
+
+    if (nValue > curBalance + lockedValue)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
     if (pwallet->GetBroadcastTransactions() && !g_connman) {
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
     }
 
-    // Parse Bitcoin address
-    CScript scriptPubKey = GetScriptForDestination(address);
-
     // Create and send the transaction
     CReserveKey reservekey(pwallet);
     CAmount nFeeRequired;
-    std::string strError;
     std::vector<CRecipient> vecSend;
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
     CTransactionRef tx;
-    if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coin_control)) {
+    if (!pwallet->CreateTransaction(vecSend, withInput, tx, reservekey, nFeeRequired, nChangePosRet, strError, coin_control)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -892,7 +914,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     int nChangePosRet = -1;
     std::string strFailReason;
     CTransactionRef tx;
-    bool fCreated = pwallet->CreateTransaction(vecSend, tx, keyChange, nFeeRequired, nChangePosRet, strFailReason, coin_control);
+    bool fCreated = pwallet->CreateTransaction(vecSend, nullptr, tx, keyChange, nFeeRequired, nChangePosRet, strFailReason, coin_control);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
@@ -1396,6 +1418,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("involvesWatchonly", true);
             }
             MaybePushAddress(entry, s.destination);
+            if(!s.nameOp.empty())
+                entry.pushKV("name", s.nameOp);
             entry.pushKV("category", "send");
             entry.pushKV("amount", ValueFromAmount(-s.amount));
             if (pwallet->mapAddressBook.count(s.destination)) {
@@ -1427,6 +1451,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             if (involvesWatchonly || (::IsMine(*pwallet, r.destination) & ISMINE_WATCH_ONLY)) {
                 entry.pushKV("involvesWatchonly", true);
             }
+            if(!r.nameOp.empty())
+                entry.pushKV("name", r.nameOp);
             MaybePushAddress(entry, r.destination);
             if (wtx.IsCoinBase())
             {
@@ -1795,7 +1821,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(true) - nDebit : 0);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (wtx.IsFromMe(filter))
@@ -2714,6 +2740,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "      \"maximumAmount\"    (numeric or string, default=unlimited) Maximum value of each UTXO in " + CURRENCY_UNIT + "\n"
             "      \"maximumCount\"     (numeric or string, default=unlimited) Maximum number of UTXOs\n"
             "      \"minimumSumAmount\" (numeric or string, default=unlimited) Minimum sum value of all UTXOs in " + CURRENCY_UNIT + "\n"
+            "      \"includeNames\"     (boolean, default=false) Whether to also include name outputs\n"
             "    }\n"
             "\nResult\n"
             "[                   (array of json object)\n"
@@ -2781,6 +2808,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     CAmount nMaximumAmount = MAX_MONEY;
     CAmount nMinimumSumAmount = MAX_MONEY;
     uint64_t nMaximumCount = 0;
+    bool includeNames = false;
 
     if (!request.params[4].isNull()) {
         const UniValue& options = request.params[4].get_obj();
@@ -2796,6 +2824,9 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
         if (options.exists("maximumCount"))
             nMaximumCount = options["maximumCount"].get_int64();
+
+        if (options.exists("includeNames"))
+            includeNames = options["includeNames"].get_bool();
     }
 
     // Make sure the results are valid at least up to the most recent block
@@ -2804,9 +2835,16 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
     UniValue results(UniValue::VARR);
     std::vector<COutput> vecOutputs;
+    int expireDepth;
     {
         LOCK2(cs_main, pwallet->cs_wallet);
         pwallet->AvailableCoins(vecOutputs, !include_unsafe, nullptr, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, nMinDepth, nMaxDepth);
+
+        /* Retrieve and store "current" expiration depth.  We use that later
+           to determine, based on confirmations, whether or not names
+           are expired.  */
+        expireDepth = Params().GetConsensus()
+                        .rules->NameExpirationDepth(chainActive.Height());
     }
 
     LOCK(pwallet->cs_wallet);
@@ -2819,9 +2857,28 @@ static UniValue listunspent(const JSONRPCRequest& request)
         if (destinations.size() && (!fValidAddress || !destinations.count(address)))
             continue;
 
+        /* Check if this is a name output.  If it is, we have to apply
+           additional rules:  If the name is already expired, then the output
+           is definitely unspendable; in that case, exclude it always.
+           Otherwise, we may include the output only if the user opted to
+           receive also name outputs.  */
+        const CNameScript nameOp(scriptPubKey);
+        if (nameOp.isNameOp ())
+          {
+            if (!includeNames)
+              continue;
+
+            /* Name new's don't expire, so check for being an actual update.  */
+            if (nameOp.isAnyUpdate () && out.nDepth > expireDepth)
+              continue;
+          }
+
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", out.tx->GetHash().GetHex());
         entry.pushKV("vout", out.i);
+
+        if (nameOp.isNameOp())
+            entry.pushKV("nameOp", NameOpToUniv(nameOp));
 
         if (fValidAddress) {
             entry.pushKV("address", EncodeDestination(address));
@@ -2831,7 +2888,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 entry.pushKV("label", i->second.name);
             }
 
-            if (scriptPubKey.IsPayToScriptHash()) {
+            if (scriptPubKey.IsPayToScriptHash(true)) {
                 const CScriptID& hash = boost::get<CScriptID>(address);
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
@@ -4069,6 +4126,12 @@ UniValue importprunedfunds(const JSONRPCRequest& request);
 UniValue removeprunedfunds(const JSONRPCRequest& request);
 UniValue importmulti(const JSONRPCRequest& request);
 
+extern UniValue name_list(const JSONRPCRequest& request); // in rpcnames.cpp
+extern UniValue name_new(const JSONRPCRequest& request);
+extern UniValue name_firstupdate(const JSONRPCRequest& request);
+extern UniValue name_update(const JSONRPCRequest& request);
+extern UniValue sendtoname(const JSONRPCRequest& request);
+
 // clang-format off
 static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames
@@ -4129,6 +4192,13 @@ static const CRPCCommand commands[] =
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
     { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
+
+    // Name-related wallet calls.
+    { "names",              "name_list",                        &name_list,                     {"name"} },
+    { "names",              "name_new",                         &name_new,                      {"name","options"} },
+    { "names",              "name_firstupdate",                 &name_firstupdate,              {"name","rand","tx","value","options","allow_active"} },
+    { "names",              "name_update",                      &name_update,                   {"name","value","options"} },
+    { "names",              "sendtoname",                       &sendtoname,                    {"name","amount","comment","comment_to","subtractfeefromamount"} },
 };
 // clang-format on
 

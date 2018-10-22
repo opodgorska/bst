@@ -701,7 +701,7 @@ void GamePage::makeBet()
 
                 unlockWallet();
 
-                if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
+                if(!pwallet->CreateTransaction(vecSend, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
                 {
                     if (nFeeRequired > curBalance)
                     {

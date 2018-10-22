@@ -12,6 +12,7 @@
 
 class CBlock;
 class CBlockHeader;
+class CNameScript;
 class CScript;
 class CTransaction;
 struct CMutableTransaction;
@@ -38,5 +39,11 @@ std::string SighashToStr(unsigned char sighash_type);
 void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address);
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex = true, int serialize_flags = 0);
+
+/**
+ * Converts a name script to an UniValue representation suitable to show
+ * for decoded transactions (and similar).
+ */
+UniValue NameOpToUniv(const CNameScript& nameOp);
 
 #endif // BITCOIN_CORE_IO_H
