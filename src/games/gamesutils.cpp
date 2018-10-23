@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <core_io.h>
-#include <index/txindex.h>
 #include <key_io.h>
 #include <logging.h>
 #include <rpc/server.h>
@@ -31,33 +30,42 @@ void ArgumentOperation::setArgument(unsigned int argument_)
 
 UniValue findTx(const std::string& txid)
 {
-    uint256 hash;
-    hash.SetHex(txid);
+    LOCK(cs_main);
+
+    bool in_active_chain = true;
+    uint256 hash = ParseHashV(txid, "parameter 1");
     CBlockIndex* blockindex = nullptr;
     CTransactionRef tx;
     uint256 hash_block;
     UniValue result(UniValue::VOBJ);
 
-    if (g_txindex)
+    int i;
+    for(i=chainActive.Height();i>=0;--i)
     {
-        g_txindex->BlockUntilSyncedToCurrentChain();
+        blockindex = chainActive[i];
+
+        if (hash == Params().GenesisBlock().hashMerkleRoot)
+        {
+            // Special exception for the genesis block coinbase transaction
+            throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
+        }
+
+        if (GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
+        {
+            if(blockindex)
+            {
+                result.pushKV("in_active_chain", in_active_chain);
+            }
+            TxToJSON(*tx, hash_block, result);
+            result.pushKV("blockhash", hash_block.ToString());
+            break;
+        }
     }
 
-    if (hash == Params().GenesisBlock().hashMerkleRoot)
-    {
-        // Special exception for the genesis block coinbase transaction
-        throw std::runtime_error(std::string("The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"));
-    }
-
-    if (GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) 
-    {
-        TxToJSON(*tx, hash_block, result);
-    }
-    
-    if(hash_block.IsNull())
+    if(i<0)
     {
         throw std::runtime_error(std::string("Transaction not in blockchain"));
     }
-    
+
     return result;
 }
