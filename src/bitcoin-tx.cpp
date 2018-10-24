@@ -71,6 +71,19 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("load=NAME:FILENAME", "Load JSON file FILENAME into register NAME", false, OptionsCategory::REGISTER_COMMANDS);
     gArgs.AddArg("set=NAME:JSON-STRING", "Set register NAME to given JSON-STRING", false, OptionsCategory::REGISTER_COMMANDS);
 
+    gArgs.AddArg("namenew=N:NAME:RAND",
+                 "Turns the existing output N into a NAME_NEW operation"
+                 " with the given hex-encoded NAME and RAND.",
+                 false, OptionsCategory::COMMANDS);
+    gArgs.AddArg("namefirstupdate=N:NAME:VALUE:RAND",
+                 "Turns the existing output N into a NAME_FIRSTUPDATE operation"
+                 " with the given hex-encoded NAME, VALUE and RAND.",
+                 false, OptionsCategory::COMMANDS);
+    gArgs.AddArg("nameupdate=N:NAME:VALUE",
+                 "Turns the existing output N into a NAME_UPDATE operation"
+                 " with the given hex-encoded NAME and VALUE.",
+                 false, OptionsCategory::COMMANDS);
+
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);

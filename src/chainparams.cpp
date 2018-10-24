@@ -203,6 +203,8 @@ public:
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75"); //1354312
 
+        consensus.rules.reset(new Consensus::TestNetConsensus());
+
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
         pchMessageStart[2] = 0x09;
@@ -293,6 +295,8 @@ public:
 
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x00");
+
+        consensus.rules.reset(new Consensus::RegTestConsensus());
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
