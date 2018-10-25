@@ -1,16 +1,16 @@
 {
-    "txid": "6546af17efa73666d4c1c43a485897524512950db88f94374f8678d04191d1d7",
-    "hash": "6546af17efa73666d4c1c43a485897524512950db88f94374f8678d04191d1d7",
-    "version": 1,
-    "size": 58,
-    "vsize": 58,
-    "weight": 232,
+    "txid": "9e158a721a1da0cb2de9ce28610a82f25dd29225a7d301ac9684e53a6387dd18",
+    "hash": "9e158a721a1da0cb2de9ce28610a82f25dd29225a7d301ac9684e53a6387dd18",
+    "version": 2,
+    "size": 56,
+    "vsize": 56,
+    "weight": 224,
     "locktime": 0,
     "vin": [
     ],
     "vout": [
         {
-            "value": 0.01000000,
+            "value": 0.00010000,
             "n": 0,
             "scriptPubKey": {
                 "nameOp": {
@@ -20,15 +20,15 @@
                     "value": "76616c7565",
                     "value_encoding": "hex"
                 },
-                "asm": "OP_NAME_UPDATE 642f00ff 76616c7565 OP_2DROP OP_DROP OP_DUP OP_HASH160 1fc11f39be1729bf973a7ab6a615ca4729d64574 OP_EQUALVERIFY OP_CHECKSIG",
-                "hex": "5304642f00ff0576616c75656d7576a9141fc11f39be1729bf973a7ab6a615ca4729d6457488ac",
+                "asm": "OP_NAME_UPDATE 642f00ff 76616c7565 OP_2DROP OP_DROP OP_HASH160 643840f830a18d3d8402e644dbee9a6bcc34c6b0 OP_EQUAL",
+                "hex": "5304642f00ff0576616c75656d75a914643840f830a18d3d8402e644dbee9a6bcc34c6b087",
                 "reqSigs": 1,
-                "type": "pubkeyhash",
+                "type": "scripthash",
                 "addresses": [
-                    "MyUGVwiPwomjPJwBBud1pxnmNp73dKB9s1"
+                    "3ApvtJqrnYdST3t9642syhF9TEA8kLwLug"
                 ]
             }
         }
     ],
-    "hex": "01000000000140420f0000000000275304642f00ff0576616c75656d7576a9141fc11f39be1729bf973a7ab6a615ca4729d6457488ac00000000"
+    "hex": "0200000000011027000000000000255304642f00ff0576616c75656d75a914643840f830a18d3d8402e644dbee9a6bcc34c6b08700000000"
 }
