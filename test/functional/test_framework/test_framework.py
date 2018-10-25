@@ -137,8 +137,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
-        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bitcoind' + config["environment"]["EXEEXT"])
-        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
+        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bstd' + config["environment"]["EXEEXT"])
+        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bst-cli' + config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
@@ -460,13 +460,13 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # blocks are created with timestamps 10 minutes apart
             # starting from 2010 minutes in the past
             self.enable_mocktime()
-            block_time = self.mocktime - (201 * 10 * 60)
+            block_time = self.mocktime - (201 * 1 * 60)
             for i in range(2):
                 for peer in range(4):
                     for j in range(25):
                         set_node_times(self.nodes, block_time)
                         self.nodes[peer].generatetoaddress(1, self.nodes[peer].get_deterministic_priv_key()[0])
-                        block_time += 10 * 60
+                        block_time += 1 * 60
                     # Must sync before next peer starts generating blocks
                     sync_blocks(self.nodes)
 
