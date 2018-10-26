@@ -1,13 +1,15 @@
 *.tar.gz
 
 *.exe
-src/bitcoin
-src/bitcoind
-src/bitcoin-cli
-src/bitcoin-tx
-src/test/test_bitcoin
-src/test/test_bitcoin_fuzzy
-src/qt/test/test_bitcoin-qt
+src/bst
+src/bstd
+src/bst-cli
+src/bst-tx
+src/qt/bst-qt
+src/test/test_bst
+src/test/test_bst_fuzzy
+src/qt/test/test_bst-qt
+src/bench/bench_bst
 
 # autoreconf
 Makefile.in
@@ -44,11 +46,11 @@ src/qt/forms/ui_*.h
 
 src/qt/test/moc*.cpp
 
-src/qt/bitcoin-qt.config
-src/qt/bitcoin-qt.creator
-src/qt/bitcoin-qt.creator.user
-src/qt/bitcoin-qt.files
-src/qt/bitcoin-qt.includes
+src/qt/bst-qt.config
+src/qt/bst-qt.creator
+src/qt/bst-qt.creator.user
+src/qt/bst-qt.files
+src/qt/bst-qt.includes
 
 .deps
 .dirstamp
@@ -115,5 +117,5 @@ test/cache/*
 
 /doc/doxygen/
 
-libbitcoinconsensus.pc
+libbstconsensus.pc
 contrib/devtools/split-debug.sh
