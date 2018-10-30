@@ -32,6 +32,7 @@
 
 #include <QSettings>
 #include <QButtonGroup>
+#include <array>
 
 static constexpr int maxDataSize=MAX_OP_RETURN_RELAY-6;
 

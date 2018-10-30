@@ -46,6 +46,7 @@
 #include <games/modulo/moduloutils.h>
 
 #include <qt/transactiontablemodel.h>
+#include <array>
 
 using namespace modulo;
 
