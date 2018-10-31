@@ -25,7 +25,7 @@ static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsig
     return (*operation)(blockhashTmp);
 }
 
-bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
+bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
 {
     fee=0;
     UniValue txPrev(UniValue::VOBJ);
@@ -272,6 +272,12 @@ bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, Arg
        array2type(betNumber_, betNumber);
        betNumbers.push_back(betNumber);
     }
+    
+    if(!(*compareBet2Vector)(nSpendHeight, betType, betNumbers))
+    {
+        LogPrintf("txVerify: compareBet2Vector check failed\n");
+        return false;        
+    }
 
     //OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << OP_IF;
     if(*it_end!=OP_IF)
@@ -412,6 +418,12 @@ bool VerifyBlockReward::isMakeBetTx(const CTransaction& tx)
 
 bool VerifyBlockReward::isBetPayoffExceeded()
 {
+    //bioinfo hardfork due to roulette bets definition change
+    if(chainActive.Height() < ROULETTE_NEW_DEFS)
+    {
+        return false;
+    }
+    
     CAmount inAcc=0;
     CAmount payoffAcc=0;
     for (const auto& tx : block.vtx)
@@ -446,12 +458,14 @@ bool VerifyBlockReward::isBetPayoffExceeded()
     {
         if(payoffAcc>inAcc+blockSubsidy)
         {
+            LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
             return true;
         }
     }
 
     if(payoffAcc>maxPayoff)
     {
+        LogPrintf("payoffAcc: %d, maxPayoff: %d\n", payoffAcc, maxPayoff);
         return true;
     }
 

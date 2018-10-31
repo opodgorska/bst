@@ -21,9 +21,15 @@ namespace modulo
     public:
         virtual bool isWinning(const std::string& betType, unsigned int maxArgument, unsigned int argument) override;
     };
+    
+    class CompareModuloBet2Vector : public CompareBet2Vector
+    {
+    public:
+        virtual bool operator()(int nSpendHeight, const std::string& betTypePattern, const std::vector<int>& betNumbers) override;
+    };
 
     bool isMakeBetTx(const CTransaction& tx);
-    bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
+    bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
     bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
 
 }

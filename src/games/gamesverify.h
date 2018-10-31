@@ -11,13 +11,22 @@
 #include <wallet/wallet.h>
 #include <games/gamesutils.h>
 
+//bioinfo hardfork due to roulette bets definition change
+#define ROULETTE_NEW_DEFS (108600)
+
 class GetReward
 {
 public:
     virtual int operator()(const std::string& betType, unsigned int argument)=0;
 };
 
-bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, int32_t indicator, CAmount maxPayoff, int32_t maxReward);
+class CompareBet2Vector
+{
+public:
+    virtual bool operator()(int nSpendHeight, const std::string& betTypePattern, const std::vector<int>& betNumbers)=0;
+};
+
+bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward);
 
 class VerifyMakeBetTx
 {

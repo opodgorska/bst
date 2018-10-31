@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <algorithm>
 #include <games/gamesverify.h>
 #include <games/modulo/moduloverify.h>
 #include <games/modulo/modulotxs.h>
@@ -256,16 +257,52 @@ namespace modulo
         return false;
     }
 
+    bool CompareModuloBet2Vector::operator()(int nSpendHeight, const std::string& betTypePattern, const std::vector<int>& betNumbers)
+    {
+        //bioinfo hardfork due to roulette bets definition change
+        if(nSpendHeight < ROULETTE_NEW_DEFS)
+        {
+            return true;
+        }
+        
+        std::vector<int> opReturnBet;
+        bet2Vector(betTypePattern, opReturnBet);
+        std::reverse(std::begin(opReturnBet), std::end(opReturnBet));
+        
+        if(betNumbers.size()!=opReturnBet.size())
+        {
+            LogPrintf("CompareModuloBet2Vector: vectors size mismatch\n");
+            return false;
+        }
+
+        if(!std::equal( betNumbers.begin(), betNumbers.end(), opReturnBet.begin() ))
+        {
+            LogPrintf("CompareModuloBet2Vector: vectors are different\n");
+            LogPrintf("betTypePattern: %s\n", betTypePattern);
+            
+            for(size_t i=0;i<betNumbers.size();++i)
+            {
+                LogPrintf("betNumbers: %d, %d\n", betNumbers[i], opReturnBet[i]);
+            }
+            LogPrintf("\n");
+            
+            return false;
+        }
+        
+        return true;
+    }
+
     bool isMakeBetTx(const CTransaction& tx)
     {
         return isMakeBetTx(tx, MAKE_MODULO_GAME_INDICATOR);
     }
 
-    bool txVerify(const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
+    bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
     {
         ModuloOperation moduloOperation;
         GetModuloReward getModuloReward;
-        return txVerify(tx, in, out, fee, &moduloOperation, &getModuloReward, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+        CompareModuloBet2Vector compareModulobet2Vector;
+        return txVerify(nSpendHeight, tx, in, out, fee, &moduloOperation, &getModuloReward, &compareModulobet2Vector, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
     };
 
     bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block)

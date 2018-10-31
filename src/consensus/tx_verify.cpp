@@ -253,7 +253,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     if (nValueIn < value_out)
     {
         //LogPrintf("nValueIn < value_out\n");
-        correctBetTx=modulo::txVerify(tx, nValueIn, value_out, betFee);
+        correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
         if(!correctBetTx)
         {
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,

@@ -158,13 +158,13 @@ namespace modulo
     static int const even[18]={2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36};
     static int const odd[18]={1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35};
 
-    static int const red[18]={2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35};
-    static int const black[18]={1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36};
+    static int const red[18]={1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36};
+    static int const black[18]={2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35};
 
     int getRouletteBet(const std::string& betTypePattern, int*& bet, int& len, int& reward, double& amount, std::string& betType, int range);
     int getModuloBet(const std::string& betTypePattern, int*& bet, int& len, int& reward, double& amount, std::string& betType, int range);
     void parseBetType(std::string& betTypePattern, int range, std::vector<double>& betAmounts, std::vector<std::string>& betTypes, std::vector<std::vector<int> >& betArrays, bool isRoulette);
-
+    bool bet2Vector(const std::string& betTypePattern, std::vector<int>& bet);
 }
 
 #endif

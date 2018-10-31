@@ -7,9 +7,229 @@
 #include <games/modulo/moduloutils.h>
 #include <games/modulo/modulotxs.h>
 #include <clocale>
+#include <logging.h>
 
 namespace modulo
 {
+
+    bool bet2Vector(const std::string& betTypePattern, std::vector<int>& bet)
+    {
+        int len;
+        int* bet_;
+        bool res=false;
+
+        if( (betTypePattern.find_first_not_of( "0123456789" ) == std::string::npos) )
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern);
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: lottery number error: %d\n", betNum);
+                return res;
+            }
+
+            straight = betNum;
+            bet_ = const_cast<int* >(&straight);
+            len = 1;
+            res = true;
+        }
+
+        if(betTypePattern.find("straight_")==0 || betTypePattern.find("STRAIGHT_")==0)
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("straight_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: stright number error: %d\n", betNum);
+                return res;
+            }
+            if(betNum<1 || betNum>36)
+            {
+                LogPrintf("bet2Vector: stright number error: %d\n", betNum);
+                return res;
+            }
+            straight = betNum;
+            bet_ = const_cast<int* >(&straight);
+            len = 1;
+            res = true;
+        }
+        else if((betTypePattern.find("split_")==0 || betTypePattern.find("SPLIT_")==0))
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("split_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: split number error: %d\n", betNum);
+                return res;
+            }
+            if(betNum<1 || betNum>57)
+            {
+                LogPrintf("bet2Vector: split number error: %d\n", betNum);
+                return res;
+            }
+            bet_ = const_cast<int* >(split[betNum-1]);
+            len = 2;
+            res = true;
+        }
+        else if((betTypePattern.find("street_")==0 || betTypePattern.find("STREET_")==0))
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("street_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: street number error: %d\n", betNum);
+                return res;
+            }        
+            if(betNum<1 || betNum>12)
+            {
+                LogPrintf("bet2Vector: street number error: %d\n", betNum);
+                return res;
+            }
+            bet_ = const_cast<int* >(street[betNum-1]);
+            len = 3;
+            res = true;
+        }
+        else if((betTypePattern.find("corner_")==0 || betTypePattern.find("CORNER_")==0))
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("corner_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: corner number error: %d\n", betNum);
+                return res;
+            }
+            if(betNum<1 || betNum>22)
+            {
+                LogPrintf("bet2Vector: corner number error: %d\n", betNum);
+                return res;
+            }
+            bet_ = const_cast<int* >(corner[betNum-1]);
+            len = 4;
+            res = true;
+        }
+        else if((betTypePattern.find("line_")==0 || betTypePattern.find("LINE_")==0))
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("line_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: line number error: %d\n", betNum);
+                return res;
+            }
+            if(betNum<1 || betNum>11)
+            {
+                LogPrintf("bet2Vector: line number error: %d\n", betNum);
+                return res;
+            }
+            bet_ = const_cast<int* >(line[betNum-1]);
+            len = 6;
+            res = true;
+        }
+        else if((betTypePattern.find("column_")==0 || betTypePattern.find("COLUMN_")==0))
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("column_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: column number error: %d\n", betNum);
+                return res;
+            }
+            if(betNum<1 || betNum>3)
+            {
+                LogPrintf("bet2Vector: column number error: %d\n", betNum);
+                return res;
+            }
+            bet_ = const_cast<int* >(column[betNum-1]);
+            len = 12;
+            res = true;
+        }
+        else if((betTypePattern.find("dozen_")==0 || betTypePattern.find("DOZEN_")==0))
+        {
+            int betNum;
+            try
+            {
+                betNum=std::stoi(betTypePattern.substr(std::string("dozen_").length()));
+            }
+            catch(...)
+            {
+                LogPrintf("bet2Vector: dozen number error: %d\n", betNum);
+                return res;
+            }
+            if(betNum<1 || betNum>3)
+            {
+                LogPrintf("bet2Vector: dozen number error: %d\n", betNum);
+                return res;
+            }
+            bet_ = const_cast<int* >(dozen[betNum-1]);
+            len = 12;
+            res = true;
+        }
+        else if((betTypePattern.find("low")==0 || betTypePattern.find("LOW")==0))
+        {
+            bet_ = const_cast<int* >(low);
+            len = 18;
+            res = true;
+        }
+        else if((betTypePattern.find("high")==0 || betTypePattern.find("HIGH")==0))
+        {
+            bet_ = const_cast<int* >(high);
+            len = 18;
+            res = true;
+        }
+        else if((betTypePattern.find("even")==0 || betTypePattern.find("EVEN")==0))
+        {
+            bet_ = const_cast<int* >(even);
+            len = 18;
+            res = true;
+        }
+        else if((betTypePattern.find("odd")==0 || betTypePattern.find("ODD")==0))
+        {
+            bet_ = const_cast<int* >(odd);
+            len = 18;
+            res = true;
+        }
+        else if((betTypePattern.find("red")==0 || betTypePattern.find("RED")==0))
+        {
+            bet_ = const_cast<int* >(red);
+            len = 18;
+            res = true;
+        }
+        else if((betTypePattern.find("black")==0 || betTypePattern.find("BLACK")==0))
+        {
+            bet_ = const_cast<int* >(black);
+            len = 18;
+            res = true;
+        }
+        
+        for(int i=0;i<len;++i)
+        {
+            bet.push_back(bet_[i]);
+        }
+        
+        return res;
+    }
+    
 
     int getRouletteBet(const std::string& betTypePattern, int*& bet, int& len, int& reward, double& amount, std::string& betType, int range)
     {
@@ -228,7 +448,7 @@ namespace modulo
                 throw std::runtime_error(std::string("Possible numbers are 1, 2, ...")+std::to_string(range));
             }
             straight = betNum;
-            bet = &straight;
+            bet = const_cast<int* >(&straight);
             len = 1;
             reward = range/len;
         }
