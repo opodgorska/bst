@@ -382,7 +382,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         For backward compatibility of the python scripts with previous
         versions of the cache, this helper function sets mocktime to Jan 1,
         2014 + (201 * 10 * 60)"""
-        self.mocktime = 1388534400 + (201 * 10 * 60)
+        self.mocktime = 1534749679 + (2001 * 1 * 60)
 
     def disable_mocktime(self):
         self.mocktime = 0
@@ -460,10 +460,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # blocks are created with timestamps 10 minutes apart
             # starting from 2010 minutes in the past
             self.enable_mocktime()
-            block_time = self.mocktime - (201 * 1 * 60)
+            block_time = self.mocktime - (2001 * 1 * 60)
             for i in range(2):
                 for peer in range(4):
-                    for j in range(25):
+                    for j in range(250):
                         set_node_times(self.nodes, block_time)
                         self.nodes[peer].generatetoaddress(1, self.nodes[peer].get_deterministic_priv_key()[0])
                         block_time += 1 * 60
