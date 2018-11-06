@@ -64,7 +64,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([block], node, success=True)
 
         self.log.info("Mature the block.")
-        self.nodes[0].generate(100)
+        self.nodes[0].generate(1000)
 
         # b'\x64' is OP_NOTIF
         # Transaction will be rejected with code 16 (REJECT_INVALID)
