@@ -57,7 +57,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         self.nodes[2].generate(1)
         self.sync_all()
-        self.nodes[0].generate(121)
+        self.nodes[0].generate(1210)
         self.sync_all()
 
         # ensure that setting changePosition in fundraw with an exact match is handled properly
