@@ -24,7 +24,7 @@ class NameScanningTest (NameTestFramework):
     assert_equal (self.node.name_scan ("foo", 10), [])
     assert_equal (self.node.name_filter (), [])
     assert_equal (self.node.name_filter ("", 0, 0, 0, "stat"),
-                  {"blocks": 201,"count": 0})
+                  {"blocks": 2001,"count": 0})
 
     # Register some names with various data, heights and expiration status.
     # Using both "aa" and "b" ensures that we can also check for the expected
