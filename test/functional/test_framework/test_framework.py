@@ -23,6 +23,7 @@ from .util import (
     MAX_NODES,
     PortSeed,
     assert_equal,
+    base_node_args,
     check_json_precision,
     connect_nodes_bi,
     disconnect_nodes,
@@ -60,7 +61,7 @@ class BitcoinTestMetaClass(type):
     those standards are violated, a ``TypeError`` is raised."""
 
     def __new__(cls, clsname, bases, dct):
-        if not clsname == 'BitcoinTestFramework':
+        if not clsname in ['BitcoinTestFramework', 'NameTestFramework']:
             if not ('run_test' in dct and 'set_test_params' in dct):
                 raise TypeError("BitcoinTestFramework subclasses must override "
                                 "'run_test' and 'set_test_params'")
@@ -442,6 +443,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i)
                 args = [self.options.bitcoind, "-datadir=" + datadir, '-disablewallet']
+                args.extend(base_node_args(i))
                 if i > 0:
                     args.append("-connect=127.0.0.1:" + str(p2p_port(0)))
                 self.nodes.append(TestNode(i, get_datadir_path(self.options.cachedir, i), extra_conf=["bind=127.0.0.1"], extra_args=[], rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=None))

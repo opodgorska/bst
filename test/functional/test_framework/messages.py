@@ -50,6 +50,9 @@ MSG_BLOCK = 2
 MSG_WITNESS_FLAG = 1 << 30
 MSG_TYPE_MASK = 0xffffffff >> 2
 
+# Namecoin tx version
+NAMECOIN_TX_VERSION = 0x7100
+
 # Serialization/deserialization tools
 def sha256(s):
     return hashlib.new('sha256', s).digest()

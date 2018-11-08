@@ -17,10 +17,12 @@ import subprocess
 import tempfile
 import time
 import urllib.parse
+import collections
 
 from .authproxy import JSONRPCException
 from .util import (
     append_config,
+    base_node_args,
     delete_cookie_file,
     get_rpc_proxy,
     rpc_url,
@@ -141,6 +143,7 @@ class TestNode():
 
     def start(self, extra_args=None, *, stdout=None, stderr=None, **kwargs):
         """Start the node."""
+        base_args = base_node_args(self.index)
         if extra_args is None:
             extra_args = self.extra_args
 
@@ -160,7 +163,7 @@ class TestNode():
         # add environment variable LIBC_FATAL_STDERR_=1 so that libc errors are written to stderr and not the terminal
         subp_env = dict(os.environ, LIBC_FATAL_STDERR_="1")
 
-        self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, **kwargs)
+        self.process = subprocess.Popen(self.args + extra_args + base_args, env=subp_env, stdout=stdout, stderr=stderr, **kwargs)
 
         self.running = True
         self.log.debug("bitcoind started, waiting for RPC to come up")

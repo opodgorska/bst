@@ -306,6 +306,22 @@ def initialize_datadir(dirname, n):
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
 
+def base_node_args(i):
+    """
+    Return base arguments to always use for node i.  These arguments
+    are those that are also present for the chain cache and must thus
+    be set for all runs.
+    """
+
+    # We choose nodes 1 and 2 to keep -namehistory, because this allows
+    # us to test both nodes with it and without it in both split
+    # network parts (0/1 vs 2/3).
+
+    if i == 1 or i == 2:
+        return ["-namehistory"]
+
+    return []
+
 def get_datadir_path(dirname, n):
     return os.path.join(dirname, "node" + str(n))
 
