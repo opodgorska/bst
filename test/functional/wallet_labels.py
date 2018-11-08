@@ -30,7 +30,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         # Note each time we call generate, all generated coins go into
         # the same address, so we call twice to get two addresses w/50 each
         node.generate(1)
-        node.generate(101)
+        node.generate(1001)
         assert_equal(node.getbalance(), 100)
 
         # there should be 2 address groups
