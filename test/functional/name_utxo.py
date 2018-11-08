@@ -56,13 +56,13 @@ class NameUtxoTest (NameTestFramework):
     # should be removed from it (as tested already above).
     data = node.gettxoutsetinfo ()
     height = data['height']
-    assert_equal (height, 250)
-    assert_equal (data['txouts'], 252)
+    assert_equal (height, 2050)
+    assert_equal (data['txouts'], 2052)
     amount = data['amount']
-    assert_equal (amount['names'], Decimal ('0.02'))
+    assert_equal (amount['names'], Decimal ('0.0002'))
     assert_equal (amount['total'], amount['names'] + amount['coins'])
-    mined = 149 * 50 + (height - 149) * 25
-    assert_equal (amount['total'], mined - Decimal ('0.01'))
+    mined = 1499 * 50 + (height - 1499) * 25
+    assert_equal (amount['total'], mined - Decimal ('0.0001'))
 
 
 if __name__ == '__main__':
