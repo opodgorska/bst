@@ -100,7 +100,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # Allow the block to mature
         blocks = []
-        for i in range(99):
+        for i in range(999):
             blocks.append(self.next_block(5000 + i))
             self.save_spendable_output()
         self.sync_blocks(blocks)
@@ -438,10 +438,12 @@ class FullBlockTest(BitcoinTestFramework):
         b39_outputs += 1
 
         # Until block is full, add tx's with 1 satoshi to p2sh_script, the rest to OP_TRUE
+        # In Namecoin, we have to respect the BDB lock limit as well.
+        # TODO: Get rid of this change once the lock limit has been removed.
         tx_new = None
         tx_last = tx
         total_size = len(b39.serialize())
-        while(total_size < MAX_BLOCK_BASE_SIZE):
+        while(total_size < MAX_BLOCK_BASE_SIZE and len(b39.vtx) < 4000):
             tx_new = self.create_tx(tx_last, 1, 1, p2sh_script)
             tx_new.vout.append(CTxOut(tx_last.vout[1].nValue - 1, CScript([OP_TRUE])))
             tx_new.rehash()
@@ -456,59 +458,9 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b39], True)
         self.save_spendable_output()
 
-        # Test sigops in P2SH redeem scripts
-        #
-        # b40 creates 3333 tx's spending the 6-sigop P2SH outputs from b39 for a total of 19998 sigops.
-        # The first tx has one sigop and then at the end we add 2 more to put us just over the max.
-        #
-        # b41 does the same, less one, so it has the maximum sigops permitted.
-        #
-        self.log.info("Reject a block with too many P2SH sigops")
-        self.move_tip(39)
-        b40 = self.next_block(40, spend=out[12])
-        sigops = get_legacy_sigopcount_block(b40)
-        numTxes = (MAX_BLOCK_SIGOPS - sigops) // b39_sigops_per_output
-        assert_equal(numTxes <= b39_outputs, True)
-
-        lastOutpoint = COutPoint(b40.vtx[1].sha256, 0)
-        new_txs = []
-        for i in range(1, numTxes + 1):
-            tx = CTransaction()
-            tx.vout.append(CTxOut(1, CScript([OP_TRUE])))
-            tx.vin.append(CTxIn(lastOutpoint, b''))
-            # second input is corresponding P2SH output from b39
-            tx.vin.append(CTxIn(COutPoint(b39.vtx[i].sha256, 0), b''))
-            # Note: must pass the redeem_script (not p2sh_script) to the signature hash function
-            (sighash, err) = SignatureHash(redeem_script, tx, 1, SIGHASH_ALL)
-            sig = self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))
-            scriptSig = CScript([sig, redeem_script])
-
-            tx.vin[1].scriptSig = scriptSig
-            tx.rehash()
-            new_txs.append(tx)
-            lastOutpoint = COutPoint(tx.sha256, 0)
-
-        b40_sigops_to_fill = MAX_BLOCK_SIGOPS - (numTxes * b39_sigops_per_output + sigops) + 1
-        tx = CTransaction()
-        tx.vin.append(CTxIn(lastOutpoint, b''))
-        tx.vout.append(CTxOut(1, CScript([OP_CHECKSIG] * b40_sigops_to_fill)))
-        tx.rehash()
-        new_txs.append(tx)
-        self.update_block(40, new_txs)
-        self.sync_blocks([b40], success=False, reject_reason='bad-blk-sigops', reconnect=True)
-
-        # same as b40, but one less sigop
-        self.log.info("Accept a block with the max number of P2SH sigops")
-        self.move_tip(39)
-        b41 = self.next_block(41, spend=None)
-        self.update_block(41, b40.vtx[1:-1])
-        b41_sigops_to_fill = b40_sigops_to_fill - 1
-        tx = CTransaction()
-        tx.vin.append(CTxIn(lastOutpoint, b''))
-        tx.vout.append(CTxOut(1, CScript([OP_CHECKSIG] * b41_sigops_to_fill)))
-        tx.rehash()
-        self.update_block(41, [tx])
-        self.sync_blocks([b41], True)
+        # Tests for P2SH sigop limits have been removed in Namecoin because
+        # they fail the BDB lock limit.
+        # TODO: Add them back once the limit is gone.
 
         # Fork off of b39 to create a constant base again
         #
@@ -579,7 +531,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(44)
         b47 = self.next_block(47, solve=False)
         target = uint256_from_compact(b47.nBits)
-        while b47.sha256 < target:
+        while b47.sha256 ^ 0x8000000000000000000000000000000000000000000000000000000000000000 < target:
             b47.nNonce += 1
             b47.rehash()
         self.sync_blocks([b47], False, request_block=False)
@@ -1165,10 +1117,10 @@ class FullBlockTest(BitcoinTestFramework):
         b89a = self.update_block("89a", [tx])
         self.sync_blocks([b89a], success=False, reject_reason='bad-txns-inputs-missingorspent', reconnect=True)
 
-        self.log.info("Test a re-org of one week's worth of blocks (1088 blocks)")
+        self.log.info("Test a re-org of 144 blocks")
 
         self.move_tip(88)
-        LARGE_REORG_SIZE = 1088
+        LARGE_REORG_SIZE = 144
         blocks = []
         spend = out[32]
         for i in range(89, LARGE_REORG_SIZE + 89):

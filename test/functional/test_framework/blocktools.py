@@ -108,7 +108,7 @@ def create_coinbase(height, pubkey=None):
                         ser_string(serialize_script_num(height)), 0xffffffff))
     coinbaseoutput = CTxOut()
     coinbaseoutput.nValue = 50 * COIN
-    halvings = int(height / 150)  # regtest
+    halvings = int(height / 1500)  # regtest
     coinbaseoutput.nValue >>= halvings
     if (pubkey is not None):
         coinbaseoutput.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
