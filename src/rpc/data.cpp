@@ -626,14 +626,14 @@ UniValue checksignature(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
-    { "blockchain",         "storemessage",                	&storemessage,             	{"message", "replaceable", "conf_target", "estimate_mode"} },
-    { "blockchain",         "retrievemessage",             	&retrievemessage,          	{"txid"} },
-    { "blockchain",         "retrievedata",             	&retrievedata,          	{"txid"} },
-    { "blockchain",         "storesignature",             	&storesignature,          	{"file_path", "replaceable", "conf_target", "estimate_mode"} },
-    { "blockchain",         "storedata",             		&storedata,          		{"file_path", "replaceable", "conf_target", "estimate_mode"} },
-    { "blockchain",         "checkmessage",             	&checkmessage,          	{"txid", "message"} },
-    { "blockchain",         "checkdata",             		&checkdata,          		{"txid", "file_path"} },
-    { "blockchain",         "checksignature",             	&checksignature,          	{"txid", "file_path"} },
+    { "blockstamp",         "storemessage",                	&storemessage,             {"message", "replaceable", "conf_target", "estimate_mode"} },
+    { "blockstamp",         "retrievemessage",             	&retrievemessage,          {"txid"} },
+    { "blockstamp",         "retrievedata",             	&retrievedata,             {"txid"} },
+    { "blockstamp",         "storesignature",             	&storesignature,           {"file_path", "replaceable", "conf_target", "estimate_mode"} },
+    { "blockstamp",         "storedata",             		&storedata,          	   {"file_path", "replaceable", "conf_target", "estimate_mode"} },
+    { "blockstamp",         "checkmessage",             	&checkmessage,             {"txid", "message"} },
+    { "blockstamp",         "checkdata",             		&checkdata,          	   {"txid", "file_path"} },
+    { "blockstamp",         "checksignature",             	&checksignature,           {"txid", "file_path"} },
 };
 
 void RegisterDataRPCCommands(CRPCTable &t)
