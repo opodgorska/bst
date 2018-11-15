@@ -270,7 +270,7 @@ void BitcoinGUI::createActions()
     historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(historyAction);
     
-    dataAction = new QAction(platformStyle->SingleColorIcon(":/icons/binary-code"), tr("&Data"), this);
+    dataAction = new QAction(platformStyle->SingleColorIcon(":/icons/binary-code"), tr("&BlockStamp"), this);
     dataAction->setStatusTip(tr("Retrieve or store an user data or message"));
     dataAction->setToolTip(dataAction->statusTip());
     dataAction->setCheckable(true);
@@ -281,7 +281,7 @@ void BitcoinGUI::createActions()
     dataMenuAction->setStatusTip(dataAction->statusTip());
     dataMenuAction->setToolTip(dataMenuAction->statusTip());
 
-    gameAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Bets"), this);
+    gameAction = new QAction(platformStyle->SingleColorIcon(":/icons/lottery"), tr("&Gamble"), this);
     gameAction->setStatusTip(tr("Make bet to play game"));
     gameAction->setToolTip(gameAction->statusTip());
     gameAction->setCheckable(true);
