@@ -20,7 +20,7 @@ ProcessUnspent::ProcessUnspent(CWallet* const pwallet, const std::vector<std::st
         CTxDestination dest = DecodeDestination(addresses[idx]);
         if (!IsValidDestination(dest)) 
         {
-            throw std::runtime_error(std::string("Invalid Bitcoin address: ") + addresses[idx]);
+            throw std::runtime_error(std::string("Invalid BST address: ") + addresses[idx]);
         }
         if (!destinations.insert(dest).second) 
         {

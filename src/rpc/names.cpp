@@ -300,7 +300,7 @@ name_show (const JSONRPCRequest& request)
 
   if (IsInitialBlockDownload ())
     throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                       "Namecoin is downloading blocks...");
+                       "BST is downloading blocks...");
 
   const valtype name
       = DecodeNameFromRPCOrThrow (request.params[0], ConfiguredNameEncoding ());
@@ -352,7 +352,7 @@ name_history (const JSONRPCRequest& request)
 
   if (IsInitialBlockDownload ())
     throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                       "Namecoin is downloading blocks...");
+                       "BST is downloading blocks...");
 
   const valtype name
       = DecodeNameFromRPCOrThrow (request.params[0], ConfiguredNameEncoding ());
@@ -415,7 +415,7 @@ name_scan (const JSONRPCRequest& request)
 
   if (IsInitialBlockDownload ())
     throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                       "Namecoin is downloading blocks...");
+                       "BST is downloading blocks...");
 
   valtype start;
   if (request.params.size () >= 1)
@@ -477,7 +477,7 @@ name_filter (const JSONRPCRequest& request)
 
   if (IsInitialBlockDownload ())
     throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                       "Namecoin is downloading blocks...");
+                       "BST is downloading blocks...");
 
   /* ********************** */
   /* Interpret parameters.  */

@@ -182,7 +182,7 @@ void createMakeBetDestination(CWallet* const pwallet, const UniValue& sendTo, st
                 CTxDestination destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) 
                 {
-                    throw std::runtime_error(std::string("Invalid Bitcoin address: ") + name_);
+                    throw std::runtime_error(std::string("Invalid BST address: ") + name_);
                 }
 
                 CScript scriptPubKey = GetScriptForDestination(destination);
@@ -279,7 +279,7 @@ UniValue GetBetTxs::createTxImp(const UniValue& input, const UniValue& sendTo)
 
         if (!IsValidDestination(destination)) 
         {
-            throw std::runtime_error(std::string("Invalid Bitcoin address: ") + name_);
+            throw std::runtime_error(std::string("Invalid BST address: ") + name_);
         }
 
         CScript scriptPubKey = GetScriptForDestination(destination);
