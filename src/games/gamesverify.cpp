@@ -431,6 +431,11 @@ bool VerifyBlockReward::isBetPayoffExceeded()
         if(isMakeBetTx(*tx))
         {
             std::string betType=getBetType(*tx);
+            if(betType.empty())
+            {
+                LogPrintf("isBetPayoffExceeded: empty betType");
+                continue;
+            }
             unsigned int argument=getArgument(betType);
             argumentOperation->setArgument(argument);
             argumentResult=(*argumentOperation)(blockHash);
