@@ -204,6 +204,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
                 return state.DoS(10, false, REJECT_INVALID, "bad-txns-prevout-null");
     }
 
+    if(modulo::isMakeBetTx(tx))
+    {
+        if(!modulo::txMakeBetVerify(tx))
+        {
+            return state.DoS(10, false, REJECT_INVALID, "bad-makebed-format");
+        }
+    }
+
     return true;
 }
 

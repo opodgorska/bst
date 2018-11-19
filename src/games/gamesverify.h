@@ -13,6 +13,8 @@
 
 //bioinfo hardfork due to roulette bets definition change
 #define ROULETTE_NEW_DEFS (108600)
+//bioinfo hardfork due to incorrect format of makebet transactions
+#define MAKEBET_FORMAT_VERIFY (132015)
 
 class GetReward
 {
@@ -58,5 +60,6 @@ private:
 };
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
+bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator);
 
 #endif

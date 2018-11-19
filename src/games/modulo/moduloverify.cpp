@@ -264,11 +264,11 @@ namespace modulo
         {
             return true;
         }
-        
+
         std::vector<int> opReturnBet;
         bet2Vector(betTypePattern, opReturnBet);
         std::reverse(std::begin(opReturnBet), std::end(opReturnBet));
-        
+
         if(betNumbers.size()!=opReturnBet.size())
         {
             LogPrintf("CompareModuloBet2Vector: vectors size mismatch\n");
@@ -279,16 +279,16 @@ namespace modulo
         {
             LogPrintf("CompareModuloBet2Vector: vectors are different\n");
             LogPrintf("betTypePattern: %s\n", betTypePattern);
-            
+
             for(size_t i=0;i<betNumbers.size();++i)
             {
                 LogPrintf("betNumbers: %d, %d\n", betNumbers[i], opReturnBet[i]);
             }
             LogPrintf("\n");
-            
+
             return false;
         }
-        
+
         return true;
     }
 
@@ -312,6 +312,11 @@ namespace modulo
         GetModuloReward getModuloReward;
         VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
         return verifyBlockReward.isBetPayoffExceeded();
+    };
+
+    bool txMakeBetVerify(const CTransaction& tx)
+    {
+        return txMakeBetVerify(tx, MAKE_MODULO_GAME_INDICATOR);
     };
 
 }
