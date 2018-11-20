@@ -272,11 +272,11 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out,
        array2type(betNumber_, betNumber);
        betNumbers.push_back(betNumber);
     }
-    
+
     if(!(*compareBet2Vector)(nSpendHeight, betType, betNumbers))
     {
         LogPrintf("txVerify: compareBet2Vector check failed\n");
-        return false;        
+        return false;
     }
 
     //OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << OP_IF;
@@ -405,6 +405,11 @@ std::string VerifyBlockReward::getBetType(const CTransaction& tx)
 unsigned int VerifyBlockReward::getArgument(std::string& betType)
 {
     size_t pos_=betType.find("_");
+    if(pos_==std::string::npos)
+    {
+        LogPrintf("VerifyBlockReward::getArgument() find _ failed");
+        throw std::runtime_error(std::string("VerifyBlockReward::getArgument() find _ failed"));
+    }
     std::string opReturnArg=betType.substr(0,pos_);
     betType=betType.substr(pos_+1);
 
@@ -436,38 +441,47 @@ bool VerifyBlockReward::isBetPayoffExceeded()
     CAmount payoffAcc=0;
     for (const auto& tx : block.vtx)
     {
-        if(isMakeBetTx(*tx))
+        try
         {
-            std::string betType=getBetType(*tx);
-            if(betType.empty())
+            if(isMakeBetTx(*tx))
             {
-                LogPrintf("isBetPayoffExceeded: empty betType");
-                continue;
-            }
-            unsigned int argument=getArgument(betType);
-            argumentOperation->setArgument(argument);
-            argumentResult=(*argumentOperation)(blockHash);
-            for(size_t i=0;true;++i)//all tx.otputs
-            {
-                size_t pos=betType.find("+");
-                if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
+                std::string betType=getBetType(*tx);
+                if(betType.empty())
                 {
-                    int reward=(*getReward)(betType.substr(0,pos), argument);
-                    CAmount payoff=tx->vout[i].nValue * reward;
-                    payoffAcc+=payoff;
+                    LogPrintf("isBetPayoffExceeded: empty betType");
+                    continue;
                 }
-                inAcc+=tx->vout[i].nValue;
 
-                if(pos==std::string::npos)
+                unsigned int argument=getArgument(betType);
+                argumentOperation->setArgument(argument);
+                argumentResult=(*argumentOperation)(blockHash);
+                for(size_t i=0;true;++i)//all tx.otputs
                 {
-                    break;
+                    size_t pos=betType.find("+");
+                    if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
+                    {
+                        int reward=(*getReward)(betType.substr(0,pos), argument);
+                        CAmount payoff=tx->vout[i].nValue * reward;
+                        payoffAcc+=payoff;
+                    }
+                    inAcc+=tx->vout[i].nValue;
+
+                    if(pos==std::string::npos)
+                    {
+                        break;
+                    }
+                    betType=betType.substr(pos+1);
                 }
-                betType=betType.substr(pos+1);
             }
+        }
+        catch(...)
+        {
+            LogPrintf("isBetPayoffExceeded: argumentOperation failed");
+            continue;
         }
     }
 
-    if(static_cast<double>(inAcc) >= 0.9*static_cast<double>(blockSubsidy))
+    if(inAcc >= ((9*blockSubsidy)/10))
     {
         if(payoffAcc>inAcc+blockSubsidy)
         {
