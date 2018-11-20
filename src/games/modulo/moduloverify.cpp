@@ -266,8 +266,21 @@ namespace modulo
         }
 
         std::vector<int> opReturnBet;
-        bet2Vector(betTypePattern, opReturnBet);
-        std::reverse(std::begin(opReturnBet), std::end(opReturnBet));
+        if(!bet2Vector(betTypePattern, opReturnBet))
+        {
+            LogPrintf("CompareModuloBet2Vector::operator(): bet2Vector() failed");
+            return false;
+        }
+
+        try
+        {
+            std::reverse(std::begin(opReturnBet), std::end(opReturnBet));
+        }
+        catch(...)
+        {
+            LogPrintf("CompareModuloBet2Vector::operator(): std::reverse() failed");
+            return false;
+        }
 
         if(betNumbers.size()!=opReturnBet.size())
         {
@@ -299,24 +312,49 @@ namespace modulo
 
     bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
     {
-        ModuloOperation moduloOperation;
-        GetModuloReward getModuloReward;
-        CompareModuloBet2Vector compareModulobet2Vector;
-        return txVerify(nSpendHeight, tx, in, out, fee, &moduloOperation, &getModuloReward, &compareModulobet2Vector, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+        try
+        {
+            ModuloOperation moduloOperation;
+            GetModuloReward getModuloReward;
+            CompareModuloBet2Vector compareModulobet2Vector;
+            return txVerify(nSpendHeight, tx, in, out, fee, &moduloOperation, &getModuloReward, &compareModulobet2Vector, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+        }
+        catch(...)
+        {
+            LogPrintf("modulo::txVerify exception occured");
+            return false;
+        }
     };
 
     bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block)
     {
-        VerifyMakeModuloBetTx verifyMakeModuloBetTx;
-        ModuloOperation moduloOperation;
-        GetModuloReward getModuloReward;
-        VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
-        return verifyBlockReward.isBetPayoffExceeded();
+        try
+        {
+            VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+            ModuloOperation moduloOperation;
+            GetModuloReward getModuloReward;
+            VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
+            return verifyBlockReward.isBetPayoffExceeded();
+        }
+        catch(...)
+        {
+            LogPrintf("modulo::isBetPayoffExceeded exception occured");
+            return false;
+        }
     };
 
     bool txMakeBetVerify(const CTransaction& tx)
     {
-        return txMakeBetVerify(tx, MAKE_MODULO_GAME_INDICATOR);
+        try
+        {
+            return txMakeBetVerify(tx, MAKE_MODULO_GAME_INDICATOR);
+        }
+        catch(...)
+        {
+            LogPrintf("modulo::txMakeBetVerify exception occured");
+            return false;
+        }
+
     };
 
 }
