@@ -71,11 +71,10 @@ class NameListTest (NameTestFramework):
     self.checkNameStatus (arr[0], "name-a", "sent", False, True)
 
     # Let name-b expire.
-    self.generate (0, 25)
+    self.generate (0, 26)
     arr = self.nodes[1].name_list ()
     assert_equal (len (arr), 2)
     self.checkNameStatus (arr[0], "name-a", "sent", False, False)
-    self.generate (0, 1)
     self.checkNameStatus (arr[1], "name-b", "value-b", True, True)
 
   def checkNameStatus (self, data, name, value, expired, mine):
