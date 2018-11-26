@@ -37,7 +37,9 @@ class NameExpirationTest (NameTestFramework):
     # instead on the long chain.  Check that the mempool and the UTXO set
     # behave as they should.
     newLong = self.nodes[0].name_new ("name-long")
+    self.generate (1, 1)
     newLong2 = self.nodes[3].name_new ("name-long")
+    self.generate (1, 1)
     newShort = self.nodes[3].name_new ("name-short")
     self.generate (1, 12)
 
@@ -120,7 +122,9 @@ class NameExpirationTest (NameTestFramework):
     # long one after the reorg).
 
     newUnexpired = self.nodes[0].name_new ("name-unexpired")
+    self.generate (1, 1)
     newExpired = self.nodes[3].name_new ("name-expired")
+    self.generate (1, 1)
     newSnatch = self.nodes[3].name_new ("name-unexpired")
     self.generate (1, 12)
 
