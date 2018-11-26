@@ -3,7 +3,6 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test node responses to invalid blocks.
-
 In this test we connect to one node over p2p, and test block requests:
 1) Valid blocks should be requested and become chain tip.
 2) Invalid block with duplicated transaction should be re-requested.
@@ -23,9 +22,6 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [["-whitelist=127.0.0.1"]]
-
-    def skip_test_if_missing_module(self):
-        self.skip_if_no_wallet()
 
     def run_test(self):
         # Add p2p connection to node0
@@ -84,6 +80,16 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         node.p2p.send_blocks_and_test([block2], node, success=False, request_block=False, reject_reason='bad-txns-duplicate')
 
+        # Check transactions for duplicate inputs
+        self.log.info("Test duplicate input block.")
+
+        block2_orig.vtx[2].vin.append(block2_orig.vtx[2].vin[0])
+        block2_orig.vtx[2].rehash()
+        block2_orig.hashMerkleRoot = block2_orig.calc_merkle_root()
+        block2_orig.rehash()
+        block2_orig.solve()
+        node.p2p.send_blocks_and_test([block2_orig], node, success=False, request_block=False, reject_reason='bad-txns-inputs-duplicate')
+
         self.log.info("Test very broken block.")
 
         block3 = create_block(tip, create_coinbase(height), block_time)
@@ -98,4 +104,4 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([block3], node, success=False, request_block=False, reject_reason='bad-cb-amount')
 
 if __name__ == '__main__':
-    InvalidBlockRequestTest().main()
+   InvalidBlockRequestTest().main()
