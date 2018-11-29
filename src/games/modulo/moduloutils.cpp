@@ -504,5 +504,4 @@ namespace modulo
             betTypePattern=betTypePattern.substr(len+1);
         }
     }
-
 }

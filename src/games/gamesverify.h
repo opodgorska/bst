@@ -15,6 +15,8 @@
 #define ROULETTE_NEW_DEFS (108600)
 //bioinfo hardfork due to incorrect format of makebet transactions
 #define MAKEBET_FORMAT_VERIFY (132015)
+//bioinfo hardfork due to block transactions potential reward over limit
+#define MAKEBET_REWARD_LIMIT (150655)
 
 class GetReward
 {
@@ -41,10 +43,10 @@ class VerifyBlockReward
 public:
     VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation, GetReward* getReward, VerifyMakeBetTx* verifyMakeBetTx, int32_t makeBetIndicator, CAmount maxPayoff);
     bool isBetPayoffExceeded();
+    bool checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction& txn);
 
 private:
-    std::string getBetType(const CTransaction& tx);
-    unsigned int getArgument(std::string& betType);
+
     bool isMakeBetTx(const CTransaction& tx);
 
 private:
@@ -61,5 +63,7 @@ private:
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator);
+std::string getBetType(const CTransaction& tx);
+unsigned int getArgument(std::string& betType);
 
 #endif

@@ -3231,12 +3231,18 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
 
-    // Check if bet transactions included in block don't give total potential reward greater than a limit
+
+    // Check if bet transactions included in block don't give total reward greater than a limit
     if(fCheckPOW)
     {
-        if(modulo::isBetPayoffExceeded(consensusParams, block))
+        // Check if bet transaction included in block don't give potensial reward grater than a limit
+        CAmount potentialRewardSum{};
+        for (const auto& txn : block.vtx)
         {
-            return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
+            if (!modulo::checkBetsPotentialReward(potentialRewardSum, *txn))
+            {
+                return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Sum of potential bet rewards higher than max");
+            }
         }
 
         // Check if block contains more than one NAME_NEW transaction

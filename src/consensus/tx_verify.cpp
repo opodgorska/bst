@@ -210,6 +210,11 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
         {
             return state.DoS(10, false, REJECT_INVALID, "bad-makebed-format");
         }
+        CAmount rewardSum{};
+        if(!modulo::checkBetsPotentialReward(rewardSum, tx))
+        {
+            return state.DoS(10, false, REJECT_INVALID, "bad-makebed-overlimit");
+        }
     }
 
     return true;

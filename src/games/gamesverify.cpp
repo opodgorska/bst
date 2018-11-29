@@ -396,13 +396,13 @@ static std::string getBetType_(const CTransaction& tx, size_t& idx)
     return std::string("");
 }
 
-std::string VerifyBlockReward::getBetType(const CTransaction& tx)
+std::string getBetType(const CTransaction& tx)
 {
     size_t idx;
     return getBetType_(tx, idx);
 }
 
-unsigned int VerifyBlockReward::getArgument(std::string& betType)
+unsigned int getArgument(std::string& betType)
 {
     size_t pos_=betType.find("_");
     if(pos_==std::string::npos)
@@ -439,6 +439,7 @@ bool VerifyBlockReward::isBetPayoffExceeded()
 
     CAmount inAcc=0;
     CAmount payoffAcc=0;
+    bool bidExceededSubsidy = false;
     for (const auto& tx : block.vtx)
     {
         try
@@ -458,13 +459,14 @@ bool VerifyBlockReward::isBetPayoffExceeded()
                 for(size_t i=0;true;++i)//all tx.otputs
                 {
                     size_t pos=betType.find("+");
+                    int reward=(*getReward)(betType.substr(0,pos), argument);
                     if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
                     {
-                        int reward=(*getReward)(betType.substr(0,pos), argument);
                         CAmount payoff=tx->vout[i].nValue * reward;
                         payoffAcc+=payoff;
                     }
                     inAcc+=tx->vout[i].nValue;
+                    if(reward >= blockSubsidy/2) bidExceededSubsidy = true;
 
                     if(pos==std::string::npos)
                     {
@@ -483,6 +485,13 @@ bool VerifyBlockReward::isBetPayoffExceeded()
 
     if(inAcc >= ((9*blockSubsidy)/10))
     {
+
+        if (bidExceededSubsidy)
+        {
+            LogPrintf("Potential reward of one bid higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
+            return true;
+        }
+
         if(payoffAcc>inAcc+blockSubsidy)
         {
             LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
@@ -490,13 +499,47 @@ bool VerifyBlockReward::isBetPayoffExceeded()
         }
     }
 
-    if(payoffAcc>maxPayoff)
+    return false;
+}
+
+bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction &txn)
+{
+    if (chainActive.Height() < MAKEBET_REWARD_LIMIT)
     {
-        LogPrintf("payoffAcc: %d, maxPayoff: %d\n", payoffAcc, maxPayoff);
         return true;
     }
 
-    return false;
+    if (isMakeBetTx(txn))
+    {
+        std::string betType = getBetType(txn);
+        if (betType.empty())
+        {
+            LogPrintf("%s: Bet type empty\n", __func__);
+            return false;
+        }
+        unsigned int argument = getArgument(betType);
+
+        for (uint i=0; true; ++i)
+        {
+            size_t pos =  betType.find("+");
+            int reward = (*getReward)(betType.substr(0, pos), argument);
+            rewardSum += (reward * txn.vout[i].nValue);
+
+            if (pos == std::string::npos)
+            {
+                break;
+            }
+            betType = betType.substr(pos+1);
+        }
+
+        bool rv = (rewardSum <= maxPayoff);
+        if (!rv)
+        {
+            LogPrintf("%s: ERROR potential:%ld max:%ld\n", __func__, rewardSum, maxPayoff);
+        }
+        return rv;
+    }
+    return true;
 }
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator)
@@ -524,7 +567,8 @@ bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator)
     }
 
     size_t opReturnIdx;
-    if(getBetType_(tx, opReturnIdx).empty())
+    std::string str = getBetType_(tx, opReturnIdx);
+    if(str.empty())
     {
         LogPrintf("txMakeBetVerify: betType is empty\n");
         return false;

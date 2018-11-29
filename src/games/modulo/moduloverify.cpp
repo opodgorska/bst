@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <games/gamesverify.h>
+#include <core_io.h>
 #include <games/modulo/moduloverify.h>
 #include <games/modulo/modulotxs.h>
 #include <games/modulo/moduloutils.h>
+
 
 namespace modulo
 {
@@ -356,5 +358,26 @@ namespace modulo
         }
 
     };
+
+
+    bool checkBetsPotentialReward(CAmount &rewardSum, const CTransaction& txn)
+    {
+        try
+        {
+            Consensus::Params params;
+            params.nSubsidyHalvingInterval = 1;
+            CBlock block;
+            VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+            ModuloOperation moduloOperation;
+            GetModuloReward getModuloReward;
+            VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
+            return verifyBlockReward.checkPotentialRewardLimit(rewardSum, txn);
+        }
+        catch(...)
+        {
+            LogPrintf("modulo::isBetPayoffExceeded exception occured");
+            return false;
+        }
+    }
 
 }
