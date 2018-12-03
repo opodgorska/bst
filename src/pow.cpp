@@ -21,6 +21,12 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
 {
     assert(pindexLast != nullptr);
 
+    // Special rule for regtest: we never retarget.
+    if (params.fPowNoRetargeting)
+    {
+        return pindexLast->nBits;
+    }
+
     //hard fork
     if(IsDAAEnabled(pindexLast->nHeight, params))
     {
