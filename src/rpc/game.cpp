@@ -265,15 +265,22 @@ UniValue getbet(const JSONRPCRequest& request)
         const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
         size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
 
+
+        double vout_amount = vout["value"].get_real();
+        int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+
         size_t txSize=200+redeemScriptSize;
         double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
         if(fee>(static_cast<double>(maxTxFee)/COIN))
         {
             fee=(static_cast<double>(maxTxFee)/COIN);
         }
+        else if (fee >= reward * vout_amount)
+        {
+            fee = static_cast<double>(::minRelayTxFee.GetFee(txSize))/COIN;
+        }
 
-        int reward=getReward(pwallet, scriptPubKeyStr.get_str());
-        std::string amount=double2str(reward*vout["value"].get_real()-fee);
+        std::string amount=double2str((float)reward * vout_amount - fee);
 
         UniValue txIn(UniValue::VOBJ);
         txIn.pushKV("txid", txidIn);

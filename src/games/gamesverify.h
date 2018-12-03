@@ -14,9 +14,9 @@
 //bioinfo hardfork due to roulette bets definition change
 #define ROULETTE_NEW_DEFS (108600)
 //bioinfo hardfork due to incorrect format of makebet transactions
-#define MAKEBET_FORMAT_VERIFY (132015)
+#define MAKEBET_FORMAT_VERIFY (139378)
 //bioinfo hardfork due to block transactions potential reward over limit
-#define MAKEBET_REWARD_LIMIT (150655)
+#define MAKEBET_REWARD_LIMIT (156520)
 
 class GetReward
 {
@@ -61,8 +61,18 @@ private:
     const CAmount maxPayoff;
 };
 
+class VerifyMakeBetFormat
+{
+public:
+    VerifyMakeBetFormat(GetReward *getReward, int32_t makeBetIndicator, CAmount maxReward);
+    bool txMakeBetVerify(const CTransaction& tx);
+private:
+    GetReward* m_getReward;
+    int32_t m_indicator;
+    const CAmount m_maxReward;
+};
+
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
-bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator);
 std::string getBetType(const CTransaction& tx);
 unsigned int getArgument(std::string& betType);
 

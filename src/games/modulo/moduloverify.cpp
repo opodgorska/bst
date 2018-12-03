@@ -349,14 +349,15 @@ namespace modulo
     {
         try
         {
-            return txMakeBetVerify(tx, MAKE_MODULO_GAME_INDICATOR);
+            GetModuloReward getModuloReward;
+            VerifyMakeBetFormat verifyMakeBetFormat(&getModuloReward, MAKE_MODULO_GAME_INDICATOR, MAX_REWARD);
+            return verifyMakeBetFormat.txMakeBetVerify(tx);
         }
         catch(...)
         {
             LogPrintf("modulo::txMakeBetVerify exception occured");
             return false;
         }
-
     };
 
 

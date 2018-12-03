@@ -429,7 +429,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // mempool has a lot of entries.
     const int64_t MAX_CONSECUTIVE_FAILURES = 1000;
     int64_t nConsecutiveFailed = 0;
-    CAmount totalAccBetSum{};
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
@@ -527,10 +526,12 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
+        CAmount totalAccBetSum{};
         for (size_t i=0; i<sortedEntries.size(); ++i) {
             const CTransaction txn = *(sortedEntries[i]->GetSharedTx());
             if (!modulo::checkBetsPotentialReward(totalAccBetSum, txn))
             {
+                LogPrintf("%s: WARNING skipping transaction: %s", txn.GetHash().ToString().c_str());
                 continue;
             }
             AddToBlock(sortedEntries[i]);

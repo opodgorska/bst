@@ -363,24 +363,31 @@ static std::string getBetType_(const CTransaction& tx, size_t& idx)
         CScript::const_iterator it_beg=tx.vout[i].scriptPubKey.begin();
         CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
         std::string hexStr;
+        std::string lengthStr;
         int order = *(it_beg+1);
+        unsigned int length = 0;
         if(*it_beg==OP_RETURN)
         {
+            lengthStr = std::string(it_beg, it_beg + 4);
             if(order<=0x4b)
             {
                 hexStr=std::string(it_beg+2, it_end);
+                memcpy((char*)&length, lengthStr.substr(1).c_str(), 1);
             }
             else if(order==0x4c)
             {
                 hexStr=std::string(it_beg+3, it_end);
+                memcpy((char*)&length, lengthStr.substr(2).c_str(), 1);
             }
             else if(order==0x4d)
             {
                 hexStr=std::string(it_beg+4, it_end);
+                memcpy((char*)&length, lengthStr.substr(2).c_str(), 2);
             }
             else if(order==0x4e)
             {
                 hexStr=std::string(it_beg+6, it_end);
+                memcpy((char*)&length, lengthStr.substr(2).c_str(), 4);
             }
             else
             {
@@ -389,6 +396,11 @@ static std::string getBetType_(const CTransaction& tx, size_t& idx)
             }
             //LogPrintf("getBetType: %s\n", hexStr);
             idx=i;
+            if (hexStr.length() != length)
+            {
+                LogPrintf("%s ERROR: length difference %u, script: %s\n", length, hexStr.c_str());
+                return std::string("");
+            }
             return hexStr;
         }
     }
@@ -552,7 +564,12 @@ bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator)
     return false;
 }
 
-bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator)
+VerifyMakeBetFormat::VerifyMakeBetFormat(GetReward *getReward, int32_t makeBetIndicator, CAmount maxReward)
+    : m_getReward(getReward), m_indicator(makeBetIndicator), m_maxReward(maxReward)
+{
+}
+
+bool VerifyMakeBetFormat::txMakeBetVerify(const CTransaction& tx)
 {
     //bioinfo hardfork due to incorrect format of makebet transactions
     if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
@@ -566,12 +583,41 @@ bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator)
         return false;
     }
 
-    size_t opReturnIdx;
-    std::string str = getBetType_(tx, opReturnIdx);
-    if(str.empty())
+    if (!isMakeBetTx(tx, m_indicator))
     {
-        LogPrintf("txMakeBetVerify: betType is empty\n");
+        return true;
+    }
+
+    size_t opReturnIdx;
+    std::string betType = getBetType_(tx, opReturnIdx);
+    if(betType.empty())
+    {
+        LogPrintf("%s:ERROR betType is empty\n", __func__);
         return false;
+    }
+
+    unsigned int argument = getArgument(betType);
+    if (argument > m_maxReward)
+    {
+        LogPrintf("%s:ERROR bad argument: %ld\n", __func__, argument);
+        return false;
+    }
+
+    for (uint i=0; true; ++i)
+    {
+        size_t pos =  betType.find("+");
+        int reward = (*m_getReward)(betType.substr(0, pos), argument);
+        if (reward == 0)
+        {
+            LogPrintf("%s:ERROR unknown bet type %s\n", __func__, betType.c_str());
+            return false;
+        }
+
+        if (pos == std::string::npos)
+        {
+            break;
+        }
+        betType = betType.substr(pos+1);
     }
 
    for(size_t i=0;i<opReturnIdx;++i)
@@ -579,6 +625,7 @@ bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator)
        if(!tx.vout[i].scriptPubKey.IsPayToScriptHash(false))
        {
            LogPrintf("txMakeBetVerify: not P2SH before opReturn\n");
+           return false;
        }
    }
 
