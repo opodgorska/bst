@@ -134,8 +134,8 @@ unsigned int getArgumentFromBetType(std::string& betType)
     size_t pos_=betType.find("_");
     if(pos_==std::string::npos)
     {
-        LogPrintf("VerifyBlockReward::getArgument() find _ failed");
-        throw std::runtime_error(std::string("VerifyBlockReward::getArgument() find _ failed"));
+        LogPrintf("VerifyBlockReward::getArgumentFromBetType() find _ failed");
+        throw std::runtime_error(std::string("VerifyBlockReward::getArgumentFromBetType() find _ failed"));
     }
     std::string opReturnArg=betType.substr(0,pos_);
     betType=betType.substr(pos_+1);

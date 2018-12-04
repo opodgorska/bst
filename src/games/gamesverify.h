@@ -73,6 +73,5 @@ private:
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 std::string getBetType(const CTransaction& tx);
-unsigned int getArgument(std::string& betType);
 
 #endif

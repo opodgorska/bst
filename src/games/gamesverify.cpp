@@ -414,23 +414,6 @@ std::string getBetType(const CTransaction& tx)
     return getBetType_(tx, idx);
 }
 
-unsigned int getArgument(std::string& betType)
-{
-    size_t pos_=betType.find("_");
-    if(pos_==std::string::npos)
-    {
-        LogPrintf("VerifyBlockReward::getArgument() find _ failed");
-        throw std::runtime_error(std::string("VerifyBlockReward::getArgument() find _ failed"));
-    }
-    std::string opReturnArg=betType.substr(0,pos_);
-    betType=betType.substr(pos_+1);
-
-    unsigned int opReturnArgNum;
-    sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
-
-    return opReturnArgNum;
-}
-
 bool VerifyBlockReward::isMakeBetTx(const CTransaction& tx)
 {
     int32_t txMakeBetVersion=(tx.nVersion ^ makeBetIndicator);
@@ -529,7 +512,7 @@ bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTra
             LogPrintf("%s: Bet type empty\n", __func__);
             return false;
         }
-        unsigned int argument = getArgument(betType);
+        unsigned int argument = getArgumentFromBetType(betType);
 
         for (uint i=0; true; ++i)
         {
@@ -596,7 +579,7 @@ bool VerifyMakeBetFormat::txMakeBetVerify(const CTransaction& tx)
         return false;
     }
 
-    unsigned int argument = getArgument(betType);
+    unsigned int argument = getArgumentFromBetType(betType);
     if (argument > m_maxReward)
     {
         LogPrintf("%s:ERROR bad argument: %ld\n", __func__, argument);
