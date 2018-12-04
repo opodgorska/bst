@@ -278,8 +278,8 @@ public:
         consensus.nPowTargetSpacing = 1 * 60; // one minute
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
-        consensus.nRuleChangeActivationThreshold = 15121; // 75% of testchains
-        consensus.nMinerConfirmationWindow = 20160; // Faster than normal for regtest (144 instead of 20160)
+        consensus.nRuleChangeActivationThreshold = 870; // 75% of testchains
+        consensus.nMinerConfirmationWindow = 1160; // Faster than normal for regtest (144 instead of 20160)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
