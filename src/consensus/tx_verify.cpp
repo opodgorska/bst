@@ -260,7 +260,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount betFee;
     if (nValueIn < value_out)
     {
-        //LogPrintf("nValueIn < value_out\n");
         correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
         if(!correctBetTx)
         {

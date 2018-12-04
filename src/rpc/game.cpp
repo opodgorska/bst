@@ -28,6 +28,7 @@
 #include <games/modulo/modulotxs.h>
 #include <games/gamesutils.h>
 #include <games/modulo/moduloutils.h>
+#include <games/modulo/moduloverify.h>
 
 using namespace modulo;
 
@@ -252,68 +253,71 @@ UniValue getbet(const JSONRPCRequest& request)
     FeeCalculation fee_calc;
     CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
 
+    std::tuple<std::string, size_t> betData = getBetData(txPrev);
+    std::string betType = std::get<0>(betData);
+    const size_t nPrevOut = std::get<1>(betData);
+
+    unsigned int argument=getArgumentFromBetType(betType);
+    std::string blockhashStr=txPrev["blockhash"].get_str();
+    unsigned int blockhashTmp=blockHashStr2Int(blockhashStr);
+
+    modulo::ModuloOperation moduloOperation;
+    moduloOperation.setArgument(argument);
+    unsigned int argumentResult = moduloOperation(blockhashTmp);
+
     std::string txid;
-    size_t nPrevOut=txPrev["vout"].size()-2;
+    double totalAmount = 0;
+    UniValue inputs(UniValue::VARR);
     for(size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx)
     {
-        UniValue vout(UniValue::VOBJ);
-        vout=txPrev["vout"][voutIdx];
+        size_t pos=betType.find("+");
 
-        UniValue scriptPubKeyStr(UniValue::VSTR);
-        scriptPubKeyStr=vout["scriptPubKey"]["hex"];
+        if (VerifyMakeModuloBetTx().isWinning(betType.substr(0, pos), argument, argumentResult)) {
+            UniValue vout(UniValue::VOBJ);
+            vout=txPrev["vout"][voutIdx];
 
-        const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
-        size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
+            UniValue scriptPubKeyStr(UniValue::VSTR);
+            scriptPubKeyStr=vout["scriptPubKey"]["hex"];
 
-        size_t txSize=200+redeemScriptSize;
-        double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
-        if(fee>(static_cast<double>(maxTxFee)/COIN))
-        {
-            fee=(static_cast<double>(maxTxFee)/COIN);
+            const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
+            size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
+
+            size_t txSize=200+redeemScriptSize;
+            double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
+            if(fee>(static_cast<double>(maxTxFee)/COIN))
+            {
+                fee=(static_cast<double>(maxTxFee)/COIN);
+            }
+
+            int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+            double amount = reward*vout["value"].get_real()-fee;
+            totalAmount += amount;
+
+            UniValue txIn(UniValue::VOBJ);
+            txIn.pushKV("txid", txidIn);
+            txIn.pushKV("vout", static_cast<int>(voutIdx));
+            inputs.push_back(txIn);
         }
 
-        int reward=getReward(pwallet, scriptPubKeyStr.get_str());
-        std::string amount=double2str(reward*vout["value"].get_real()-fee);
+        betType=betType.substr(pos+1);
+    }
 
-        UniValue txIn(UniValue::VOBJ);
-        txIn.pushKV("txid", txidIn);
-        txIn.pushKV("vout", static_cast<int>(voutIdx));
-
+    if (inputs.size() > 0) {
+        std::string totalAmountAsStr = double2str(totalAmount);
         UniValue sendTo(UniValue::VOBJ);
         sendTo.pushKV("address", address);
-        sendTo.pushKV("amount", amount);
-
+        sendTo.pushKV("amount", totalAmountAsStr);
         ModuloOperation operation;
-        GetBetTxs tx(pwallet, txIn, sendTo, prevTxBlockHash, &operation, 0, coin_control.m_signal_bip125_rbf.get_value_or(false));
+
+        GetBetTxs tx(pwallet, inputs, sendTo, prevTxBlockHash, &operation, 0, coin_control.m_signal_bip125_rbf.get_value_or(false));
         EnsureWalletIsUnlocked(pwallet);
-        try
-        {
-            tx.signTx();
-        }
-        catch(std::exception const& e)
-        {
-            if(!txid.empty())
-            {
-                txid+=std::string("\n");
-            }
-            txid+=e.what();
-            continue;
-        }
-        catch(...)
-        {
-            if(!txid.empty())
-            {
-                txid+=std::string("\n");
-            }
-            txid+=std::string("unknown exception occured");
-            continue;
-        }
-        
-        if(!txid.empty())
-        {
-            txid+=std::string("\n");
-        }
-        txid+=tx.sendTx().get_str();
+
+        tx.signTx();
+        std::string hexStr = tx.sendTx().get_str();
+        txid+="Winning games txid: " + hexStr;
+    }
+    else {
+        txid += "All games are lost";
     }
 
     return UniValue(UniValue::VSTR, txid);

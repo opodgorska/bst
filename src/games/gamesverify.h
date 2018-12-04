@@ -44,7 +44,6 @@ public:
 
 private:
     std::string getBetType(const CTransaction& tx);
-    unsigned int getArgument(std::string& betType);
     bool isMakeBetTx(const CTransaction& tx);
 
 private:
@@ -61,5 +60,4 @@ private:
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator);
-
 #endif
