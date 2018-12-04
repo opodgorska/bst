@@ -10,6 +10,13 @@
 #include <outputtype.h>
 
 UniValue findTx(const std::string& txid);
+std::tuple<UniValue, CTransactionRef> findTxData(const std::string& txid);
+std::tuple<std::string, size_t> getBetData(const UniValue& txPrev);
+unsigned int blockHashStr2Int(const std::string& hashStr);
+unsigned int getArgumentFromBetType(std::string& betType);
+
+const std::string OP_RETURN_NOT_FOUND = "OP_RETURN not found";
+const std::string LENGTH_TOO_LARGE = "betType length is too-large";
 
 class ArgumentOperation
 {

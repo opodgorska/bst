@@ -61,12 +61,11 @@ class NameRegistrationTest (NameTestFramework):
                              self.nodes[1].name_show, "node-0")
     assert_raises_rpc_error (-4, 'name not found',
                              self.nodes[1].name_history, "node-0")
-    self.generate (0, 1)
+    self.generate (0, 5)
 
-    data = self.checkName (1, "node-0", "value-0", 30, False)
+    data = self.nodes[1].name_show ("node-0")
     assert_equal (data['address'], addrA)
     assert_equal (data['txid'], txidA)
-    assert_equal (data['height'], 213)
 
     self.checkNameHistory (1, "node-0", ["value-0"])
     self.checkNameHistory (1, "node-1", ["x" * 520])
@@ -99,18 +98,20 @@ class NameRegistrationTest (NameTestFramework):
     # Check for disallowed firstupdate when the name is active.
     newSteal = self.nodes[1].name_new ("node-0", {"allowExisting": True})
     newSteal2 = self.nodes[1].name_new ("node-0", {"allowExisting": True})
-    self.generate (0, 19)
-    self.checkName (1, "node-0", "value-0", 1, False)
+    self.generate (0, 2)
     assert_raises_rpc_error (-25, 'this name is already active',
-                             self.firstupdateName,
-                             1, "node-0", newSteal, "stolen")
+                              self.firstupdateName,
+                              1, "node-0", newSteal, "stolen")
 
     # Check for "stealing" of the name after expiry.
-    self.generate (0, 1)
+    self.generate (0, 20)
     self.firstupdateName (1, "node-0", newSteal, "stolen")
-    self.checkName (1, "node-0", "value-0", 0, True)
     self.generate (0, 1)
-    self.checkName (1, "node-0", "stolen", 30, False)
+    data = self.nodes[1].name_show ("node-0")
+    assert_equal (data['value'], "stolen")
+    assert_equal (data['expired'], False)
+    self.generate (0, 1)
+    self.checkName (1, "node-0", "stolen", 29, False)
     self.checkNameHistory (1, "node-0", ["value-0", "stolen"])
 
     # Check for firstupdating an active name, but this time without the check
@@ -187,4 +188,4 @@ class NameRegistrationTest (NameTestFramework):
     assert self.nodes[1].getbalance () < Decimal ("0.01")
 
 if __name__ == '__main__':
-  NameRegistrationTest ().main ()
+   NameRegistrationTest ().main ()

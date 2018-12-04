@@ -210,7 +210,7 @@ GetBetTxs::GetBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniV
 
 GetBetTxs::~GetBetTxs() {}
 
-UniValue GetBetTxs::createTxImp(const UniValue& input, const UniValue& sendTo)
+UniValue GetBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
 {
     CMutableTransaction& rawTx=mtx;
 
@@ -220,10 +220,9 @@ UniValue GetBetTxs::createTxImp(const UniValue& input, const UniValue& sendTo)
     }
     rawTx.nLockTime = nLockTime;
     
-    //unsigned int idx = 0;
-    //for (unsigned int idx = 0; idx < inputs.size(); idx++)
+    for (unsigned int idx = 0; idx < inputs.size(); idx++)
     {
-        const UniValue& o = input.get_obj();
+        const UniValue& o = inputs[idx].get_obj();
 
         uint256 txid = ParseHashO(o, "txid");
 
@@ -272,7 +271,6 @@ UniValue GetBetTxs::createTxImp(const UniValue& input, const UniValue& sendTo)
         rawTx.vin.push_back(in);
     }
 
-
     {
         const std::string& name_ = sendTo["address"].getValStr();
         CTxDestination destination = DecodeDestination(name_);
@@ -294,7 +292,7 @@ UniValue GetBetTxs::createTxImp(const UniValue& input, const UniValue& sendTo)
     {
         throw std::runtime_error(std::string("Invalid parameter combination: Sequence number(s) contradict replaceable option"));
     }
-    
+
     return EncodeHexTx(rawTx);
 }
 
@@ -353,8 +351,7 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
     // transaction to avoid rehashing.
     const CTransaction txConst(mtx);
     // Sign what we can:
-    unsigned int i = 0;
-    //for (unsigned int i = 0; i < mtx.vin.size(); i++)
+    for (unsigned int i = 0; i < mtx.vin.size(); i++)
     {
         CTxIn& txin = mtx.vin[i];
         const Coin& coin = view.AccessCoin(txin.prevout);

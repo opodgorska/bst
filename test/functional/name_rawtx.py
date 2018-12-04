@@ -92,10 +92,8 @@ class NameRawTxTest (NameTestFramework):
     assert_equal (data[0]['name'], "my-name")
     assert_equal (data[0]['ismine'], True)
 
-    assert_equal (balanceA + price, self.nodes[0].getbalance ())
-    # Node 1 gets a block matured, take this into account.
-    assert_equal (balanceB - price - fee + Decimal ("50"),
-                  self.nodes[1].getbalance ())
+    assert_equal (balanceA + price + Decimal ("50"), self.nodes[0].getbalance ())
+    assert_equal (balanceB - price - fee, self.nodes[1].getbalance ())
 
     # Try to construct and relay a transaction that updates two names at once.
     # This used to crash the client, #116.  It should lead to an error (as such
@@ -159,7 +157,7 @@ class NameRawTxTest (NameTestFramework):
     if nameIn is not None:
       vin.append (nameIn)
 
-    nameAmount = Decimal ("0.01")
+    nameAmount = Decimal ("0.0001")
     vout = {toAddr: nameAmount}
 
     tx = self.nodes[ind].createrawtransaction (vin, vout)

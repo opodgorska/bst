@@ -58,7 +58,7 @@ class NameImmatureInputsTest (NameTestFramework):
     newTx = self.nodes[0].getrawtransaction (new[0])
     nameInd = self.rawtxOutputIndex (0, newTx, addr)
 
-    nameAmount = Decimal ('0.01')
+    nameAmount = Decimal ('0.0001')
     ins = [{"txid": new[0], "vout": nameInd}]
     txRaw = self.nodes[0].createrawtransaction (ins, {addr: nameAmount})
     op = {"op": "name_firstupdate", "name": "b", "value": "value",
@@ -84,6 +84,7 @@ class NameImmatureInputsTest (NameTestFramework):
     # even if one has only a single currency output in the wallet).
 
     newC = self.nodes[0].name_new ("c")
+    self.nodes[0].generate (1)
     newD = self.nodes[0].name_new ("d")
     self.nodes[0].generate (12)
 
@@ -97,13 +98,13 @@ class NameImmatureInputsTest (NameTestFramework):
     self.checkName (0, "c", "value", 30, False)
     self.checkName (0, "d", "value", 30, False)
 
-    assert_equal (1, len (self.nodes[0].listunspent ()))
+    assert_equal (2, len (self.nodes[0].listunspent ()))
     updC = self.nodes[0].name_update ("c", "new value")
     updD = self.nodes[0].name_update ("d", "new value")
-    assert self.dependsOn (0, updD, updC)
+    assert not self.dependsOn (0, updD, updC)
     self.nodes[0].generate (1)
     self.checkName (0, "c", "new value", 30, False)
     self.checkName (0, "d", "new value", 30, False)
 
 if __name__ == '__main__':
-  NameImmatureInputsTest ().main ()
+    NameImmatureInputsTest ().main ()

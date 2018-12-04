@@ -46,7 +46,6 @@ public:
     bool checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction& txn);
 
 private:
-
     bool isMakeBetTx(const CTransaction& tx);
 
 private:

@@ -250,6 +250,10 @@ namespace modulo
             bet = const_cast<int* >(black);
             len = 18;
         }
+        else
+        {
+            return false;
+        }
 
         int *item = std::find(bet, bet+len, argument);
         if (item != bet+len) 

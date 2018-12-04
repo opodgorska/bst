@@ -44,9 +44,11 @@
 #include <games/gamesutils.h>
 #include <games/modulo/modulotxs.h>
 #include <games/modulo/moduloutils.h>
+#include <games/modulo/moduloverify.h>
 
 #include <qt/transactiontablemodel.h>
 #include <array>
+
 
 using namespace modulo;
 
@@ -644,7 +646,7 @@ void GamePage::makeBet()
                 std::vector<std::vector<int> > betArrays;
 
                 std::string betTypePattern=makeBetPattern();
-                int range=range=ui->rewardRatioSpinBox->value();
+                int range=ui->rewardRatioSpinBox->value();
                 bool isRoulette=false;//lottery
                 if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
                 {
@@ -772,86 +774,89 @@ void GamePage::getBet()
                 FeeReason reason;
                 CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
 
+                std::tuple<std::string, size_t> betData = getBetData(txPrev);
+                std::string betType = std::get<0>(betData);
+                const size_t nPrevOut = std::get<1>(betData);
+
+                unsigned int argument=getArgumentFromBetType(betType);
+                std::string blockhashStr=txPrev["blockhash"].get_str();
+                unsigned int blockhashTmp=blockHashStr2Int(blockhashStr);
+
+                modulo::ModuloOperation moduloOperation;
+                moduloOperation.setArgument(argument);
+                unsigned int argumentResult = moduloOperation(blockhashTmp);
+
                 std::string txid;
-                size_t nPrevOut=txPrev["vout"].size()-2;
-                for(size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx)
+                double totalAmount = 0;
+                UniValue inputs(UniValue::VARR);
+                for (size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx)
                 {
-                    UniValue vout(UniValue::VOBJ);
-                    vout=txPrev["vout"][voutIdx];
+                    size_t pos=betType.find("+");
 
-                    UniValue scriptPubKeyStr(UniValue::VSTR);
-                    scriptPubKeyStr=vout["scriptPubKey"]["hex"];
+                    if (VerifyMakeModuloBetTx().isWinning(betType.substr(0, pos), argument, argumentResult)) {
+                        UniValue vout(UniValue::VOBJ);
+                        vout=txPrev["vout"][voutIdx];
 
-                    const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
-                    size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
+                        UniValue scriptPubKeyStr(UniValue::VSTR);
+                        scriptPubKeyStr=vout["scriptPubKey"]["hex"];
 
-                    double vout_amount = vout["value"].get_real();
-                    int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+                        const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
+                        size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
 
-                    size_t txSize=200+redeemScriptSize;
-                    double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
-                    if(fee>(static_cast<double>(maxTxFee)/COIN))
-                    {
-                        fee=(static_cast<double>(maxTxFee)/COIN);
+
+                        double vout_amount = vout["value"].get_real();
+                        int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+
+                        size_t txSize=200+redeemScriptSize;
+                        double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
+                        if(fee>(static_cast<double>(maxTxFee)/COIN))
+                        {
+                            fee=(static_cast<double>(maxTxFee)/COIN);
+                        }
+                        else if (fee >= reward * vout_amount)
+                        {
+                            fee = static_cast<double>(::minRelayTxFee.GetFee(txSize))/COIN;
+                        }
+
+                        double amount = (float)reward * vout_amount - fee;
+                        totalAmount += amount;
+
+                        UniValue txIn(UniValue::VOBJ);
+                        txIn.pushKV("txid", txidIn);
+                        txIn.pushKV("vout", static_cast<int>(voutIdx));
+                        inputs.push_back(txIn);
+                        txRemoveFlag=true;
                     }
-                    else if (fee >= reward * vout_amount)
-                    {
-                        fee = static_cast<double>(::minRelayTxFee.GetFee(txSize))/COIN;
-                    }
 
-                    std::string amount=double2str((float)reward * vout_amount - fee);
+                    betType=betType.substr(pos+1);
+                }
 
-                    UniValue txIn(UniValue::VOBJ);
-                    txIn.pushKV("txid", txidIn);
-                    txIn.pushKV("vout", static_cast<int>(voutIdx));
-
+                if (inputs.size() > 0) {
+                    std::string totalAmountAsStr = double2str(totalAmount);
                     UniValue sendTo(UniValue::VOBJ);
                     sendTo.pushKV("address", address);
-                    sendTo.pushKV("amount", amount);
-
+                    sendTo.pushKV("amount", totalAmountAsStr);
                     ModuloOperation operation;
-                    GetBetTxs tx(pwallet, txIn, sendTo, prevTxBlockHash, &operation, 0, ui->optInRBF->isChecked());
+
+                    GetBetTxs tx(pwallet, inputs, sendTo, prevTxBlockHash, &operation, 0, ui->optInRBF->isChecked());
                     unlockWallet();
-                    try
-                    {
-                        tx.signTx();
-                    }
-                    catch(std::exception const& e)
-                    {
-                        if(!txid.empty())
-                        {
-                            txid+=std::string("\n");
-                        }
-                        txid+=e.what();
-                        continue;
-                    }
-                    catch(...)
-                    {
-                        if(!txid.empty())
-                        {
-                            txid+=std::string("\n");
-                        }
-                        txid+=std::string("unknown exception occured");
-                        continue;
-                    }
-                    
-                    if(!txid.empty())
-                    {
-                        txid+=std::string("\n");
-                    }
-                    txid+=tx.sendTx().get_str();
-                    txRemoveFlag=true;//no exception means signing at least one input succeeded
+                    tx.signTx();
+                    std::string hexStr = tx.sendTx().get_str();
+                    txid+="Winning games txid: " + hexStr;
+                }
+                else {
+                    txid += "All games are lost";
                 }
 
                 QMessageBox msgBox;
                 msgBox.setWindowTitle("Getting bet status:");
                 msgBox.setText(QString::fromStdString(txid));
                 msgBox.exec();
-		{
-		    std::lock_guard<std::mutex> lck(mtx);
-		    delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
-		    dumpListToFile(QString("bets.dat"));
-		}
+                {
+                    std::lock_guard<std::mutex> lck(mtx);
+                    delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
+                    dumpListToFile(QString("bets.dat"));
+                }
             }
             else
             {
@@ -863,6 +868,8 @@ void GamePage::getBet()
             std::string info=e.what();
             if(info==std::string("Script failed an OP_EQUALVERIFY operation") || 
                info==std::string("Input not found or already spent") ||
+               info==LENGTH_TOO_LARGE ||
+               info==OP_RETURN_NOT_FOUND ||
                txRemoveFlag==true)
             {
                 std::lock_guard<std::mutex> lck(mtx);
