@@ -17,6 +17,9 @@ unsigned int getArgumentFromBetType(std::string& betType);
 
 const std::string OP_RETURN_NOT_FOUND = "OP_RETURN not found";
 const std::string LENGTH_TOO_LARGE = "betType length is too-large";
+const std::string INPUT_NOT_FOUND_OR_SPENT = "Input not found or already spent";
+const std::string FAILED_OP_EQUALVERIFY_OPERATION = "Script failed an OP_EQUALVERIFY operation";
+
 
 class ArgumentOperation
 {

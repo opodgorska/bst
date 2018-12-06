@@ -18,14 +18,14 @@ class GetBetTxs : public Txs
 {
     typedef std::vector<unsigned char> valtype;
 public:
-    GetBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, const UniValue& prevTxBlockHash, ArgumentOperation* operation, 
+    GetBetTxs(CWallet* const pwallet, const UniValue& inputs, const UniValue& sendTo, const UniValue& blockHashes, ArgumentOperation* operation,
               int64_t nLockTime=0, bool rbfOptIn=false, bool allowhighfees=false);
     ~GetBetTxs();
     
     UniValue getTx();
 
 private:
-    UniValue prevTxBlockHash;
+    UniValue blockHashes;
     ArgumentOperation* operation;
 
 private:
@@ -33,8 +33,8 @@ private:
     UniValue signTxImp() override;
 
     UniValue SignRedeemBetTransaction(const UniValue hashType);
-    bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata);
-    unsigned int getMakeTxBlockHash(unsigned int argument);
+    bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& scriptPubKey, const UniValue &prevTxBlockHash, SignatureData& sigdata);
+    unsigned int getMakeTxBlockHash(unsigned int argument, const UniValue& prevTxBlockHash);
 };
 
 size_t getRedeemScriptSize(const CScript& redeemScript);

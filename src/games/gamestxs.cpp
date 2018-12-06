@@ -202,8 +202,8 @@ void createMakeBetDestination(CWallet* const pwallet, const UniValue& sendTo, st
 /***********************************************************************/
 //redeeming transaction
 
-GetBetTxs::GetBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, const UniValue& prevTxBlockHash_, ArgumentOperation* operation_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_) 
-                    : Txs(pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), prevTxBlockHash(prevTxBlockHash_), operation(operation_)
+GetBetTxs::GetBetTxs(CWallet* const pwallet_, const UniValue& inputs, const UniValue& sendTo, const UniValue& blockHashes_, ArgumentOperation* operation_, int64_t nLockTime_, bool rbfOptIn_, bool allowhighfees_)
+                    : Txs(pwallet_, nLockTime_, rbfOptIn_, allowhighfees_), blockHashes(blockHashes_), operation(operation_)
 {
     createTxImp(inputs, sendTo);
 }
@@ -269,6 +269,10 @@ UniValue GetBetTxs::createTxImp(const UniValue& inputs, const UniValue& sendTo)
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
         rawTx.vin.push_back(in);
+    }
+
+    if (rawTx.vin.size() != blockHashes.size()) {
+        throw std::runtime_error("Numbers of inputs and blockHashes differ");
     }
 
     {
@@ -357,7 +361,7 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
         const Coin& coin = view.AccessCoin(txin.prevout);
         if (coin.IsSpent()) 
         {
-            throw std::runtime_error(std::string("Input not found or already spent"));
+            throw std::runtime_error(INPUT_NOT_FOUND_OR_SPENT);
         }
         const CScript& prevPubKey = coin.out.scriptPubKey;
         const CAmount& amount = coin.out.nValue;
@@ -366,7 +370,7 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) 
         {
-            ProduceSignature(MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, blockHashes[i], sigdata);
         }
 
         UpdateInput(txin, sigdata);
@@ -397,7 +401,7 @@ UniValue GetBetTxs::SignRedeemBetTransaction(const UniValue hashType)
     return result;
 }
 
-unsigned int GetBetTxs::getMakeTxBlockHash(unsigned int argument)
+unsigned int GetBetTxs::getMakeTxBlockHash(unsigned int argument, const UniValue& prevTxBlockHash)
 {
     std::string makeTxBlockHashStr=prevTxBlockHash.get_str();
     std::vector<unsigned char> binaryBlockHash(makeTxBlockHashStr.length()/2, 0);
@@ -411,7 +415,7 @@ unsigned int GetBetTxs::getMakeTxBlockHash(unsigned int argument)
     return (*operation)(blockhashTmp);
 }
 
-bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata)
+bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScript& scriptPubKey, const UniValue& prevTxBlockHash, SignatureData& sigdata)
 {
     std::vector<valtype> result;
     CScript redeemScript;
@@ -424,7 +428,7 @@ bool GetBetTxs::ProduceSignature(const BaseSignatureCreator& creator, const CScr
     CKeyID keyID = CKeyID(uint160(redeemScriptHashBytes));//get hash of a pubKeyHash from redeemScript
 
     unsigned int argument = getArgument(redeemScript);
-    unsigned int blockhashTmp=getMakeTxBlockHash(argument);
+    unsigned int blockhashTmp=getMakeTxBlockHash(argument, prevTxBlockHash);
     std::vector<unsigned char> blockhash;
     type2array(blockhashTmp, blockhash);
     

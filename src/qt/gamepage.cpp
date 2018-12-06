@@ -67,7 +67,6 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
     walletModel(0),
     clientModel(0),
     changeAddress(""),
-    selectedItem(nullptr),
     fFeeMinimized(true)
 {
     ui->setupUi(this);
@@ -745,34 +744,42 @@ void GamePage::getBet()
 {
     if(walletModel)
     {
-        bool txRemoveFlag=false;
         try
         {
             std::shared_ptr<CWallet> wallet = GetWallets()[0];
-            if(wallet != nullptr)
+            if (wallet == nullptr)
             {
-                CWallet* const pwallet=wallet.get();
-                
-                selectedItem = ui->transactionListWidget->currentItem();
-                if(selectedItem==nullptr)
-                {
-                    throw std::runtime_error(std::string("No transaction selected"));
-                }
-                QString qtxid = selectedItem->text();
+                throw std::runtime_error(std::string("No wallet found"));
+            }
+            CWallet* const pwallet=wallet.get();
+
+            QList<QListWidgetItem*> selectedItems = ui->transactionListWidget->selectedItems();
+            if (selectedItems.empty())
+            {
+                throw std::runtime_error(std::string("No transaction selected"));
+            }
+
+            CCoinControl coin_control;
+            updateCoinControlState(coin_control);
+            int returned_target;
+            FeeReason reason;
+            CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
+
+            const std::string address = ui->addressLineEdit->text().toStdString();
+            double totalAmount = 0;
+            UniValue inputs(UniValue::VARR);
+            UniValue blockHashes(UniValue::VARR);
+            QList<QListWidgetItem *> itemsToRemove;
+
+            for (auto item : selectedItems) {
+                currentItem = item;
+                QString qtxid = currentItem->text();
                 std::string txidIn = qtxid.toStdString();
-                
+
                 UniValue txPrev(UniValue::VOBJ);
                 txPrev=findTx(txidIn);
                 UniValue prevTxBlockHash(UniValue::VSTR);
                 prevTxBlockHash=txPrev["blockhash"].get_str();
-                
-                std::string address = ui->addressLineEdit->text().toStdString();
-
-                CCoinControl coin_control;
-                updateCoinControlState(coin_control);
-                int returned_target;
-                FeeReason reason;
-                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
 
                 std::tuple<std::string, size_t> betData = getBetData(txPrev);
                 std::string betType = std::get<0>(betData);
@@ -786,11 +793,7 @@ void GamePage::getBet()
                 moduloOperation.setArgument(argument);
                 unsigned int argumentResult = moduloOperation(blockhashTmp);
 
-                std::string txid;
-                double totalAmount = 0;
-                UniValue inputs(UniValue::VARR);
-                for (size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx)
-                {
+                for (size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx) {
                     size_t pos=betType.find("+");
 
                     if (VerifyMakeModuloBetTx().isWinning(betType.substr(0, pos), argument, argumentResult)) {
@@ -802,7 +805,6 @@ void GamePage::getBet()
 
                         const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
                         size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
-
 
                         double vout_amount = vout["value"].get_real();
                         int reward=getReward(pwallet, scriptPubKeyStr.get_str());
@@ -825,64 +827,63 @@ void GamePage::getBet()
                         txIn.pushKV("txid", txidIn);
                         txIn.pushKV("vout", static_cast<int>(voutIdx));
                         inputs.push_back(txIn);
-                        txRemoveFlag=true;
+                        blockHashes.push_back(prevTxBlockHash);
                     }
 
                     betType=betType.substr(pos+1);
                 }
-
-                if (inputs.size() > 0) {
-                    std::string totalAmountAsStr = double2str(totalAmount);
-                    UniValue sendTo(UniValue::VOBJ);
-                    sendTo.pushKV("address", address);
-                    sendTo.pushKV("amount", totalAmountAsStr);
-                    ModuloOperation operation;
-
-                    GetBetTxs tx(pwallet, inputs, sendTo, prevTxBlockHash, &operation, 0, ui->optInRBF->isChecked());
-                    unlockWallet();
-                    tx.signTx();
-                    std::string hexStr = tx.sendTx().get_str();
-                    txid+="Winning games txid: " + hexStr;
-                }
-                else {
-                    txid += "All games are lost";
-                }
-
-                QMessageBox msgBox;
-                msgBox.setWindowTitle("Getting bet status:");
-                msgBox.setText(QString::fromStdString(txid));
-                msgBox.exec();
-                {
-                    std::lock_guard<std::mutex> lck(mtx);
-                    delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
-                    dumpListToFile(QString("bets.dat"));
-                }
+                itemsToRemove.push_back(currentItem);
             }
-            else
-            {
-                throw std::runtime_error(std::string("No wallet found"));
+
+            std::string txid;
+            if (inputs.size() > 0) {
+                std::string totalAmountAsStr = double2str(totalAmount);
+                UniValue sendTo(UniValue::VOBJ);
+                sendTo.pushKV("address", address);
+                sendTo.pushKV("amount", totalAmountAsStr);
+                ModuloOperation operation;
+
+                GetBetTxs tx(pwallet, inputs, sendTo, blockHashes, &operation, 0, ui->optInRBF->isChecked());
+                unlockWallet();
+                tx.signTx();
+                std::string hexStr = tx.sendTx().get_str();
+                txid+="Winning games txid: " + hexStr;
             }
-        }
-        catch(std::exception const& e)
-        {
-            std::string info=e.what();
-            if(info==std::string("Script failed an OP_EQUALVERIFY operation") || 
-               info==std::string("Input not found or already spent") ||
-               info==LENGTH_TOO_LARGE ||
-               info==OP_RETURN_NOT_FOUND ||
-               txRemoveFlag==true)
+            else {
+                txid += "All games are lost";
+            }
+
             {
                 std::lock_guard<std::mutex> lck(mtx);
-                delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
+                for (auto item : itemsToRemove) {
+                    delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(item));
+                }
                 dumpListToFile(QString("bets.dat"));
             }
-            
+
+            QMessageBox msgBox;
+            msgBox.setWindowTitle("Getting bet status:");
+            msgBox.setText(QString::fromStdString(txid));
+            msgBox.exec();
+        }
+        catch (std::exception const& e) {
+            std::string info=e.what();
+
+            if (info==FAILED_OP_EQUALVERIFY_OPERATION ||
+                info==INPUT_NOT_FOUND_OR_SPENT ||
+                info==LENGTH_TOO_LARGE ||
+                info==OP_RETURN_NOT_FOUND)
+            {
+                std::lock_guard<std::mutex> lck(mtx);
+                delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(currentItem));
+                dumpListToFile(QString("bets.dat"));
+            }
+
             QMessageBox msgBox;
             msgBox.setText(e.what());
             msgBox.exec();
         }
-        catch(...)
-        {
+        catch(...) {
             QMessageBox msgBox;
             msgBox.setText("Unknown exception occured");
             msgBox.exec();
