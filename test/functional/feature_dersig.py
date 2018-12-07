@@ -18,7 +18,7 @@ from test_framework.util import (
     wait_until,
 )
 
-DERSIG_HEIGHT = 1251
+DERSIG_HEIGHT = 4540
 
 # Reject codes that we might receive in this test
 REJECT_INVALID = 16
@@ -56,7 +56,8 @@ class BIP66Test(BitcoinTestFramework):
         self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.log.info("Mining %d blocks", DERSIG_HEIGHT - 2)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(DERSIG_HEIGHT - 2)]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate((DERSIG_HEIGHT - 2)//2)]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate((DERSIG_HEIGHT - 2)//2)]
         self.nodeaddress = self.nodes[0].getnewaddress()
 
         self.log.info("Test that a transaction with non-DER signature can still appear in a block")

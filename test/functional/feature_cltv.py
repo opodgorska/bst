@@ -21,7 +21,7 @@ from test_framework.util import (
 
 from io import BytesIO
 
-CLTV_HEIGHT = 1351
+CLTV_HEIGHT = 4640
 
 # Reject codes that we might receive in this test
 REJECT_INVALID = 16
@@ -69,7 +69,8 @@ class BIP65Test(BitcoinTestFramework):
         self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.log.info("Mining %d blocks", CLTV_HEIGHT - 2)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CLTV_HEIGHT - 2)]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate((CLTV_HEIGHT - 2)//2)]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate((CLTV_HEIGHT - 2)//2)]
         self.nodeaddress = self.nodes[0].getnewaddress()
 
         self.log.info("Test that an invalid-according-to-CLTV transaction can still appear in a block")

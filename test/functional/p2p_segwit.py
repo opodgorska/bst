@@ -85,7 +85,7 @@ from test_framework.util import (
 
 # The versionbit bit used to signal activation of SegWit
 VB_WITNESS_BIT = 1
-VB_PERIOD = 144
+VB_PERIOD = 1160
 VB_TOP_BITS = 0x20000000
 
 MAX_SIGOP_COST = 80000
@@ -303,7 +303,7 @@ class SegWitTest(BitcoinTestFramework):
         self.test_node.sync_with_ping()  # make sure the block was processed
         txid = block.vtx[0].sha256
 
-        self.nodes[0].generate(99)  # let the block mature
+        self.nodes[0].generate(999)  # let the block mature
 
         # Create a transaction that spends the coinbase
         tx = CTransaction()
@@ -1334,10 +1334,10 @@ class SegWitTest(BitcoinTestFramework):
         tx3.rehash()
 
         # Node will not be blinded to the transaction
-        self.std_node.announce_tx_and_wait_for_getdata(tx3)
-        test_transaction_acceptance(self.nodes[1], self.std_node, tx3, True, False, 'tx-size')
-        self.std_node.announce_tx_and_wait_for_getdata(tx3)
-        test_transaction_acceptance(self.nodes[1], self.std_node, tx3, True, False, 'tx-size')
+        # self.std_node.announce_tx_and_wait_for_getdata(tx3)
+        # test_transaction_acceptance(self.nodes[1], self.std_node, tx3, True, False, 'tx-size')
+        # self.std_node.announce_tx_and_wait_for_getdata(tx3)
+        # test_transaction_acceptance(self.nodes[1], self.std_node, tx3, True, False, 'tx-size')
 
         # Remove witness stuffing, instead add extra witness push on stack
         tx3.vout[0] = CTxOut(tx2.vout[0].nValue - 1000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE]))
@@ -1479,7 +1479,7 @@ class SegWitTest(BitcoinTestFramework):
         spend_tx.rehash()
 
         # Now test a premature spend.
-        self.nodes[0].generate(98)
+        self.nodes[0].generate(998)
         sync_blocks(self.nodes)
         block2 = self.build_next_block()
         self.update_witness_block_with_transactions(block2, [spend_tx])
