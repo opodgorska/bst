@@ -198,7 +198,7 @@ UniValue getbet(const JSONRPCRequest& request)
         "Before this command walletpassphrase is required. \n"
 
         "\nArguments:\n"
-        "1. \"txid\"                        (string, required) The transaction id's returned by makebet separated by '+'\n"
+        "1. \"txid\"                        (string, required) The transaction ids returned by makebet separated by '+'\n"
         "2. \"address\"                     (string, required) The address to sent the reward\n"
         "3. replaceable                     (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
         "4. conf_target                     (numeric, optional) Confirmation target (in blocks)\n"
@@ -254,90 +254,110 @@ UniValue getbet(const JSONRPCRequest& request)
     CFeeRate feeRate = CFeeRate(GetMinimumFee(*pwallet, 1000, coin_control, ::mempool, ::feeEstimator, &fee_calc));
 
     double totalAmount = 0;
-    UniValue inputs(UniValue::VARR);
-    UniValue blockHashes(UniValue::VARR);
+    UniValue totalInputs(UniValue::VARR);
+    UniValue totalHashes(UniValue::VARR);
+    std::string response;
+
     for (const auto& txidIn : txidsList) {
-        UniValue txPrev(UniValue::VOBJ);
-        txPrev=findTx(txidIn);
-        UniValue prevTxBlockHash(UniValue::VSTR);
-        prevTxBlockHash=txPrev["blockhash"].get_str();
+        try {
 
-        std::tuple<std::string, size_t> betData = getBetData(txPrev);
-        std::string betType = std::get<0>(betData);
-        const size_t nPrevOut = std::get<1>(betData);
+            double itemAmount = 0;
+            UniValue itemInputs(UniValue::VARR);
+            UniValue itemHashes(UniValue::VARR);
 
-        unsigned int argument=getArgumentFromBetType(betType);
-        std::string blockhashStr=txPrev["blockhash"].get_str();
-        unsigned int blockhashTmp=blockHashStr2Int(blockhashStr);
+            UniValue txPrev(UniValue::VOBJ);
+            txPrev=findTx(txidIn);
+            UniValue prevTxBlockHash(UniValue::VSTR);
+            prevTxBlockHash=txPrev["blockhash"].get_str();
 
-        modulo::ModuloOperation moduloOperation;
-        moduloOperation.setArgument(argument);
-        unsigned int argumentResult = moduloOperation(blockhashTmp);
+            std::tuple<std::string, size_t> betData = getBetData(txPrev);
+            std::string betType = std::get<0>(betData);
+            const size_t nPrevOut = std::get<1>(betData);
 
-        for (size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx) {
-            size_t pos=betType.find("+");
+            unsigned int argument=getArgumentFromBetType(betType);
+            std::string blockhashStr=txPrev["blockhash"].get_str();
+            unsigned int blockhashTmp=blockHashStr2Int(blockhashStr);
 
-            if (VerifyMakeModuloBetTx().isWinning(betType.substr(0, pos), argument, argumentResult)) {
-                UniValue vout(UniValue::VOBJ);
-                vout=txPrev["vout"][voutIdx];
+            modulo::ModuloOperation moduloOperation;
+            moduloOperation.setArgument(argument);
+            unsigned int argumentResult = moduloOperation(blockhashTmp);
 
-                UniValue scriptPubKeyStr(UniValue::VSTR);
-                scriptPubKeyStr=vout["scriptPubKey"]["hex"];
+            for (size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx) {
+                size_t pos=betType.find("+");
 
-                const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
-                size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
+                if (VerifyMakeModuloBetTx().isWinning(betType.substr(0, pos), argument, argumentResult)) {
+                    UniValue vout(UniValue::VOBJ);
+                    vout=txPrev["vout"][voutIdx];
 
-                double vout_amount = vout["value"].get_real();
-                int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+                    UniValue scriptPubKeyStr(UniValue::VSTR);
+                    scriptPubKeyStr=vout["scriptPubKey"]["hex"];
 
-                size_t txSize=200+redeemScriptSize;
-                double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
-                if(fee>(static_cast<double>(maxTxFee)/COIN))
-                {
-                    fee=(static_cast<double>(maxTxFee)/COIN);
+                    const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
+                    size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
+
+                    double vout_amount = vout["value"].get_real();
+                    int reward=getReward(pwallet, scriptPubKeyStr.get_str());
+
+                    size_t txSize=200+redeemScriptSize;
+                    double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
+                    if(fee>(static_cast<double>(maxTxFee)/COIN))
+                    {
+                        fee=(static_cast<double>(maxTxFee)/COIN);
+                    }
+                    else if (fee >= reward * vout_amount)
+                    {
+                        fee = static_cast<double>(::minRelayTxFee.GetFee(txSize))/COIN;
+                    }
+
+                    double amount = (float)reward * vout_amount - fee;
+                    itemAmount += amount;
+
+                    UniValue txIn(UniValue::VOBJ);
+                    txIn.pushKV("txid", txidIn);
+                    txIn.pushKV("vout", static_cast<int>(voutIdx));
+                    itemInputs.push_back(txIn);
+                    itemHashes.push_back(prevTxBlockHash);
                 }
-                else if (fee >= reward * vout_amount)
-                {
-                    fee = static_cast<double>(::minRelayTxFee.GetFee(txSize))/COIN;
-                }
 
-                double amount = (float)reward * vout_amount - fee;
-                totalAmount += amount;
-
-                UniValue txIn(UniValue::VOBJ);
-                txIn.pushKV("txid", txidIn);
-                txIn.pushKV("vout", static_cast<int>(voutIdx));
-                inputs.push_back(txIn);
-                blockHashes.push_back(prevTxBlockHash);
+                betType=betType.substr(pos+1);
             }
 
-            betType=betType.substr(pos+1);
+            for (size_t i=0; i<itemInputs.size(); ++i) {
+                totalInputs.push_back(itemInputs[i]);
+                totalHashes.push_back(itemHashes[i]);
+            }
+            totalAmount += itemAmount;
+        }
+        catch(const std::exception& e) {
+            response += txidIn + ": " + e.what() + "\n";
+        }
+        catch(...) {
+            response += txidIn + ": unknown exception\n";
         }
     }
 
-    std::string txid;
-    if (inputs.size() > 0) {
+    if (totalInputs.size() > 0) {
         std::string totalAmountAsStr = double2str(totalAmount);
         UniValue sendTo(UniValue::VOBJ);
         sendTo.pushKV("address", address);
         sendTo.pushKV("amount", totalAmountAsStr);
         ModuloOperation operation;
 
-        GetBetTxs tx(pwallet, inputs, sendTo, blockHashes, &operation, 0, coin_control.m_signal_bip125_rbf.get_value_or(false));
+        GetBetTxs tx(pwallet, totalInputs, sendTo, totalHashes, &operation, 0, coin_control.m_signal_bip125_rbf.get_value_or(false));
         EnsureWalletIsUnlocked(pwallet);
-
         tx.signTx();
-        std::string hexStr = tx.sendTx().get_str();
-        txid+="Winning games txid: " + hexStr;
-    }
-    else {
-        txid += "All games are lost";
+        const std::string hexStr = tx.sendTx().get_str();
+        response += "Winning games txid: " + hexStr + "\n";
+
+        return UniValue(UniValue::VSTR, response);
     }
 
-    return UniValue(UniValue::VSTR, txid);
+    if (response.empty()) {
+        response = "All games are lost\n";
+    }
+
+    return UniValue(UniValue::VSTR, response);
 }
-
-
 
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
