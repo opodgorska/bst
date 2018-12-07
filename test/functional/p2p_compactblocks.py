@@ -122,7 +122,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block = self.build_block_on_tip(self.nodes[0])
         self.test_node.send_and_ping(msg_block(block))
         assert(int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
-        self.nodes[0].generate(100)
+        self.nodes[0].generate(1000)
 
         total_value = block.vtx[0].vout[0].nValue
         out_value = total_value // 10
@@ -166,7 +166,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         def check_announcement_of_new_block(node, peer, predicate):
             peer.clear_block_announcement()
-            block_hash = int(node.generate(1)[0], 16)
+            block_hash = int(node.generate(2)[0], 16)
             peer.wait_for_block_announcement(block_hash, timeout=30)
             assert(peer.block_announced)
 
@@ -243,7 +243,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
     # This test actually causes bitcoind to (reasonably!) disconnect us, so do this last.
     def test_invalid_cmpctblock_message(self):
-        self.nodes[0].generate(101)
+        self.nodes[0].generate(1010)
         block = self.build_block_on_tip(self.nodes[0])
 
         cmpct_block = P2PHeaderAndShortIDs()
@@ -259,7 +259,7 @@ class CompactBlocksTest(BitcoinTestFramework):
     # bitcoind's choice of nonce.
     def test_compactblock_construction(self, node, test_node, version, use_witness_address):
         # Generate a bunch of transactions.
-        node.generate(101)
+        node.generate(1010)
         num_transactions = 25
         address = node.getnewaddress()
         if use_witness_address:
@@ -299,7 +299,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block.rehash()
 
         # Wait until the block was announced (via compact blocks)
-        wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
+        wait_until(test_node.received_block_announcement, timeout=60, lock=mininode_lock)
 
         # Now fetch and check the compact block
         header_and_shortids = None
@@ -642,7 +642,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         wait_until(lambda: "cmpctblock" in test_node.last_message, timeout=30, lock=mininode_lock)
 
         test_node.clear_block_announcement()
-        node.generate(1)
+        node.generate(2)
         wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
         test_node.clear_block_announcement()
         with mininode_lock:
@@ -684,7 +684,9 @@ class CompactBlocksTest(BitcoinTestFramework):
             assert "blocktxn" not in test_node.last_message
 
     def activate_segwit(self, node):
-        node.generate(144*3)
+        node.generate(1160)
+        node.generate(1160)
+        node.generate(1160)
         assert_equal(get_bip9_status(node, "segwit")["status"], 'active')
 
     def test_end_to_end_block_relay(self, node, listeners):
