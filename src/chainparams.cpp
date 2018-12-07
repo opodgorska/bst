@@ -143,6 +143,7 @@ public:
         checkpointData = {
             {
                 {0, picoHash},
+                {138545, uint256S("0x800000000014d231b0f07b4d7109f7b1ced269b3bade42159c18df65ac3d857b")},
             }
         };
 
