@@ -5,6 +5,7 @@
 """Test BIP68 implementation."""
 
 import time
+import random
 
 from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, ToHex
@@ -113,7 +114,7 @@ class BIP68Test(BitcoinTestFramework):
         while len(addresses) < max_outputs:
             addresses.append(self.nodes[0].getnewaddress())
         while len(self.nodes[0].listunspent()) < 200:
-            import random
+            # import random
             random.shuffle(addresses)
             num_outputs = random.randint(1, max_outputs)
             outputs = {}
@@ -378,7 +379,7 @@ class BIP68Test(BitcoinTestFramework):
     def activateCSV(self):
         # activation should happen at block height 432 (3 periods)
         # getblockchaininfo will show CSV as active at block 431 (144 * 3 -1) since it's returning whether CSV is active for the next block.
-        min_activation_height = 432
+        min_activation_height = 3480
         height = self.nodes[0].getblockcount()
         assert_greater_than(min_activation_height - height, 2)
         self.nodes[0].generate(min_activation_height - height - 2)
