@@ -347,7 +347,7 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out,
     return true;
 }
 
-VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_, int32_t makeBetIndicator_, CAmount maxPayoff_) : 
+VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_, int32_t makeBetIndicator_, CAmount maxPayoff_) :
                                      block(block_), argumentOperation(argumentOperation_), getReward(getReward_), verifyMakeBetTx(verifyMakeBetTx_), makeBetIndicator(makeBetIndicator_), maxPayoff(maxPayoff_)
 {
     blockSubsidy=GetBlockSubsidy(chainActive.Height(), params);
@@ -497,9 +497,9 @@ bool VerifyBlockReward::isBetPayoffExceeded()
     return false;
 }
 
-bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction &txn)
+bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction &txn, bool ignoreHardfork)
 {
-    if (chainActive.Height() < MAKEBET_REWARD_LIMIT)
+    if (!ignoreHardfork && chainActive.Height() < MAKEBET_REWARD_LIMIT)
     {
         return true;
     }
@@ -547,15 +547,54 @@ bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator)
     return false;
 }
 
-VerifyMakeBetFormat::VerifyMakeBetFormat(GetReward *getReward, int32_t makeBetIndicator, CAmount maxReward)
-    : m_getReward(getReward), m_indicator(makeBetIndicator), m_maxReward(maxReward)
+VerifyMakeBetFormat::VerifyMakeBetFormat(GetReward *getReward, int32_t makeBetIndicator, CAmount maxReward, CAmount maxPayoff)
+    : m_getReward(getReward), m_indicator(makeBetIndicator), m_maxReward(maxReward), m_maxPayoff(maxPayoff)
 {
 }
 
-bool VerifyMakeBetFormat::txMakeBetVerify(const CTransaction& tx)
+bool is_lottery(const std::string& betStr)
+{
+    return betStr.find_first_not_of("0123456789") == std::string::npos;
+}
+
+bool VerifyMakeBetFormat::checkBetAmountLimit(int mod_argument, const std::string& bet_type)
+{
+    if (is_lottery(bet_type))
+    {
+        unsigned int betAmount = 0;
+        try {
+            betAmount = std::stoi(bet_type);
+        } catch (...) {}
+        if (betAmount == 0)
+        {
+            LogPrintf("%s:ERROR bet amount below limit %u\n", __func__, betAmount);
+            return false;
+        }
+        if (betAmount > mod_argument)
+        {
+            LogPrintf("%s:ERROR bet amount: %u above game limit %u\n", __func__, betAmount, mod_argument);
+            return false;
+        }
+    } else
+    {
+        size_t pos_ = bet_type.find_last_of("_");
+        if (pos_ != std::string::npos && pos_ < bet_type.length()-1)
+        {
+            unsigned int betAmount = std::stoi(bet_type.substr(pos_+1, std::string::npos));
+            if (betAmount == 0)
+            {
+                LogPrintf("%s:ERROR bet amount below limit %u\n", __func__, betAmount);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool VerifyMakeBetFormat::txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork)
 {
     //bioinfo hardfork due to incorrect format of makebet transactions
-    if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+    if(!ignoreHardfork && chainActive.Height() < MAKEBET_FORMAT_VERIFY)
     {
         return true;
     }
@@ -579,7 +618,7 @@ bool VerifyMakeBetFormat::txMakeBetVerify(const CTransaction& tx)
         return false;
     }
 
-    unsigned int argument = getArgumentFromBetType(betType);
+    unsigned int argument = getArgumentFromBetType(betType, m_maxReward);
     if (argument > m_maxReward)
     {
         LogPrintf("%s:ERROR bad argument: %ld\n", __func__, argument);
@@ -593,6 +632,17 @@ bool VerifyMakeBetFormat::txMakeBetVerify(const CTransaction& tx)
         if (reward == 0)
         {
             LogPrintf("%s:ERROR unknown bet type %s\n", __func__, betType.c_str());
+            return false;
+        }
+
+        if (!checkBetAmountLimit(argument, betType.substr(0, pos)))
+        {
+            return false;
+        }
+
+        if (tx.vout[i].nValue == 0)
+        {
+            LogPrintf("%s:ERROR amount below limit %u\n", __func__, tx.vout[i].nValue);
             return false;
         }
 

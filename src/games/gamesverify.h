@@ -43,7 +43,7 @@ class VerifyBlockReward
 public:
     VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation, GetReward* getReward, VerifyMakeBetTx* verifyMakeBetTx, int32_t makeBetIndicator, CAmount maxPayoff);
     bool isBetPayoffExceeded();
-    bool checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction& txn);
+    bool checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction& txn, bool ignoreHardfork=false);
 
 private:
     bool isMakeBetTx(const CTransaction& tx);
@@ -63,12 +63,15 @@ private:
 class VerifyMakeBetFormat
 {
 public:
-    VerifyMakeBetFormat(GetReward *getReward, int32_t makeBetIndicator, CAmount maxReward);
-    bool txMakeBetVerify(const CTransaction& tx);
+    VerifyMakeBetFormat(GetReward *getReward, int32_t makeBetIndicator, CAmount maxReward, CAmount maxPayoff);
+    bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork=false);
 private:
+    bool checkBetAmountLimit(int mod_argument, const std::string& bet_type);
+
     GetReward* m_getReward;
     int32_t m_indicator;
     const CAmount m_maxReward;
+    const CAmount m_maxPayoff;
 };
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);

@@ -129,7 +129,7 @@ std::tuple<std::string, size_t> getBetData(const UniValue& txPrev) {
     return std::make_tuple(betType, idx);
 }
 
-unsigned int getArgumentFromBetType(std::string& betType)
+unsigned int getArgumentFromBetType(std::string& betType, uint max_limit)
 {
     size_t pos_=betType.find("_");
     if(pos_==std::string::npos)
@@ -142,6 +142,11 @@ unsigned int getArgumentFromBetType(std::string& betType)
 
     unsigned int opReturnArgNum;
     sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
+
+    if (opReturnArgNum == 0 || opReturnArgNum > max_limit)
+    {
+        throw std::runtime_error(std::string("VerifyBlockReward::getArgumentFromBetType() incorrect OP_RETURN argument format: " + opReturnArg));
+    }
 
     return opReturnArgNum;
 }

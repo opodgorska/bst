@@ -31,8 +31,8 @@ namespace modulo
     bool isMakeBetTx(const CTransaction& tx);
     bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
     bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
-    bool txMakeBetVerify(const CTransaction& tx);
-    bool checkBetsPotentialReward(CAmount& rewardSum, const CTransaction& txn);
+    bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork = false);
+    bool checkBetsPotentialReward(CAmount& rewardSum, const CTransaction& txn, bool ignoreHardfork = false);
 }
 
 #endif

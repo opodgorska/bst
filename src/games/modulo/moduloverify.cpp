@@ -349,13 +349,13 @@ namespace modulo
         }
     };
 
-    bool txMakeBetVerify(const CTransaction& tx)
+    bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork)
     {
         try
         {
             GetModuloReward getModuloReward;
-            VerifyMakeBetFormat verifyMakeBetFormat(&getModuloReward, MAKE_MODULO_GAME_INDICATOR, MAX_REWARD);
-            return verifyMakeBetFormat.txMakeBetVerify(tx);
+            VerifyMakeBetFormat verifyMakeBetFormat(&getModuloReward, MAKE_MODULO_GAME_INDICATOR, MAX_REWARD, MAX_PAYOFF);
+            return verifyMakeBetFormat.txMakeBetVerify(tx, ignoreHardfork);
         }
         catch(...)
         {
@@ -365,7 +365,7 @@ namespace modulo
     };
 
 
-    bool checkBetsPotentialReward(CAmount &rewardSum, const CTransaction& txn)
+    bool checkBetsPotentialReward(CAmount &rewardSum, const CTransaction& txn, bool ignoreHardfork)
     {
         try
         {
@@ -376,7 +376,7 @@ namespace modulo
             ModuloOperation moduloOperation;
             GetModuloReward getModuloReward;
             VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
-            return verifyBlockReward.checkPotentialRewardLimit(rewardSum, txn);
+            return verifyBlockReward.checkPotentialRewardLimit(rewardSum, txn, ignoreHardfork);
         }
         catch(...)
         {
