@@ -17,29 +17,29 @@ static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsig
 bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
 {
     fee=0;
-    UniValue txPrev(UniValue::VOBJ);
-    CTransactionRef txPrevRef;
-    try
-    {
-        std::tie(txPrev, txPrevRef)=findTxData(tx.vin[0].prevout.hash.GetHex());
-    }
-    catch(...)
-    {
-        LogPrintf("txVerify findTxData() failed\n");
-        return false;
-    }
-    int32_t txVersion=txPrev["version"].get_int();
-    int32_t makeBetIndicator = txVersion ^ indicator;
-    if(makeBetIndicator > CTransaction::MAX_STANDARD_VERSION || makeBetIndicator < 1)
-    {
-        return false;
-    }
-
-    std::string blockhashStr=txPrev["blockhash"].get_str();
-
     CAmount totalReward = 0;
     CAmount inputSum = 0;
+
     for (unsigned int idx=0; idx<tx.vin.size(); ++idx) {
+        UniValue txPrev(UniValue::VOBJ);
+        CTransactionRef txPrevRef;
+        try
+        {
+            std::tie(txPrev, txPrevRef)=findTxData(tx.vin[idx].prevout.hash.GetHex());
+        }
+        catch(...)
+        {
+            LogPrintf("txVerify findTxData() failed\n");
+            return false;
+        }
+        int32_t txVersion=txPrev["version"].get_int();
+        int32_t makeBetIndicator = txVersion ^ indicator;
+        if(makeBetIndicator > CTransaction::MAX_STANDARD_VERSION || makeBetIndicator < 1)
+        {
+            return false;
+        }
+        std::string blockhashStr=txPrev["blockhash"].get_str();
+
         CScript redeemScript(tx.vin[idx].scriptSig.begin(), tx.vin[idx].scriptSig.end());
         unsigned int argument = getArgument(redeemScript);
         unsigned int blockhash=getMakeTxBlockHash(blockhashStr, argument, operation);

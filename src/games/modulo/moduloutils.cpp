@@ -504,4 +504,32 @@ namespace modulo
             betTypePattern=betTypePattern.substr(len+1);
         }
     }
+
+    void parseTxIds(const std::string& txidsPattern, std::vector<std::string>& txids) {
+        const size_t TXID_LEN = 64;
+
+        size_t offset = 0;
+        while (true) {
+            size_t pos = txidsPattern.find('+', offset);
+
+            if (pos == std::string::npos) {
+                std::string temp = txidsPattern.substr(offset);
+                if (temp.length() != TXID_LEN) {
+                    throw std::runtime_error("improper txid length");
+                }
+                txids.push_back(temp);
+                break;
+            }
+            else {
+                size_t len = pos-offset;
+                std::string temp = txidsPattern.substr(offset, len);
+                if (temp.length() != TXID_LEN) {
+                    throw std::runtime_error("improper txid length");
+                }
+                txids.push_back(temp);
+            }
+
+            offset = pos+1;
+        }
+    }
 }

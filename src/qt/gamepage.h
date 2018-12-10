@@ -42,7 +42,7 @@ private:
     WalletModel *walletModel;
     ClientModel *clientModel;
     std::string changeAddress;
-    QListWidgetItem *selectedItem;
+    QListWidgetItem *currentItem;
     bool fFeeMinimized;
     CFeeRate feeRate;
     QButtonGroup *groupFee;

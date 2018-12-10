@@ -164,6 +164,7 @@ namespace modulo
     int getRouletteBet(const std::string& betTypePattern, int*& bet, int& len, int& reward, double& amount, std::string& betType, int range);
     int getModuloBet(const std::string& betTypePattern, int*& bet, int& len, int& reward, double& amount, std::string& betType, int range);
     void parseBetType(std::string& betTypePattern, int range, std::vector<double>& betAmounts, std::vector<std::string>& betTypes, std::vector<std::vector<int> >& betArrays, bool isRoulette);
+    void parseTxIds(const std::string& txidsPattern, std::vector<std::string>& txids);
     bool bet2Vector(const std::string& betTypePattern, std::vector<int>& bet);
 }
 
