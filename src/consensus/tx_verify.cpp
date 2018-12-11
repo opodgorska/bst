@@ -264,6 +264,38 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     bool correctBetTx=false;
     CAmount betFee;
 
+    if (nSpendHeight < 169757) {
+        if (nValueIn < value_out)
+        {
+            //LogPrintf("nValueIn < value_out\n");
+            correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
+            if(!correctBetTx)
+            {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+                    strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+            }
+        }
+
+        // Tally transaction fees
+        CAmount txfee_aux = nValueIn - value_out;
+        if(correctBetTx)
+        {
+            txfee_aux=betFee;
+            //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
+        }
+
+        if (!MoneyRange(txfee_aux)) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+        }
+
+        txfee = txfee_aux;
+        return true;
+    }
+
+
+    // Tally transaction fees
+    CAmount txfee_aux = nValueIn - value_out;
+
     if(getBetInCount>0)
     {
         bool allInputsAreGetBet = (getBetInCount==tx.vin.size());
@@ -281,6 +313,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                 if(modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
                 {
                     correctBetTx = true;
+                    txfee_aux=betFee;
                 }
                 else {
                        return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
@@ -290,14 +323,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         }
      }
 
-    // Tally transaction fees
-    CAmount txfee_aux = nValueIn - value_out;
-    if(correctBetTx)
-    {
-        txfee_aux=betFee;
-        //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
-    }
-    else if (nValueIn < value_out) {
+    if (!correctBetTx && (nValueIn < value_out)) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
             strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
     }
