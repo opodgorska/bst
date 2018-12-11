@@ -241,7 +241,12 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     }
 
     CAmount nValueIn = 0;
+    unsigned int getBetInCount=0;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+        if (isInputBet(tx.vin[i])) {
+            ++getBetInCount;
+        }
+
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
         assert(!coin.IsSpent());
@@ -263,24 +268,69 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const CAmount value_out = tx.GetValueOut();
     bool correctBetTx=false;
     CAmount betFee;
-    if (nValueIn < value_out)
-    {
-        correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
-        if(!correctBetTx)
+
+    if (nSpendHeight < 169757) {
+        if (nValueIn < value_out)
         {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-                strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+            correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
+            if(!correctBetTx)
+            {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+                    strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+            }
         }
+
+        // Tally transaction fees
+        CAmount txfee_aux = nValueIn - value_out;
+        if(correctBetTx)
+        {
+            txfee_aux=betFee;
+        }
+
+        if (!MoneyRange(txfee_aux)) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+        }
+
+        txfee = txfee_aux;
+        return true;
     }
+
 
     // Tally transaction fees
     CAmount txfee_aux = nValueIn - value_out;
-    if(correctBetTx)
+
+    if(getBetInCount>0)
     {
-        txfee_aux=betFee;
-        //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
+        bool allInputsAreGetBet = (getBetInCount==tx.vin.size());
+
+        if(!allInputsAreGetBet)
+        {
+            return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "not all inputs are getbets");
+        }
+        else {
+            if(nValueIn >= value_out) {
+                LogPrintf("valueIn: %d, valueOut: %d\n", nValueIn, value_out);
+                return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "value in >= value out");
+            }
+            else {
+                if(modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
+                {
+                    correctBetTx = true;
+                    txfee_aux=betFee;
+                }
+                else {
+                       return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+                           strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+                }
+            }
+        }
+     }
+
+    if (!correctBetTx && (nValueIn < value_out)) {
+        return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+            strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
     }
-    
+
     if (!MoneyRange(txfee_aux)) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
     }

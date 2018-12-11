@@ -74,6 +74,7 @@ private:
     const CAmount m_maxPayoff;
 };
 
+bool isInputBet(const CTxIn& input);
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 std::string getBetType(const CTransaction& tx);
 
