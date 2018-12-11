@@ -64,7 +64,7 @@ UniValue makebet(const JSONRPCRequest& request)
 
         "\nArguments:\n"
         "1. \"type_of_bet\"                 (string, required) Defines a combination of bet type and number along with the bet amount. Roulette specific bets are available for default range\n"
-        "2. \"range\"                       (numeric, optional) Defines a range of numbers <1, range> to be drawn. Default range is set to 36 meaning a roulette\n"
+        "2. \"range\"                       (numeric, optional) Defines a range of numbers <1, range> to be drawn. For lottery it must be greater than 1. Default range is set to 36 meaning a roulette\n"
         "3. replaceable                     (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
         "4. conf_target                     (numeric, optional) Confirmation target (in blocks)\n"
         "5. \"estimate_mode\"               (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
@@ -99,6 +99,9 @@ UniValue makebet(const JSONRPCRequest& request)
     if(!request.params[1].isNull())
     {
         range=request.params[1].get_int();
+        if (range <= 1) {
+            throw std::runtime_error(std::string("Range must be greater than 1"));
+        }
         isRoulette=false;
     }
 
