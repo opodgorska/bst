@@ -25,6 +25,144 @@ static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsig
     return (*operation)(blockhashTmp);
 }
 
+bool isInputBet(const CTxIn& input) {
+    int numOfBetsNumbers=0;
+    CScript::const_iterator it_end=input.scriptSig.end()-1;
+
+    if(*it_end!=OP_DROP)
+    {
+        return false;
+    }
+    it_end-=6;
+    if(*it_end!=OP_ENDIF)
+    {
+        return false;
+    }
+    --it_end;
+    if(*it_end!=OP_FALSE)
+    {
+        return false;
+    }
+    --it_end;
+    if(*it_end!=OP_DROP)
+    {
+        return false;
+    }
+    --it_end;
+    if(*it_end!=OP_ELSE)
+    {
+        return false;
+    }
+    --it_end;
+    for(CScript::const_iterator it=it_end;it>it_end-18;--it)
+    {
+        if(OP_TRUE==*it)
+        {
+            numOfBetsNumbers=it_end-it+1;
+            it_end=it;
+            break;
+        }
+        else if(OP_ENDIF!=*it)
+        {
+            return false;
+        }
+    }
+    --it_end;
+    if(*it_end!=OP_EQUALVERIFY)
+    {
+        return false;
+    }
+
+    std::vector<unsigned char> betNumber_(it_end-4, it_end);
+    int betNumber=0;
+    array2type(betNumber_, betNumber);
+    std::vector<int> betNumbers(1, betNumber);
+    it_end-=6;
+
+    for(int i=0;i<numOfBetsNumbers-1;++i)
+    {
+        if(*it_end!=OP_ELSE)
+        {
+            return false;
+        }
+        --it_end;
+        if(*it_end!=OP_TRUE)
+        {
+            return false;
+        }
+        --it_end;
+        if(*it_end!=OP_DROP)
+        {
+            return false;
+        }
+        --it_end;
+        if(*it_end!=OP_IF)
+        {
+            return false;
+        }
+        --it_end;
+        if(*it_end!=OP_EQUAL)
+        {
+            return false;
+        }
+        --it_end;
+        betNumber_[3]=*it_end--;
+        betNumber_[2]=*it_end--;
+        betNumber_[1]=*it_end--;
+        betNumber_[0]=*it_end--;
+        --it_end;
+        if(*it_end!=OP_DUP)
+        {
+            return false;
+        }
+        --it_end;
+
+       array2type(betNumber_, betNumber);
+       betNumbers.push_back(betNumber);
+    }
+
+    if(*it_end!=OP_IF)
+    {
+        return false;
+    }
+    --it_end;
+    if(*it_end!=OP_CHECKSIG)
+    {
+        return false;
+    }
+    --it_end;
+    if(*it_end!=OP_EQUALVERIFY)
+    {
+        return false;
+    }
+
+    if(*(it_end-22)!=OP_HASH160)
+    {
+        return false;
+    }
+    if(*(it_end-23)!=OP_DUP)
+    {
+        return false;
+    }
+
+    CScript::const_iterator it_begin=input.scriptSig.begin();
+    it_begin+=(*it_begin)+1;
+    it_begin+=(*it_begin)+1;
+    it_begin+=(*it_begin)+1;
+    if(*it_begin==0x4c)
+    {
+        it_begin++;
+    }
+    it_begin++;
+
+    if((it_end-23)!=it_begin)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
 {
     fee=0;
