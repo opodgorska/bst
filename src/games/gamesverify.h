@@ -15,6 +15,8 @@
 #define ROULETTE_NEW_DEFS (108600)
 //bioinfo hardfork due to incorrect format of makebet transactions
 #define MAKEBET_FORMAT_VERIFY (132015)
+//bioinfo hardfork due to incorrect getbet verification
+#define GETBET_NEW_VERIFY (169757)
 
 class GetReward
 {
