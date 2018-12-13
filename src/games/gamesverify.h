@@ -15,6 +15,8 @@
 #define ROULETTE_NEW_DEFS (108600)
 //bioinfo hardfork due to incorrect format of makebet transactions
 #define MAKEBET_FORMAT_VERIFY (139378)
+//bioinfo hardfork due to incorrect getbet verification
+#define GETBET_NEW_VERIFY (169757)
 //bioinfo hardfork due to block transactions potential reward over limit
 #define MAKEBET_REWARD_LIMIT (156520)
 
@@ -74,8 +76,8 @@ private:
     const CAmount m_maxPayoff;
 };
 
-bool isInputBet(const CTxIn& input);
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
+bool isInputBet(const CTxIn& input);
 std::string getBetType(const CTransaction& tx);
 
 #endif

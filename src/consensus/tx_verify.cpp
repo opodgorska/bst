@@ -269,9 +269,10 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     bool correctBetTx=false;
     CAmount betFee;
 
-    if (nSpendHeight < 169757) {
+    if (nSpendHeight < GETBET_NEW_VERIFY) {
         if (nValueIn < value_out)
         {
+            //LogPrintf("nValueIn < value_out\n");
             correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
             if(!correctBetTx)
             {
@@ -285,6 +286,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         if(correctBetTx)
         {
             txfee_aux=betFee;
+            //LogPrintf("txSize: %d, txfee_aux: %d, nValueIn: %d, value_out: %d\n", txSize, txfee_aux, nValueIn, value_out);
         }
 
         if (!MoneyRange(txfee_aux)) {
@@ -308,20 +310,14 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "not all inputs are getbets");
         }
         else {
-            if(nValueIn >= value_out) {
-                LogPrintf("valueIn: %d, valueOut: %d\n", nValueIn, value_out);
-                return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "value in >= value out");
+            if(modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
+            {
+                correctBetTx = true;
+                txfee_aux=betFee;
             }
             else {
-                if(modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
-                {
-                    correctBetTx = true;
-                    txfee_aux=betFee;
-                }
-                else {
-                       return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-                           strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
-                }
+                   return state.DoS(100, false, REJECT_INVALID, "bad-txns-verify", false,
+                       strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
             }
         }
      }
