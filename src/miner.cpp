@@ -24,7 +24,7 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>
-
+#include <utilstrencodings.h>
 #include <algorithm>
 #include <queue>
 #include <utility>
@@ -96,6 +96,19 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
+static std::string random_string( size_t length )
+{
+    auto randchar = []() -> char
+    {
+        const char charset[] = "0123456789abcdef";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    std::string str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    return str;
+}
+
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx)
 {
     int64_t nTimeStart = GetTimeMicros();
@@ -113,6 +126,27 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxFees.push_back(-1); // updated at end
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
+
+    if (makeBets.size() > 0) {
+        pblock->vtx.emplace_back();
+        pblocktemplate->vTxFees.push_back(-1);
+        pblocktemplate->vTxSigOpsCost.push_back(-1);
+
+        std::string str=random_string(16);
+
+        CMutableTransaction getBetTx;
+        getBetTx.vin.resize(1);
+        getBetTx.vin[0].prevout.hash = makeBets[0].GetHash();
+        getBetTx.vin[0].prevout.n = 0;
+        getBetTx.vout.resize(1);
+        getBetTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(str.c_str());
+        getBetTx.vout[0].nValue = 1234567;
+        getBetTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+        pblock->vtx[1] = MakeTransactionRef(std::move(getBetTx));
+        pblocktemplate->vTxFees[1] = 0;
+
+        pblocktemplate->vTxSigOpsCost[1] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]);
+    }
     LOCK2(cs_main, mempool.cs);
     CBlockIndex* pindexPrev = chainActive.Tip();
     assert(pindexPrev != nullptr);
@@ -180,6 +214,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
 
+    std::cout << "CreateNewBlock\n";
+
+    for (const CTransaction& tx : makeBets) {
+        std::cout << tx.GetHash().ToString() << std::endl;
+    }
+
+    makeBets.clear();
     return std::move(pblocktemplate);
 }
 

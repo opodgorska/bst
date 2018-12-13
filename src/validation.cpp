@@ -146,6 +146,7 @@ private:
     CCriticalSection m_cs_chainstate;
 
 public:
+    std::vector<CTransaction> makeBets;
     CChain chainActive;
     BlockMap mapBlockIndex;
     std::multimap<CBlockIndex*, CBlockIndex*> mapBlocksUnlinked;
@@ -213,6 +214,7 @@ CCriticalSection cs_main;
 
 BlockMap& mapBlockIndex = g_chainstate.mapBlockIndex;
 CChain& chainActive = g_chainstate.chainActive;
+std::vector<CTransaction>& makeBets = g_chainstate.makeBets;
 CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 std::condition_variable g_best_block_cv;
@@ -1832,6 +1834,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                   std::set<valtype>& expiredNames,
                   const CChainParams& chainparams, bool fJustCheck)
 {
+    std::cout << "ConnectBlock\n";
     AssertLockHeld(cs_main);
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
@@ -2118,6 +2121,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     int64_t nTime6 = GetTimeMicros(); nTimeCallbacks += nTime6 - nTime5;
     LogPrint(BCLog::BENCH, "    - Callbacks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime6 - nTime5), nTimeCallbacks * MICRO, nTimeCallbacks * MILLI / nBlocksTotal);
+
+
+    for (unsigned int i = 0; i < block.vtx.size(); i++) {
+        const CTransaction& tx = *(block.vtx[i]);
+        if (isMakeBetTx(tx, MAKE_MODULO_GAME_INDICATOR)) {
+            std::cout << "is makebet\n";
+            makeBets.push_back(tx);
+        }
+        else {
+            std::cout << "is not makebet\n";
+        }
+    }
 
     return true;
 }
