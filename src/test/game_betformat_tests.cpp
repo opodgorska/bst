@@ -382,6 +382,46 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit
     BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
 }
 
+BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverLimit)
+{
+    CAmount one_bet_limit = (GetBlockSubsidy(1, Params().GetConsensus()) / 2);
+    const std::string game_tag = "3030303030303031"; // modulo 1
+    std::string command = "_";
+    CAmount rewardSum{};
+
+    CMutableTransaction txn;
+    prepareTransaction(txn);
+
+    CAmount potentialReward = 0;
+    for (uint i=0; true; ++i)
+    {
+        potentialReward += (one_bet_limit * 1);
+        if (potentialReward > MAX_PAYOFF)
+        {
+            potentialReward -= one_bet_limit;
+            break;
+        }
+        txn.vout.push_back(CTxOut{});
+        txn.vout[i].nValue = one_bet_limit;
+        txn.vout[i].scriptPubKey = CScript() << OP_HASH160 << ParseHex("0102030405060708090A0B0C0D0E0F1011121314") << OP_EQUAL;
+        if (i > 0) command += "+";
+        command += std::to_string(i+1);
+    }
+
+    BOOST_ASSERT(potentialReward < MAX_PAYOFF);
+
+    // limit
+    txn.vout.rbegin()->scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
+    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(potentialReward, rewardSum);
+
+    // overlimit
+    command += "+"; command += std::to_string(txn.vout.size()+1);
+    txn.vout.rbegin()->nValue = one_bet_limit;
+    txn.vout.push_back(CTxOut{});
+    txn.vout.rbegin()->scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
+    BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 

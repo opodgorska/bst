@@ -492,31 +492,29 @@ static std::string getBetType_(const CTransaction& tx, size_t& idx)
         CScript::const_iterator it_beg=tx.vout[i].scriptPubKey.begin();
         CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
         std::string hexStr;
-        std::string lengthStr;
         int order = *(it_beg+1);
         unsigned int length = 0;
         if(*it_beg==OP_RETURN)
         {
-            lengthStr = std::string(it_beg, it_beg + 4);
             if(order<=0x4b)
             {
                 hexStr=std::string(it_beg+2, it_end);
-                memcpy((char*)&length, lengthStr.substr(1).c_str(), 1);
+                memcpy((char*)&length, std::string(it_beg+1, it_beg+2).c_str(), 1);
             }
             else if(order==0x4c)
             {
                 hexStr=std::string(it_beg+3, it_end);
-                memcpy((char*)&length, lengthStr.substr(2).c_str(), 1);
+                memcpy((char*)&length, std::string(it_beg+2, it_beg+3).c_str(), 1);
             }
             else if(order==0x4d)
             {
                 hexStr=std::string(it_beg+4, it_end);
-                memcpy((char*)&length, lengthStr.substr(2).c_str(), 2);
+                memcpy((char*)&length, std::string(it_beg+2, it_beg+4).c_str(), 2);
             }
             else if(order==0x4e)
             {
                 hexStr=std::string(it_beg+6, it_end);
-                memcpy((char*)&length, lengthStr.substr(2).c_str(), 4);
+                memcpy((char*)&length, std::string(it_beg+2, it_beg+6).c_str(), 4);
             }
             else
             {
