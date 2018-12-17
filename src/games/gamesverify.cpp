@@ -587,11 +587,6 @@ bool VerifyBlockReward::isBetPayoffExceeded()
                     {
                         CAmount payoff=tx->vout[i].nValue * reward;
                         payoffAcc+=payoff;
-                        if (payoff > (blockSubsidy/2))
-                        {
-                            LogPrintf("%s ERROR: Reward of one bet %ld higher than half subsidy value, blockSubsidy: %d\n", __func__, payoff, blockSubsidy);
-                            return true;
-                        }
                     }
                     inAcc+=tx->vout[i].nValue;
 
