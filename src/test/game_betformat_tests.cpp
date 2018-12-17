@@ -5,12 +5,14 @@
 #include <sstream>
 #include <iomanip>
 
+#include "chainparams.h"
 #include "data/datautils.h"
 #include "games/gamestxs.h"
 #include "games/modulo/modulotxs.h"
 #include "games/modulo/moduloutils.h"
 #include "games/modulo/moduloverify.h"
 #include "univalue/include/univalue.h"
+#include "validation.h"
 #include "wallet/coincontrol.h"
 #include "wallet/wallet.h"
 
@@ -319,20 +321,20 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
     BOOST_CHECK_EQUAL(false, modulo::txMakeBetVerify(CTransaction(txn), true));
 }
 
-BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverLimit)
+BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit)
 {
-    CAmount amount = 1024*COIN;
+    CAmount amount = GetBlockSubsidy(1, Params().GetConsensus()) / 2;
     CAmount rewardSum = 0;
-    const std::string game_tag = "3030303030343030";
+    const std::string game_tag = "3030303030303031";
     const std::string command = "_straight_4";
 
-    CAmount potentialReward = amount * 0x400;
-    BOOST_ASSERT(potentialReward == MAX_PAYOFF);
+    CAmount potentialReward = amount * 1;
+    BOOST_ASSERT(potentialReward < MAX_PAYOFF);
 
     CMutableTransaction txn;
     prepareTransaction(txn);
 
-    // limit
+    // limit (50% of block subsidy)
     txn.vout[0].nValue = amount;
     txn.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
     BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
@@ -346,11 +348,12 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverLimit)
     BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
 }
 
-BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverlimit)
+BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit)
 {
-    CAmount amount = (1024/4)*COIN;
+    CAmount one_bet_limit = (GetBlockSubsidy(1, Params().GetConsensus()) / 2);
+    CAmount amount = (one_bet_limit/4);
     CAmount rewardSum = 0;
-    const std::string game_tag = "3030303030343030";
+    const std::string game_tag = "3030303030303031";
     const std::string command = "_1+2+3+4";
 
     CAmount potentialReward = 0;
@@ -363,11 +366,11 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverlimit)
     {
         txn.vout[i].nValue = amount;
         txn.vout[i].scriptPubKey = CScript() << OP_HASH160 << ParseHex("0102030405060708090A0B0C0D0E0F1011121314") << OP_EQUAL;
-        potentialReward += (amount * 0x400);
+        potentialReward += (amount * 1);
     }
-    BOOST_ASSERT(potentialReward == MAX_PAYOFF);
+    BOOST_ASSERT(potentialReward < MAX_PAYOFF);
 
-    // limit
+    // limit (50% of block subsidy)
     txn.vout[4].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
     BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
