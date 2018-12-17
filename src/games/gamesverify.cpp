@@ -556,14 +556,13 @@ bool VerifyBlockReward::isMakeBetTx(const CTransaction& tx)
 bool VerifyBlockReward::isBetPayoffExceeded()
 {
     //bioinfo hardfork due to roulette bets definition change
-    if(chainActive.Height() < ROULETTE_NEW_DEFS)
+    if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
     {
         return false;
     }
 
     CAmount inAcc=0;
     CAmount payoffAcc=0;
-    bool bidExceededSubsidy = false;
     for (const auto& tx : block.vtx)
     {
         try
@@ -584,13 +583,19 @@ bool VerifyBlockReward::isBetPayoffExceeded()
                 {
                     size_t pos=betType.find("+");
                     int reward=(*getReward)(betType.substr(0,pos), argument);
+                    CAmount payoff = 0;
                     if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
                     {
-                        CAmount payoff=tx->vout[i].nValue * reward;
+                        payoff=tx->vout[i].nValue * reward;
                         payoffAcc+=payoff;
                     }
                     inAcc+=tx->vout[i].nValue;
-                    if(reward >= blockSubsidy/2) bidExceededSubsidy = true;
+
+                    if (payoff > (blockSubsidy/2))
+                    {
+                        LogPrintf("%s ERROR: Potential reward of one bet %ld higher than half subsidy value, blockSubsidy: %d\n", __func__, payoff, blockSubsidy);
+                        return true;
+                    }
 
                     if(pos==std::string::npos)
                     {
@@ -609,13 +614,6 @@ bool VerifyBlockReward::isBetPayoffExceeded()
 
     if(inAcc >= ((9*blockSubsidy)/10))
     {
-
-        if (bidExceededSubsidy)
-        {
-            LogPrintf("Potential reward of one bid higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
-            return true;
-        }
-
         if(payoffAcc>inAcc+blockSubsidy)
         {
             LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
@@ -647,7 +645,15 @@ bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTra
         {
             size_t pos =  betType.find("+");
             int reward = (*getReward)(betType.substr(0, pos), argument);
-            rewardSum += (reward * txn.vout[i].nValue);
+            CAmount payoff = reward * txn.vout[i].nValue;
+
+            if (payoff > (blockSubsidy/2))
+            {
+                LogPrintf("%s ERROR: Potential reward of one bet %ld higher than half subsidy value, blockSubsidy: %d\n", __func__, payoff, blockSubsidy);
+                return true;
+            }
+
+            rewardSum += payoff;
 
             if (pos == std::string::npos)
             {
@@ -699,7 +705,7 @@ bool VerifyMakeBetFormat::checkBetAmountLimit(int mod_argument, const std::strin
             LogPrintf("%s:ERROR bet amount below limit %u\n", __func__, betAmount);
             return false;
         }
-        if (betAmount > mod_argument)
+        if ((int)betAmount > mod_argument)
         {
             LogPrintf("%s:ERROR bet amount: %u above game limit %u\n", __func__, betAmount, mod_argument);
             return false;

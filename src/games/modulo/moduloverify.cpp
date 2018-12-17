@@ -3,8 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <algorithm>
-#include <games/gamesverify.h>
+#include <chainparams.h>
 #include <core_io.h>
+#include <games/gamesverify.h>
 #include <games/modulo/moduloverify.h>
 #include <games/modulo/modulotxs.h>
 #include <games/modulo/moduloutils.h>
@@ -369,13 +370,11 @@ namespace modulo
     {
         try
         {
-            Consensus::Params params;
-            params.nSubsidyHalvingInterval = 1;
             CBlock block;
             VerifyMakeModuloBetTx verifyMakeModuloBetTx;
             ModuloOperation moduloOperation;
             GetModuloReward getModuloReward;
-            VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
+            VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
             return verifyBlockReward.checkPotentialRewardLimit(rewardSum, txn, ignoreHardfork);
         }
         catch(...)

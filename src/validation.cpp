@@ -3235,7 +3235,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check if bet transactions included in block don't give total reward greater than a limit
     if(fCheckPOW)
     {
-        // Check if bet transaction included in block don't give potensial reward grater than a limit
+        // Check if bet transaction included in block don't give potential reward grater than a limit
+        if (modulo::isBetPayoffExceeded(consensusParams, block))
+        {
+            return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards too high");
+        }
+
         CAmount potentialRewardSum{};
         for (const auto& txn : block.vtx)
         {

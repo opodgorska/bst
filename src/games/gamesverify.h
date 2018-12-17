@@ -14,11 +14,11 @@
 //bioinfo hardfork due to roulette bets definition change
 #define ROULETTE_NEW_DEFS (108600)
 //bioinfo hardfork due to incorrect format of makebet transactions
-#define MAKEBET_FORMAT_VERIFY (139378)
+#define MAKEBET_FORMAT_VERIFY (177750)
 //bioinfo hardfork due to incorrect getbet verification
 #define GETBET_NEW_VERIFY (169757)
 //bioinfo hardfork due to block transactions potential reward over limit
-#define MAKEBET_REWARD_LIMIT (156520)
+#define MAKEBET_REWARD_LIMIT (177750)
 
 class GetReward
 {
