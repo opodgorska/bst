@@ -127,27 +127,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
 
-    if (makeBets.size() > 0) {
-        pblock->vtx.emplace_back();
-        pblocktemplate->vTxFees.push_back(-1);
-        pblocktemplate->vTxSigOpsCost.push_back(-1);
-
-        std::string str=random_string(16);
-
-        CMutableTransaction getBetTx;
-        getBetTx.vin.resize(1);
-        getBetTx.vin[0].prevout.hash = makeBets[0].GetHash();
-        getBetTx.vin[0].prevout.n = 0;
-        getBetTx.vout.resize(1);
-        getBetTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(str.c_str());
-        getBetTx.vout[0].nValue = 1234567;
-        getBetTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-        pblock->vtx[1] = MakeTransactionRef(std::move(getBetTx));
-        pblocktemplate->vTxFees[1] = 0;
-
-        pblocktemplate->vTxSigOpsCost[1] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]);
-    }
     LOCK2(cs_main, mempool.cs);
+
     CBlockIndex* pindexPrev = chainActive.Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
@@ -180,6 +161,28 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
+    if (makeBets.size() > 0) 
+    {
+        CMutableTransaction getBetTx;
+        std::string str=random_string(16);
+
+        getBetTx.vin.resize(1);
+        getBetTx.vin[0].prevout.hash = makeBets[0].GetHash();
+        getBetTx.vin[0].prevout.n = 0;
+        getBetTx.vout.resize(1);
+        getBetTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(str.c_str());
+        getBetTx.vout[0].nValue = 1234567;
+        getBetTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+
+        pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
+        pblocktemplate->vTxFees.push_back(0);
+
+        pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]));
+        
+        nBlockTx++;
+        nBlockWeight += GetTransactionWeight(getBetTx);
+    }
+
     int64_t nTime1 = GetTimeMicros();
 
     nLastBlockTx = nBlockTx;
@@ -196,6 +199,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
+
+    std::cout<< "CreateNewBlock(): block weight: " << GetBlockWeight(*pblock) << " txs: " << nBlockTx << " fees: " << nFees << " sigops: " << nBlockSigOpsCost << std::endl;
 
     LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
