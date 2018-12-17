@@ -12,7 +12,7 @@
 #include <data/txs.h>
 #include <games/gamesutils.h>
 
-void createMakeBetDestination(CWallet* const pwallet, const UniValue& sendTo, std::vector<CRecipient>& vecSend);
+CRecipient createMakeBetDestination(CAmount betSum, const std::string& msg);
 
 class GetBetTxs : public Txs
 {

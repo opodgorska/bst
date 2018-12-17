@@ -87,117 +87,16 @@ public:
     }
 };
 
-static CScript GetScriptForBetDest(const CTxDestination& dest, const std::vector<int>& betNumbers, int argument)
-{
-    CScript script;
-    if(argument<=0)
-    {
-        throw std::runtime_error(std::string("Argument is equal or lower than 0"));
-    }
-    boost::apply_visitor(CScriptBetVisitor(&script, betNumbers, argument), dest);
-    return script;
+CRecipient createMakeBetDestination(CAmount betSum, const std::string& data) {
+    std::vector<unsigned char> msg = ParseHexV(data, "Data");
+
+    CRecipient recipient;
+    recipient.scriptPubKey << OP_RETURN << msg;
+    recipient.nAmount=betSum;
+    recipient.fSubtractFeeFromAmount=false;
+
+    return recipient;
 }
-
-static UniValue getnewaddress(CWallet* const pwallet, CTxDestination& dest, OutputType output_type = OutputType::LEGACY)
-{
-    LOCK2(cs_main, pwallet->cs_wallet);
-
-    if (!pwallet->IsLocked()) {
-        pwallet->TopUpKeyPool();
-    }
-
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey))
-    {
-        throw std::runtime_error(std::string("Error: Keypool ran out, please call keypoolrefill first"));
-    }
-    pwallet->LearnRelatedScripts(newKey, output_type);
-    dest = GetDestinationForKey(newKey, output_type);
-
-    std::string strAccount("");
-    pwallet->SetAddressBook(dest, strAccount, "receive");
-
-    return EncodeDestination(dest);
-}
-
-void createMakeBetDestination(CWallet* const pwallet, const UniValue& sendTo, std::vector<CRecipient>& vecSend)
-{
-    int argument=0;
-    for (unsigned int idx = 0; idx < sendTo.size(); idx++)
-    {
-        std::vector<int> betNumbers;
-        const UniValue& sendToObj = sendTo[idx].get_obj();
-        std::vector<std::string> addrList = sendToObj.getKeys();
-        
-        for (const std::string &name_ : addrList)
-        {
-            if (name_ == "data") 
-            {
-                std::vector<unsigned char> data = ParseHexV(sendToObj[name_].getValStr(),"Data");
-                
-                CRecipient recipient;
-                recipient.scriptPubKey << OP_RETURN << data;
-                recipient.nAmount=0;
-                recipient.fSubtractFeeFromAmount=false;
-                vecSend.push_back(recipient);
-            }
-            else if(name_=="argument")
-            {
-                argument = sendToObj[name_].get_int();
-            }
-            else if(name_=="betNumbers")
-            {
-                for(size_t i=0;i<sendToObj[name_].size();++i)
-                {
-                    betNumbers.push_back(sendToObj[name_][i].get_int());
-                }
-            }
-            else if(name_=="betAmount")
-            {
-                CAmount nAmount = AmountFromValue(sendToObj[name_].getValStr());
-
-                //we generate a new address type of OUTPUT_TYPE_LEGACY
-                CTxDestination destinationAddr;
-                getnewaddress(pwallet, destinationAddr);
-                CScript redeemScript = GetScriptForBetDest(destinationAddr, betNumbers, argument);
-
-                if(!pwallet->AddCScript(redeemScript))
-                {
-                    throw std::runtime_error(std::string("Adding script failed"));
-                }
-
-                CScript scriptPubKey;
-                scriptPubKey.clear();
-                scriptPubKey << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
-                
-                CRecipient recipient;
-                recipient.scriptPubKey=scriptPubKey;
-                recipient.nAmount=nAmount;
-                recipient.fSubtractFeeFromAmount=false;
-                vecSend.push_back(recipient);
-            }
-            else 
-            {
-                CTxDestination destination = DecodeDestination(name_);
-                if (!IsValidDestination(destination)) 
-                {
-                    throw std::runtime_error(std::string("Invalid BST address: ") + name_);
-                }
-
-                CScript scriptPubKey = GetScriptForDestination(destination);
-                CAmount nAmount = AmountFromValue(sendToObj[name_].getValStr());
-                
-                CRecipient recipient;
-                recipient.scriptPubKey=scriptPubKey;
-                recipient.nAmount=nAmount;
-                recipient.fSubtractFeeFromAmount=false;
-                vecSend.push_back(recipient);
-            }
-        }
-    }
-}
-
 
 /***********************************************************************/
 //redeeming transaction
