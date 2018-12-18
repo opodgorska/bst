@@ -109,12 +109,12 @@ CAmount applyFee(CMutableTransaction tx, int64_t nTxWeight, int64_t sigOpCost)
     CAmount fee = totalFee / tx.vout.size();
     CAmount feeReminder = totalFee % tx.vout.size();
     
-    for(const auto& txOut : tx.vout)
+    for(auto& txOut : tx.vout)
     {
         txOut.nValue-=fee;
     }
     
-    tx.vout.back()-=feeReminder;
+    tx.vout.back().nValue-=feeReminder;
     
     return 0;
 }
