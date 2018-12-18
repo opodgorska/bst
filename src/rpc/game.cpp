@@ -87,10 +87,8 @@ UniValue makebet(const JSONRPCRequest& request)
         throw std::runtime_error(std::string("No wallet found"));
     }
     CWallet* const pwallet=wallet.get();
-
-    std::vector<double> betAmounts;
+    std::vector<CAmount> betAmounts;
     std::vector<std::string> betTypes;
-    std::vector<std::vector<int> > betArrays;
 
     std::string betTypePattern=request.params[0].get_str();
 
@@ -105,7 +103,8 @@ UniValue makebet(const JSONRPCRequest& request)
         isRoulette=false;
     }
 
-    parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays, isRoulette);
+    parseBetType(betTypePattern, range, betAmounts, betTypes, isRoulette);
+    const CAmount betSum = betAmountsSum(betAmounts);
 
     CCoinControl coin_control;
     if (!request.params[2].isNull())
@@ -125,54 +124,35 @@ UniValue makebet(const JSONRPCRequest& request)
         }
     }
 
-    UniValue sendTo(UniValue::VARR);
-    UniValue rangeObj(UniValue::VOBJ);
-    rangeObj.pushKV("argument", range);
-    sendTo.push_back(rangeObj);
-    for(size_t i=0;i<betArrays.size();++i)
-    {
-        UniValue obj(UniValue::VOBJ);
-        UniValue betNumbers(UniValue::VARR);
-        for(size_t j=0;j<betArrays[i].size();++j)
-        {
-            betNumbers.push_back(betArrays[i][j]);
-        }
-        obj.pushKV("betNumbers", betNumbers);
-        obj.pushKV("betAmount", double2str(betAmounts[i]));
-
-        sendTo.push_back(obj);
-    }
     std::string arg=int2hex(range)+std::string("_");
     std::string msg=HexStr(arg.begin(), arg.end());
-    std::string plus_msg("+");
-    for(size_t i=0;i<betArrays.size();++i)
+    const std::string plus_msg("+");
+    const std::string at_msg("@");
+
+    for(size_t i=0;i<betTypes.size();++i)
     {
         msg+=HexStr(betTypes[i].begin(), betTypes[i].end());
-        if(i<betArrays.size()-1)
+        std::string amountStr = at_msg + std::to_string(betAmounts[i]);
+        msg+=HexStr(amountStr.begin(), amountStr.end());
+        if(i<betTypes.size()-1)
         {
             msg+=HexStr(plus_msg.begin(), plus_msg.end());
         }
     }
-    UniValue opReturn(UniValue::VOBJ);
-    opReturn.pushKV("data", msg);
-    sendTo.push_back(opReturn);
     
-    std::vector<CRecipient> vecSend;
-    createMakeBetDestination(pwallet, sendTo, vecSend);
-
+    const CRecipient recipient = createMakeBetDestination(betSum, msg);
     LOCK2(cs_main, pwallet->cs_wallet);
 
     CAmount curBalance = pwallet->GetBalance();
-
     CReserveKey reservekey(pwallet);
     CAmount nFeeRequired;
-    int nChangePosInOut=betArrays.size()+1;
+    int nChangePosInOut=1;
     std::string strFailReason;
     CTransactionRef tx;
 
     EnsureWalletIsUnlocked(pwallet);
 
-    if(!pwallet->CreateTransaction(vecSend, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
+    if(!pwallet->CreateTransaction({recipient}, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
     {
         if (nFeeRequired > curBalance)
         {

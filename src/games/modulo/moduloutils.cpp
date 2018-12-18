@@ -243,6 +243,7 @@ namespace modulo
         }
         size_t stringLen = betTypePattern.find("+", at);
         amount=std::stod(betTypePattern.substr(at+1, stringLen-at-1));
+
         betType=betTypePattern.substr(0, at);
         if(betTypePattern.find("straight_")==0 || betTypePattern.find("STRAIGHT_")==0)
         {
@@ -418,6 +419,18 @@ namespace modulo
         return stringLen;
     }
 
+    CAmount betAmountsSum(const std::vector<CAmount>& betAmounts) {
+        const CAmount MAX_CAMOUNT = std::numeric_limits<CAmount>::max();
+        CAmount sum = 0;
+        for(const auto amount : betAmounts) {
+            if (amount<=0 || amount>MAX_CAMOUNT-sum) {
+                throw std::runtime_error("improper bet amount");
+            }
+            sum += amount;
+        }
+        return sum;
+    }
+
     int getModuloBet(const std::string& betTypePattern, int*& bet, int& len, int& reward, double& amount, std::string& betType, int range)
     {
         std::setlocale(LC_NUMERIC, "C");
@@ -456,7 +469,7 @@ namespace modulo
         return stringLen;
     }
 
-    void parseBetType(std::string& betTypePattern, int range, std::vector<double>& betAmounts, std::vector<std::string>& betTypes, std::vector<std::vector<int> >& betArrays, bool isRoulette)
+    void parseBetType(std::string& betTypePattern, int range, std::vector<CAmount>& betAmounts, std::vector<std::string>& betTypes, bool isRoulette)
     {
         for(int i=0;true;++i)
         {
@@ -492,9 +505,7 @@ namespace modulo
             }
 
             std::vector<int> betVec;
-            betArrays.push_back(betVec);
-            std::copy(&betArray[0], &betArray[betLen], back_inserter(betArrays[i]));
-            betAmounts.push_back(betAmount);
+            betAmounts.push_back(static_cast<CAmount>(betAmount*COIN));
             betTypes.push_back(betType);
             
             if(len==std::string::npos)

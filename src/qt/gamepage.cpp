@@ -47,6 +47,7 @@
 
 #include <qt/transactiontablemodel.h>
 #include <array>
+#include <limits>
 
 using namespace modulo;
 
@@ -625,6 +626,7 @@ std::string GamePage::makeBetPattern()
         }
         betTypePattern+=ui->betListWidget->item(i)->text().toStdString();
     }
+
     return betTypePattern;
 }
 
@@ -638,57 +640,37 @@ void GamePage::makeBet()
             if(wallet != nullptr)
             {
                 CWallet* const pwallet=wallet.get();
-                
-                std::vector<double> betAmounts;
+                std::vector<CAmount> betAmounts;
                 std::vector<std::string> betTypes;
-                std::vector<std::vector<int> > betArrays;
 
                 std::string betTypePattern=makeBetPattern();
-                int range=range=ui->rewardRatioSpinBox->value();
+                int range=ui->rewardRatioSpinBox->value();
                 bool isRoulette=false;//lottery
                 if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
                 {
                     isRoulette=true;
                 }
-                parseBetType(betTypePattern, range, betAmounts, betTypes, betArrays, isRoulette);
+                parseBetType(betTypePattern, range, betAmounts, betTypes, isRoulette);
+                const CAmount betSum = betAmountsSum(betAmounts);
 
-                UniValue sendTo(UniValue::VARR);
-                UniValue rangeObj(UniValue::VOBJ);
-                rangeObj.pushKV("argument", range);
-                sendTo.push_back(rangeObj);
-                for(size_t i=0;i<betArrays.size();++i)
-                {
-                    UniValue obj(UniValue::VOBJ);
-                    UniValue betNumbers(UniValue::VARR);
-                    for(size_t j=0;j<betArrays[i].size();++j)
-                    {
-                        betNumbers.push_back(betArrays[i][j]);
-                    }
-                    obj.pushKV("betNumbers", betNumbers);
-                    obj.pushKV("betAmount", double2str(betAmounts[i]));
-
-                    sendTo.push_back(obj);
-                }
                 std::string arg=int2hex(range)+std::string("_");
                 std::string msg=HexStr(arg.begin(), arg.end());
-                std::string plus_msg("+");
-                for(size_t i=0;i<betArrays.size();++i)
+                const std::string plus_msg("+");
+                const std::string at_msg("@");
+                for(size_t i=0;i<betTypes.size();++i)
                 {
                     msg+=HexStr(betTypes[i].begin(), betTypes[i].end());
-                    if(i<betArrays.size()-1)
+                    std::string amountStr = at_msg + std::to_string(betAmounts[i]);
+                    msg+=HexStr(amountStr.begin(), amountStr.end());
+                    if(i<betTypes.size()-1)
                     {
                         msg+=HexStr(plus_msg.begin(), plus_msg.end());
                     }
                 }
-                UniValue opReturn(UniValue::VOBJ);
-                opReturn.pushKV("data", msg);
-                sendTo.push_back(opReturn);
 
                 CCoinControl coin_control;
                 updateCoinControlState(coin_control);
-
-                std::vector<CRecipient> vecSend;
-                createMakeBetDestination(pwallet, sendTo, vecSend);
+                const CRecipient recipient = createMakeBetDestination(betSum, msg);
 
                 LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -696,13 +678,13 @@ void GamePage::makeBet()
 
                 CReserveKey reservekey(pwallet);
                 CAmount nFeeRequired;
-                int nChangePosInOut=betArrays.size()+1;
+                int nChangePosInOut=1;
                 std::string strFailReason;
                 CTransactionRef tx;
 
                 unlockWallet();
 
-                if(!pwallet->CreateTransaction(vecSend, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
+                if(!pwallet->CreateTransaction({recipient}, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control, true, true))
                 {
                     if (nFeeRequired > curBalance)
                     {

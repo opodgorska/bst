@@ -2125,7 +2125,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     for (unsigned int i = 0; i < block.vtx.size(); i++) {
         const CTransaction& tx = *(block.vtx[i]);
-        if (isMakeBetTx(tx, MAKE_MODULO_GAME_INDICATOR)) {
+        if (isMakeBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR)) {
             std::cout << "is makebet\n";
             makeBets.push_back(tx);
         }

@@ -2685,7 +2685,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend,
     }
     else if(isMakeBetTx)
     {
-        txNew.nVersion=(MAKE_MODULO_GAME_INDICATOR | CTransaction::CURRENT_VERSION);
+        txNew.nVersion=(MAKE_MODULO_NEW_GAME_INDICATOR | CTransaction::CURRENT_VERSION);
     }
 
     // Discourage fee sniping.
