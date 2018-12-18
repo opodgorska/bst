@@ -13,6 +13,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
+#include <games/gamesutils.h>
 #include <hash.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -171,23 +172,37 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (makeBets.size() > 0) 
     {
         CMutableTransaction getBetTx;
-        std::string str=random_string(16);
-
-        getBetTx.vin.resize(1);
-        getBetTx.vin[0].prevout.hash = makeBets[0].GetHash();
-        getBetTx.vin[0].prevout.n = 0;
-        getBetTx.vout.resize(1);
-        getBetTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(str.c_str());
-        getBetTx.vout[0].nValue = 1234567;
-        getBetTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-
-        pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
-        pblocktemplate->vTxFees.push_back(0);
-
-        pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]));
+        bool hasWinningBets = false;
+        uint256 prevBlockHash = pindexPrev->GetBlockHash();
+        for(size_t i=0;i<makeBets.size();++i)
+        {
+            MakeBetWinningProcess makeBetWinningProcess(makeBets[i], prevBlockHash);
+            if(makeBetWinningProcess.isMakeBetWinning())
+            {
+                CTxIn in;
+                in.prevout.hash = makeBets[i].GetHash();
+                in.prevout.n = 0;
+                in.scriptSig = CScript() << nHeight << OP_0;
+                getBetTx.vin.push_back(in);
+                CTxOut out;
+                out.scriptPubKey = createScriptPubkey(makeBets[i]);
+                out.nValue = 1234567;
+                //out.nValue = makeBetWinningProcess.getMakeBetPayoff();
+                getBetTx.vout.push_back(out);
+                hasWinningBets=true;
+            }
+        }
         
-        nBlockTx++;
-        nBlockWeight += GetTransactionWeight(getBetTx);
+        if(hasWinningBets)
+        {
+            pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
+            pblocktemplate->vTxFees.push_back(0);
+
+            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]));
+            
+            nBlockTx++;
+            nBlockWeight += GetTransactionWeight(getBetTx);
+        }
     }
 
     int64_t nTime1 = GetTimeMicros();

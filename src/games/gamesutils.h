@@ -23,4 +23,15 @@ protected:
     unsigned int argument;
 };
 
+CKeyID getTxKeyID(const CTransaction& tx, int inputIdx=0);
+CScript createScriptPubkey(const CTransaction& prevTx);
+
+class MakeBetWinningProcess
+{
+public:
+    MakeBetWinningProcess(const CTransaction& tx, uint256 hash);
+    bool isMakeBetWinning();
+    CAmount getMakeBetPayoff();
+};
+
 #endif
