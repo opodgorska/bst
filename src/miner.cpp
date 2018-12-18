@@ -169,6 +169,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
+    CAmount getBetFee = 0;
     if (makeBets.size() > 0) 
     {
         CMutableTransaction getBetTx;
@@ -186,7 +187,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 getBetTx.vin.push_back(in);
                 CTxOut out;
                 out.scriptPubKey = createScriptPubkey(makeBets[i]);
-                out.nValue = 1234567;
+                out.nValue = 1234567;//<----- use makeBetWinningProcess.getMakeBetPayoff() here
                 //out.nValue = makeBetWinningProcess.getMakeBetPayoff();
                 getBetTx.vout.push_back(out);
                 hasWinningBets=true;
@@ -196,12 +197,15 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if(hasWinningBets)
         {
             pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
-            pblocktemplate->vTxFees.push_back(0);
 
-            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]));
+            int64_t sigOpCost= WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back());
+            pblocktemplate->vTxSigOpsCost.push_back(sigOpCost);
             
             nBlockTx++;
-            nBlockWeight += GetTransactionWeight(getBetTx);
+            int64_t nTxWeight = GetTransactionWeight(getBetTx);
+            nBlockWeight += nTxWeight;
+            
+            getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);
         }
     }
 
@@ -216,11 +220,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseTx.vout[0].nValue = nFees + getBetFee + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
-    pblocktemplate->vTxFees[0] = -nFees;
+    pblocktemplate->vTxFees[0] = -nFees - getBetFee;
 
     std::cout<< "CreateNewBlock(): block weight: " << GetBlockWeight(*pblock) << " txs: " << nBlockTx << " fees: " << nFees << " sigops: " << nBlockSigOpsCost << std::endl;
 

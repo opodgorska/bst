@@ -5,6 +5,7 @@
 #include <core_io.h>
 #include <key_io.h>
 #include <logging.h>
+#include <policy/policy.h>
 #include <rpc/server.h>
 #include <uint256.h>
 #include <univalue.h>
@@ -96,5 +97,24 @@ bool MakeBetWinningProcess::isMakeBetWinning()
 
 CAmount MakeBetWinningProcess::getMakeBetPayoff()
 {
+    return 0;
+}
+
+CAmount applyFee(CMutableTransaction tx, int64_t nTxWeight, int64_t sigOpCost)
+{
+    //compute fee for this transaction and equally subtract it from each output
+    int64_t virtualSize = GetVirtualTransactionSize(nTxWeight, sigOpCost);
+    CAmount totalFee = ::minRelayTxFee.GetFee(virtualSize);
+    
+    CAmount fee = totalFee / tx.vout.size();
+    CAmount feeReminder = totalFee % tx.vout.size();
+    
+    for(const auto& txOut : tx.vout)
+    {
+        txOut.nValue-=fee;
+    }
+    
+    tx.vout.back()-=feeReminder;
+    
     return 0;
 }
