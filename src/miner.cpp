@@ -13,6 +13,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
+#include <games/gamesutils.h>
 #include <hash.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -164,16 +165,26 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (makeBets.size() > 0) 
     {
         CMutableTransaction getBetTx;
-        std::string str=random_string(16);
+        //std::string str=random_string(16);
 
-        getBetTx.vin.resize(1);
-        getBetTx.vin[0].prevout.hash = makeBets[0].GetHash();
-        getBetTx.vin[0].prevout.n = 0;
-        getBetTx.vout.resize(1);
-        getBetTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(str.c_str());
-        getBetTx.vout[0].nValue = 1234567;
-        getBetTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-
+        size_t j=0;
+        for(size_t i=0;i<makeBets.size();++i)
+        {
+            MakeBetWinningProcess makeBetWinningProcess(makeBets[i], pindexPrev->GetBlockHash());
+            if(makeBetWinningProcess.isMakeBetWinning())
+            {
+                getBetTx.vin.resize(1);
+                getBetTx.vin[j].prevout.hash = makeBets[i].GetHash();
+                getBetTx.vin[j].prevout.n = 0;
+                getBetTx.vin[j].scriptSig = CScript() << nHeight << OP_0;
+                getBetTx.vout.resize(1);
+                //getBetTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(str.c_str());
+                getBetTx.vout[j].scriptPubKey = createScriptPubkey(makeBets[i]);
+                getBetTx.vout[j].nValue = 1234567;
+                //getBetTx.vout[j].nValue = makeBetWinningProcess.getMakeBetPayoff();
+                ++j;
+            }
+        }
         pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
         pblocktemplate->vTxFees.push_back(0);
 

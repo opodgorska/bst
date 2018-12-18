@@ -69,3 +69,32 @@ UniValue findTx(const std::string& txid)
 
     return result;
 }
+
+CKeyID getTxKeyID(const CTransaction& tx, int inputIdx)
+{
+    if(!tx.vin[inputIdx].scriptWitness.IsNull())
+    {
+        return CKeyID(Hash160(tx.vin[inputIdx].scriptWitness.stack[1].begin(), tx.vin[inputIdx].scriptWitness.stack[1].end()));
+    }
+
+    return CKeyID(Hash160(tx.vin[inputIdx].scriptSig.begin(), tx.vin[inputIdx].scriptSig.end()));
+}
+
+CScript createScriptPubkey(const CTransaction& prevTx)
+{
+    const CKeyID keyID = getTxKeyID(prevTx);
+    return CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+}
+
+MakeBetWinningProcess::MakeBetWinningProcess(const CTransaction& tx, uint256 hash)
+{}
+
+bool MakeBetWinningProcess::isMakeBetWinning()
+{
+    return true;
+}
+
+CAmount MakeBetWinningProcess::getMakeBetPayoff()
+{
+    return 0;
+}
