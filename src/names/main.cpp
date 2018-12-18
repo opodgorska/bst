@@ -399,6 +399,7 @@ CheckNameTransaction (const CTransaction& tx, unsigned nHeight,
   int nameIn = -1;
   CNameScript nameOpIn;
   Coin coinIn;
+
   for (unsigned i = 0; i < tx.vin.size (); ++i)
     {
       const COutPoint& prevout = tx.vin[i].prevout;

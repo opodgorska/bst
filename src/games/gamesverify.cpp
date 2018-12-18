@@ -177,6 +177,7 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out,
         return false;
     }
     int32_t txVersion=txPrev["version"].get_int();
+
     int32_t makeBetIndicator = txVersion ^ indicator;
     if(makeBetIndicator > CTransaction::MAX_STANDARD_VERSION || makeBetIndicator < 1)
     {

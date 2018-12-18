@@ -111,6 +111,13 @@ static std::string random_string( size_t length )
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx)
 {
+    std::cout << "CreateNewBlock\n";
+
+    for (const CTransaction& tx : makeBets) {
+        std::cout << tx.GetHash().ToString() << std::endl;
+    }
+
+
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -218,13 +225,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime2 = GetTimeMicros();
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
-
-    std::cout << "CreateNewBlock\n";
-
-    for (const CTransaction& tx : makeBets) {
-        std::cout << tx.GetHash().ToString() << std::endl;
-    }
-
     makeBets.clear();
     return std::move(pblocktemplate);
 }
