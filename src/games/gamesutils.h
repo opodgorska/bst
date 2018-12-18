@@ -34,6 +34,6 @@ public:
     CAmount getMakeBetPayoff();
 };
 
-CAmount applyFee(CMutableTransaction tx, int64_t nTxWeight, int64_t sigOpCost);
+CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost);
 
 #endif

@@ -100,8 +100,13 @@ CAmount MakeBetWinningProcess::getMakeBetPayoff()
     return 0;
 }
 
-CAmount applyFee(CMutableTransaction tx, int64_t nTxWeight, int64_t sigOpCost)
+CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost)
 {
+    if(tx.vout.size()==0)
+    {
+        return 0;
+    }
+
     //compute fee for this transaction and equally subtract it from each output
     int64_t virtualSize = GetVirtualTransactionSize(nTxWeight, sigOpCost);
     CAmount totalFee = ::minRelayTxFee.GetFee(virtualSize);
@@ -116,5 +121,5 @@ CAmount applyFee(CMutableTransaction tx, int64_t nTxWeight, int64_t sigOpCost)
     
     tx.vout.back().nValue-=feeReminder;
     
-    return 0;
+    return totalFee;
 }

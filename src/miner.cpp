@@ -196,9 +196,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         
         if(hasWinningBets)
         {
-            pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
-
-            int64_t sigOpCost= WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back());
+            int64_t sigOpCost= WITNESS_SCALE_FACTOR * GetLegacySigOpCount(CTransaction(getBetTx));
             pblocktemplate->vTxSigOpsCost.push_back(sigOpCost);
             
             nBlockTx++;
@@ -206,6 +204,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             nBlockWeight += nTxWeight;
             
             getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);
+            pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
         }
     }
 
