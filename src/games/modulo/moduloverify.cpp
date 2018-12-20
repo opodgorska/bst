@@ -319,6 +319,11 @@ namespace modulo
         return isMakeBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR);
     }
 
+    bool isNewGetBetTx(const CTransaction& tx)
+    {
+        return isMakeBetTx(tx, GET_MODULO_NEW_GAME_INDICATOR);
+    }
+
     bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
     {
         try

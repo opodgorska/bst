@@ -187,6 +187,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (makeBets.size() > 0) 
     {
         CMutableTransaction getBetTx;
+        getBetTx.nVersion=(GET_MODULO_NEW_GAME_INDICATOR | CTransaction::CURRENT_VERSION);
         bool hasWinningBets = false;
         uint256 prevBlockHash = pindexPrev->GetBlockHash();
         for(size_t i=0;i<makeBets.size();++i)

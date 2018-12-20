@@ -1334,7 +1334,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
-            if(tx.vout[0].nValue != 1234567)
+            if(!modulo::isNewGetBetTx(tx))
             {
                 bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
                 assert(is_spent);
@@ -2027,7 +2027,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         nInputs += tx.vin.size();
 
-        if (!tx.IsCoinBase() && (tx.vout[0].nValue != 1234567))
+        if (!tx.IsCoinBase() && !modulo::isNewGetBetTx(tx))
         {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, flags, txfee)) {
@@ -2057,7 +2057,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        if(tx.vout[0].nValue != 1234567)
+        if(!modulo::isNewGetBetTx(tx))
         {
             nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
             if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
@@ -2066,7 +2066,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         txdata.emplace_back(tx);
-        if (!tx.IsCoinBase() && (tx.vout[0].nValue != 1234567))
+        if (!tx.IsCoinBase() && !modulo::isNewGetBetTx(tx))
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -2082,7 +2082,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
         
-        if((tx.vout[0].nValue != 1234567))
+        if(!modulo::isNewGetBetTx(tx))
         {
             ApplyNameTransaction(tx, pindex->nHeight, view, blockundo);
         }
