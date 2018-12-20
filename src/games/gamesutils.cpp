@@ -219,7 +219,7 @@ bool MakeBetWinningProcess::isMakeBetWinning()
             betType = betType.substr(amountPos+1);
         }
 
-        LogPrintf("m_payoff = %d\n");
+        LogPrintf("m_payoff = %d\n", m_payoff);
         if (m_payoff <= 0) {
             return false;
         }
