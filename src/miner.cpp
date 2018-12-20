@@ -30,6 +30,8 @@
 #include <queue>
 #include <utility>
 
+#include <games/modulo/moduloverify.h>
+
 // Unconfirmed transactions in the memory pool often depend on other
 // transactions in the memory pool. When we select transactions from the
 // pool, we select by highest fee rate of a transaction combined with all
@@ -114,11 +116,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 {
     std::cout << "CreateNewBlock\n";
 
-    for (const CTransaction& tx : makeBets) {
-        std::cout << tx.GetHash().ToString() << std::endl;
-    }
-
-
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -139,6 +136,23 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     CBlockIndex* pindexPrev = chainActive.Tip();
     assert(pindexPrev != nullptr);
+    
+    CBlock prevBlock;
+    std::vector<CTransaction> makeBets;
+    if(ReadBlockFromDisk(prevBlock, pindexPrev, Params().GetConsensus()))
+    {
+        for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
+            const CTransaction& tx = *(prevBlock.vtx[i]);
+            if (isMakeBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR)) {
+                std::cout << "is makebet\n";
+                makeBets.push_back(tx);
+            }
+            else {
+                std::cout << "is not makebet\n";
+            }
+        }
+    }
+    
     nHeight = pindexPrev->nHeight + 1;
 
     pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());

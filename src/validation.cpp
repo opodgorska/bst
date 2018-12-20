@@ -146,7 +146,6 @@ private:
     CCriticalSection m_cs_chainstate;
 
 public:
-    std::vector<CTransaction> makeBets;
     CChain chainActive;
     BlockMap mapBlockIndex;
     std::multimap<CBlockIndex*, CBlockIndex*> mapBlocksUnlinked;
@@ -214,7 +213,6 @@ CCriticalSection cs_main;
 
 BlockMap& mapBlockIndex = g_chainstate.mapBlockIndex;
 CChain& chainActive = g_chainstate.chainActive;
-std::vector<CTransaction>& makeBets = g_chainstate.makeBets;
 CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 std::condition_variable g_best_block_cv;
@@ -1332,12 +1330,15 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!tx.IsCoinBase() && (tx.vout[0].nValue != 1234567)) {
+    if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
-            bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
-            assert(is_spent);
+            if(tx.vout[0].nValue != 1234567)
+            {
+                bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
+                assert(is_spent);
+            }
         }
     }
     // add outputs
@@ -2129,18 +2130,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     int64_t nTime6 = GetTimeMicros(); nTimeCallbacks += nTime6 - nTime5;
     LogPrint(BCLog::BENCH, "    - Callbacks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime6 - nTime5), nTimeCallbacks * MICRO, nTimeCallbacks * MILLI / nBlocksTotal);
-
-
-    for (unsigned int i = 0; i < block.vtx.size(); i++) {
-        const CTransaction& tx = *(block.vtx[i]);
-        if (isMakeBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR)) {
-            std::cout << "is makebet\n";
-            makeBets.push_back(tx);
-        }
-        else {
-            std::cout << "is not makebet\n";
-        }
-    }
 
     return true;
 }
