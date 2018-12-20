@@ -53,6 +53,7 @@ BITCOIN_TESTS =\
   test/descriptor_tests.cpp \
   test/getarg_tests.cpp \
   test/game_betformat_tests.cpp \
+  test/game_getbet_tests.cpp \
   test/hash_tests.cpp \
   test/key_io_tests.cpp \
   test/key_tests.cpp \

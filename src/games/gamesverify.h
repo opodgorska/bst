@@ -32,6 +32,7 @@ public:
     virtual bool operator()(int nSpendHeight, const std::string& betTypePattern, const std::vector<int>& betNumbers)=0;
 };
 
+bool txVerify(int nSpendHeight, const CTransaction& tx, const CTransactionRef& txPrevRef, UniValue& txPrev, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, int32_t maxReward, CAmount& totalReward, CAmount& inputSum, unsigned int idx);
 bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward);
 
 class VerifyMakeBetTx
