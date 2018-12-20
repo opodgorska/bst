@@ -7,17 +7,6 @@
 #include <games/gamestxs.h>
 #include <games/gamesverify.h>
 
-static unsigned int blockHashStr2Int(const std::string& hashStr)
-{
-    unsigned int hash;
-    std::vector<unsigned char> binaryBlockHash(hashStr.length()/2, 0);
-    hex2bin(binaryBlockHash, hashStr);
-    std::vector<unsigned char> blockhashVector(binaryBlockHash.end()-4, binaryBlockHash.end());
-    array2typeRev(blockhashVector, hash);
-
-    return hash;
-}
-
 static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsigned int argument, ArgumentOperation* operation)
 {
     unsigned int blockhashTmp=blockHashStr2Int(makeTxBlockHash);
