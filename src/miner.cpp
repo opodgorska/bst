@@ -202,8 +202,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 getBetTx.vin.push_back(in);
                 CTxOut out;
                 out.scriptPubKey = createScriptPubkey(makeBets[i]);
-                out.nValue = 1234567;//<----- use makeBetWinningProcess.getMakeBetPayoff() here
-                //out.nValue = makeBetWinningProcess.getMakeBetPayoff();
+                out.nValue = makeBetWinningProcess.getMakeBetPayoff();
                 getBetTx.vout.push_back(out);
                 hasWinningBets=true;
             }
@@ -218,8 +217,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             int64_t nTxWeight = GetTransactionWeight(getBetTx);
             nBlockWeight += nTxWeight;
             
-            getBetFee = 0;
-            /*getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);*/
+            getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);
             pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
         }
     }

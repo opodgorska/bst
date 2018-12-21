@@ -187,7 +187,7 @@ public:
     void UnloadBlockIndex();
 
 private:
-    bool getBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock);
+    bool getBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, CAmount& fee);
     bool ActivateBestChainStep(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectTip(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -1829,7 +1829,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 static int64_t nBlocksTotal = 0;
 
-bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock)
+bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, CAmount& fee)
 {
     struct MakeBetData {
         CTxOut out;
@@ -1899,6 +1899,8 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
             return false;
         }
 
+        fee += makeBetData.payoff - output.nValue;
+
         //what else should be checked????
         prevBlockWinningBets.erase(iter);
     }
@@ -1960,9 +1962,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
-//    if (!getBetVerify(hashPrevBlock, block)) {
-//        //return Error;
-//    }
+    CAmount getBetFee=0;
+    if (!getBetVerify(hashPrevBlock, block, getBetFee)) {
+        LogPrintf("getBetVerify failed\n");
+        return false;
+    }
 
     nBlocksTotal++;
 
@@ -2178,6 +2182,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
+    nFees+=getBetFee;    
+    if (!MoneyRange(nFees)) {
+        return state.DoS(100, error("%s: accumulated fee including getBetFee in the block out of range.", __func__),
+                         REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
+    }
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
         return state.DoS(100,
