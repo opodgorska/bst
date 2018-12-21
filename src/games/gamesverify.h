@@ -78,7 +78,7 @@ private:
 };
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
-bool isInputBet(const CTxIn& input);
+bool isInputBet(const CTxIn& input, uint *numOfBetsNumbers_ = nullptr, std::vector<int> *betNumbers_ = nullptr);
 std::string getBetType(const CTransaction& tx);
 
 #endif

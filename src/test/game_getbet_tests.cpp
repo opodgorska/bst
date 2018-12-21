@@ -596,8 +596,88 @@ BOOST_AUTO_TEST_CASE(GetBetTestFormat_BetNumbersFormat)
     txn.vin[0].scriptSig += game;
 
     BOOST_CHECK_EQUAL(false, run_txVerify(prev_txn, UV_txPrev, txn));
+}
+
+BOOST_AUTO_TEST_CASE(GetBetTestFormat_isInputBet)
+{
+
+    const std::string command = "00000000000024_red";
+    CScript game = CScript() << ParseHex(red_game);
+
+    CMutableTransaction txn;
+    prepareTransaction(txn);
+    txn.vin[0].scriptSig = CScript() << ParseHex("15000000") // 21 blockhash
+                                     << ParseHex("01020304")
+                                     << ParseHex("0A0B0C0D");
+    txn.vin[0].scriptSig += game;
+
+    CScript::iterator it = std::find(game.begin() + 4, game.end(), OP_DUP);
+    for (int i=0; i<(6 * 17); ++it, ++i)
+    {
+        bool byteCheck = ((*it)==OP_DUP || (*it)==OP_EQUAL || (*it)==OP_IF || (*it)==OP_DROP || (*it)==OP_TRUE || (*it)==OP_ELSE);
+        BOOST_ASSERT(byteCheck);
+        txn.vin[0].scriptSig = CScript() << ParseHex("15000000") // 21 blockhash
+                                         << ParseHex("01020304")
+                                         << ParseHex("0A0B0C0D");
+        txn.vin[0].scriptSig += game;
+        BOOST_CHECK_EQUAL(true, isInputBet(txn.vin[0]));
+
+        unsigned char prevVal = (*it);
+        (*it) = 0x00;
+        txn.vin[0].scriptSig = CScript() << ParseHex("15000000") // 21 blockhash
+                                         << ParseHex("01020304")
+                                         << ParseHex("0A0B0C0D");
+        txn.vin[0].scriptSig += game;
+
+        BOOST_CHECK_EQUAL(false, isInputBet(txn.vin[0]));
+
+        (*it) = prevVal;
+        if (*(it) == OP_DUP) it += 5; // skip number array, always after OP_DUP
+    }
+
+    it += 5; // skip number array (last number)
+    BOOST_ASSERT(*(it) == OP_EQUALVERIFY);
+
+    txn.vin[0].scriptSig = CScript() << ParseHex("15000000") // 21 blockhash
+                                     << ParseHex("01020304")
+                                     << ParseHex("0A0B0C0D");
+    txn.vin[0].scriptSig += game;
+    BOOST_CHECK_EQUAL(true, isInputBet(txn.vin[0]));
+
+    (*it) = 0x00;
+    txn.vin[0].scriptSig = CScript() << ParseHex("15000000") // 21 blockhash
+                                     << ParseHex("01020304")
+                                     << ParseHex("0A0B0C0D");
+    txn.vin[0].scriptSig += game;
+
+    BOOST_CHECK_EQUAL(false, isInputBet(txn.vin[0]));
+}
+
+BOOST_AUTO_TEST_CASE(GetBetTestFormat_isInputBetWithAdditionalArgs)
+{
+    std::vector<int> red_game_values(18);
+    for (uint i=0; i<red_game_values.size(); ++i)
+    {
+        red_game_values[i] = modulo::red[i];
+    }
 
 
+    const std::string command = "00000000000024_red";
+    CScript game = CScript() << ParseHex(red_game);
+
+    CMutableTransaction txn;
+    prepareTransaction(txn);
+    txn.vin[0].scriptSig = CScript() << ParseHex("15000000") // 21 blockhash
+                                     << ParseHex("01020304")
+                                     << ParseHex("0A0B0C0D");
+    txn.vin[0].scriptSig += game;
+
+    uint _numOfBets = 0;
+    std::vector<int> _betNumbers;
+
+    BOOST_CHECK_EQUAL(true, isInputBet(txn.vin[0], &_numOfBets, &_betNumbers));
+    BOOST_CHECK_EQUAL(_numOfBets, red_game_values.size());
+    BOOST_CHECK_EQUAL_COLLECTIONS(_betNumbers.rbegin(), _betNumbers.rend(), red_game_values.begin(), red_game_values.end());
 }
 
 BOOST_AUTO_TEST_SUITE_END()
