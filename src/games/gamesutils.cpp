@@ -75,12 +75,13 @@ UniValue findTx(const std::string& txid)
 
 CKeyID getTxKeyID(const CTransaction& tx, int inputIdx)
 {
+    //TODO what if funding transacton is neither p2pkh nor p2sh-wittness?
     if(!tx.vin[inputIdx].scriptWitness.IsNull())
     {
         return CKeyID(Hash160(tx.vin[inputIdx].scriptWitness.stack[1].begin(), tx.vin[inputIdx].scriptWitness.stack[1].end()));
     }
 
-    return CKeyID(Hash160(tx.vin[inputIdx].scriptSig.begin(), tx.vin[inputIdx].scriptSig.end()));
+    return CKeyID(Hash160(tx.vin[inputIdx].scriptSig.end()-33, tx.vin[inputIdx].scriptSig.end()));
 }
 
 CScript createScriptPubkey(const CTransaction& prevTx)
@@ -242,6 +243,7 @@ CAmount MakeBetWinningProcess::getMakeBetPayoff()
 
 CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost)
 {
+    //TODO what if fee is greater than payoff
     if(tx.vout.size()==0)
     {
         return 0;

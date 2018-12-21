@@ -1975,8 +1975,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CAmount getBetFee=0;
     if (!getBetVerify(hashPrevBlock, block, getBetFee)) {
-        LogPrintf("getBetVerify failed\n");
-        return false;
+        return state.DoS(100, error("ConnectBlock(): getBetVerify failed"),
+                         REJECT_INVALID, "bad-getbet-verify");
     }
 
     nBlocksTotal++;
