@@ -143,6 +143,18 @@ bool isInputBet(const CTxIn& input) {
     return true;
 }
 
+template <typename TDataArray, typename TMaskArray>
+bool filterCompare(TDataArray& data, TMaskArray& mask)
+{
+    if (data.size() < mask.size()) return false;
+
+    for (unsigned int i = 0; i < mask.size(); ++i)
+        if(mask[i] != 0xFF && mask[i] != data[i]) {
+            LogPrintf("%s:ERROR transaction format check failed, data: %u, position: %u, mask: %u\n", __func__, (int)data[i], i, (int)mask[i]);
+            return false;
+        }
+    return true;
+}
 
 bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
 {
@@ -215,150 +227,60 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, const CTransactionRef& t
         return false;
     }
 
-    std::string betType;
-    try
+    std::string betType = getBetType(*txPrevRef);
+    if (betType.empty())
     {
-        bool isOpReturnFlag=false;
-        for(size_t i=1; i<txPrev["vout"].size();++i)
-        {
-            if(txPrev["vout"][i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
-            {
-                int length=0;
-                int offset=0;
-                std::string hexStr=txPrev["vout"][i][std::string("scriptPubKey")][std::string("hex")].get_str();
-                int order=std::stoi(hexStr.substr(2,2),nullptr,16);
-                if(order<=0x4b)
-                {
-                    length=order;
-                    offset=4;
-                }
-                else if(order==0x4c)
-                {
-                    length=std::stoi(hexStr.substr(4,2),nullptr,16);
-                    offset=6;
-                }
-                else if(order==0x4d)
-                {
-                    std::string strLength=hexStr.substr(4,4);
-                    reverseEndianess(strLength);
-                    length=std::stoi(strLength,nullptr,16);
-                    offset=8;
-                }
-                else if(order==0x4e)
-                {
-                    std::string strLength=hexStr.substr(4,8);
-                    reverseEndianess(strLength);
-                    length=std::stoi(strLength,nullptr,16);
-                    offset=12;
-                }
-                else
-                {
-                    LogPrintf("txVerify: betType length is too-large\n");
-                    return false;
-                }
+        LogPrintf("%s:ERROR betType length is empty\n", __func__);
+        return false;
+    }
 
-                length*=2;
-                std::string betTypeHex=hexStr.substr(offset, length);
-                hex2ascii(betTypeHex, betType);
-                isOpReturnFlag=true;
-                break;
-            }
-        }
-        if(!isOpReturnFlag)
+    unsigned int game_argument = 0;
+    try {
+        game_argument = getArgumentFromBetType(betType, maxReward);
+    } catch (std::exception& e) {
+        LogPrintf("%s:ERROR bad argument: %ld, exception: %s\n", __func__, game_argument, e.what());
+        return false;
+    }
+
+    uint32_t nPrevOut=tx.vin[idx].prevout.n;
+    for(uint32_t n=0;n<nPrevOut;++n)
+    {
+        size_t pos=betType.find("+");
+        if (pos == std::string::npos)
         {
-            LogPrintf("txVerify: betType length is empty\n");
+            LogPrintf("txVerify: incorrect betType, nPrevOut: %d\n", nPrevOut);
             return false;
         }
-        else
-        {
-            size_t pos_=betType.find("_");
-            std::string opReturnArg=betType.substr(0,pos_);
-            betType=betType.substr(pos_+1);
-
-            unsigned int opReturnArgNum;
-            sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
-            if(opReturnArgNum != argument)
-            {
-                LogPrintf("txVerify: opReturnArgNum: %x != argument: %x \n", opReturnArgNum, argument);
-                return false;
-            }
-
-            uint32_t nPrevOut=tx.vin[idx].prevout.n;
-            for(uint32_t n=0;n<nPrevOut;++n)
-            {
-                size_t pos=betType.find("+");
-                if (pos == std::string::npos)
-                {
-                    LogPrintf("txVerify: incorrect betType, nPrevOut: %d\n", nPrevOut);
-                    return false;
-                }
-                betType=betType.substr(pos+1);
-            }
-            size_t pos=betType.find("+");
-            betType=betType.substr(0,pos);
-        }
+        betType=betType.substr(pos+1);
     }
-    catch(const std::out_of_range& oor)
-    {
-        LogPrintf("txVerify: betType is out-of-range\n");
-        return false;
-    }
-    if(betType.empty())
-    {
-        LogPrintf("txVerify: betType is empty\n");
-        return false;
-    }
+    size_t pos=betType.find("+");
+    betType=betType.substr(0,pos);
 
     int opReturnReward=(*getReward)(betType, argument);
 
-    int numOfBetsNumbers=0;
-    CScript::const_iterator it_end=tx.vin[idx].scriptSig.end()-1;
+    std::array<unsigned char, 10> byte_mask {OP_ELSE, OP_DROP, OP_FALSE, OP_ENDIF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, OP_DROP};
+    std::array<unsigned char, 10> script_footer;
+    std::copy_n(tx.vin[idx].scriptSig.end()-byte_mask.size(), byte_mask.size(), script_footer.begin());
 
-    if(*it_end!=OP_DROP)
+    if (!filterCompare(script_footer, byte_mask))
     {
-        LogPrintf("txVerify: transaction format check failed\n");
         return false;
     }
-    it_end-=6;
-    if(*it_end!=OP_ENDIF)
+
+    CScript::const_iterator it_end = tx.vin[idx].scriptSig.end() - (byte_mask.size() + 1);
+
+    uint numOfBetsNumbers = 0;
+    for (; numOfBetsNumbers < 18; ++numOfBetsNumbers)
     {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
-    --it_end;
-    if(*it_end!=OP_FALSE)
-    {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
-    --it_end;
-    if(*it_end!=OP_DROP)
-    {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
-    --it_end;
-    if(*it_end!=OP_ELSE)
-    {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
-    --it_end;
-    for(CScript::const_iterator it=it_end;it>it_end-18;--it)
-    {
-        if(OP_TRUE==*it)
-        {
-            numOfBetsNumbers=it_end-it+1;
-            it_end=it;
-            break;
-        }
-        else if(OP_ENDIF!=*it)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
+        if (*(it_end-numOfBetsNumbers) == OP_TRUE) break;
+        if (*(it_end-numOfBetsNumbers) != OP_ENDIF) {
+            LogPrintf("%s:ERROR transaction format check failed\n", __func__);
             return false;
         }
     }
-    --it_end;
+    ++numOfBetsNumbers;
+    it_end -= numOfBetsNumbers;
+
     if(*it_end!=OP_EQUALVERIFY)
     {
         LogPrintf("txVerify: transaction format check failed\n");
@@ -376,55 +298,33 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, const CTransactionRef& t
     int betNumber=0;
     array2type(betNumber_, betNumber);
     std::vector<int> betNumbers(1, betNumber);
-    it_end-=6;
+    it_end-=5;
 
-    for(int i=0;i<numOfBetsNumbers-1;++i)
+    std::array<unsigned char, 5> byte_mask2 {OP_EQUAL, OP_IF, OP_DROP, OP_TRUE, OP_ELSE};
+
+    for (uint i=0; i<numOfBetsNumbers-1; ++i)
     {
-        //OP_DUP << betNumberArray << OP_EQUAL << OP_IF << OP_DROP << OP_TRUE << OP_ELSE
-        if(*it_end!=OP_ELSE)
+        std::copy_n(it_end-byte_mask2.size(), byte_mask2.size(), script_footer.begin());
+
+        if (!filterCompare(script_footer, byte_mask2))
         {
-            LogPrintf("txVerify: transaction format check failed\n");
             return false;
         }
-        --it_end;
-        if(*it_end!=OP_TRUE)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_DROP)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_IF)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_EQUAL)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        betNumber_[3]=*it_end--;
-        betNumber_[2]=*it_end--;
-        betNumber_[1]=*it_end--;
-        betNumber_[0]=*it_end--;
-        --it_end;
+
+        it_end -= byte_mask2.size();
+
+        std::copy_n(it_end-betNumber_.size(), betNumber_.size(), betNumber_.begin());
+        it_end -= (betNumber_.size() + 2);
+
         if(*it_end!=OP_DUP)
         {
             LogPrintf("txVerify: transaction format check failed\n");
             return false;
         }
-        --it_end;
 
-       array2type(betNumber_, betNumber);
-       betNumbers.push_back(betNumber);
+        array2type(betNumber_, betNumber);
+        betNumbers.push_back(betNumber);
+
     }
 
     if(!(*compareBet2Vector)(nSpendHeight, betType, betNumbers))
@@ -433,34 +333,25 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, const CTransactionRef& t
         return false;
     }
 
-    if(*it_end!=OP_IF)
+    std::array<unsigned char, 3> byte_mask3 {OP_EQUALVERIFY, OP_CHECKSIG, OP_IF};
+    std::copy_n(it_end-byte_mask3.size(), byte_mask3.size(), script_footer.begin());
+
+    if (!filterCompare(script_footer, byte_mask3))
     {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
-    --it_end;
-    if(*it_end!=OP_CHECKSIG)
-    {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
-    --it_end;
-    if(*it_end!=OP_EQUALVERIFY)
-    {
-        LogPrintf("txVerify: transaction format check failed\n");
         return false;
     }
 
-    if(*(it_end-22)!=OP_HASH160)
+    it_end -= (byte_mask3.size() + 21);
+
+    std::array<unsigned char, 2> byte_mask4 {OP_DUP, OP_HASH160};
+    std::copy_n(it_end-byte_mask4.size(), byte_mask4.size(), script_footer.begin());
+
+    if (!filterCompare(script_footer, byte_mask4))
     {
-        LogPrintf("txVerify: transaction format check failed\n");
         return false;
     }
-    if(*(it_end-23)!=OP_DUP)
-    {
-        LogPrintf("txVerify: transaction format check failed\n");
-        return false;
-    }
+
+    it_end -= byte_mask4.size();
 
     CScript::const_iterator it_begin=tx.vin[idx].scriptSig.begin();
     it_begin+=(*it_begin)+1;
@@ -472,7 +363,7 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, const CTransactionRef& t
     }
     it_begin++;
 
-    if((it_end-23)!=it_begin)
+    if(it_end!=it_begin)
     {
         LogPrintf("txVerify: script length check failed\n");
         return false;
