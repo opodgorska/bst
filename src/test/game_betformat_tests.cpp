@@ -321,10 +321,10 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
     BOOST_CHECK_EQUAL(false, modulo::txMakeBetVerify(CTransaction(txn), true));
 }
 
-BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit)
+BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit_SumOfBetsBelow90)
 {
     CAmount amount = GetBlockSubsidy(1, Params().GetConsensus()) / 2;
-    CAmount rewardSum = 0;
+    CAmount rewardSum = 0, betsSum;
     const std::string game_tag = "3030303030303031";
     const std::string command = "_straight_4";
 
@@ -337,22 +337,22 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit)
     // limit (50% of block subsidy)
     txn.vout[0].nValue = amount;
     txn.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
 
-    // overlimit
-    rewardSum = 0;
+    // overlimit, but sum of bets is less than 90% of block subsidy
+    rewardSum = 0, betsSum = 0;
     amount += 1;
     txn.vout[0].nValue = amount;
     txn.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit)
 {
     CAmount one_bet_limit = (GetBlockSubsidy(1, Params().GetConsensus()) / 2);
     CAmount amount = (one_bet_limit/4);
-    CAmount rewardSum = 0;
+    CAmount rewardSum = 0, betsSum = 0;
     const std::string game_tag = "3030303030303031";
     const std::string command = "_1+2+3+4";
 
@@ -372,14 +372,14 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit
 
     // limit (50% of block subsidy)
     txn.vout[4].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
 
     // overlimit
     amount += 1;
     txn.vout[3].nValue = amount;
     txn.vout[4].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverLimit)
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverLimit)
     CAmount one_bet_limit = (GetBlockSubsidy(1, Params().GetConsensus()) / 2);
     const std::string game_tag = "3030303030303031"; // modulo 1
     std::string command = "_";
-    CAmount rewardSum{};
+    CAmount rewardSum{}, betsSum{};
 
     CMutableTransaction txn;
     prepareTransaction(txn);
@@ -412,7 +412,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverLimit)
 
     // limit
     txn.vout.rbegin()->scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
 
     // overlimit
@@ -420,7 +420,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverLimit)
     txn.vout.rbegin()->nValue = one_bet_limit;
     txn.vout.push_back(CTxOut{});
     txn.vout.rbegin()->scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -340,12 +340,30 @@ namespace modulo
             VerifyMakeModuloBetTx verifyMakeModuloBetTx;
             ModuloOperation moduloOperation;
             GetModuloReward getModuloReward;
-            VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
+            VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
             return verifyBlockReward.isBetPayoffExceeded();
         }
         catch(...)
         {
             LogPrintf("modulo::isBetPayoffExceeded exception occured");
+            return false;
+        }
+    };
+
+    CAmount getSumOfTxnBets(const CTransaction& txn)
+    {
+        try
+        {
+            CBlock block;
+            VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+            ModuloOperation moduloOperation;
+            GetModuloReward getModuloReward;
+            VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+            return verifyBlockReward.getSumOfTxnBets(txn);
+        }
+        catch(...)
+        {
+            LogPrintf("modulo::isSumOfBetsOverSubsidyLimit exception occured");
             return false;
         }
     };
@@ -366,7 +384,7 @@ namespace modulo
     };
 
 
-    bool checkBetsPotentialReward(CAmount &rewardSum, const CTransaction& txn, bool ignoreHardfork)
+    bool checkBetsPotentialReward(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork)
     {
         try
         {
@@ -374,8 +392,8 @@ namespace modulo
             VerifyMakeModuloBetTx verifyMakeModuloBetTx;
             ModuloOperation moduloOperation;
             GetModuloReward getModuloReward;
-            VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
-            return verifyBlockReward.checkPotentialRewardLimit(rewardSum, txn, ignoreHardfork);
+            VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+            return verifyBlockReward.checkPotentialRewardLimit(rewardSum, betsSum, txn, ignoreHardfork);
         }
         catch(...)
         {

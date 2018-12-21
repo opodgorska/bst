@@ -476,8 +476,8 @@ bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out,
     return true;
 }
 
-VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_, int32_t makeBetIndicator_, CAmount maxPayoff_) :
-                                     block(block_), argumentOperation(argumentOperation_), getReward(getReward_), verifyMakeBetTx(verifyMakeBetTx_), makeBetIndicator(makeBetIndicator_), maxPayoff(maxPayoff_)
+VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_, int32_t makeBetIndicator_, CAmount maxPayoff_, CAmount maxReward_) :
+                                     block(block_), argumentOperation(argumentOperation_), getReward(getReward_), verifyMakeBetTx(verifyMakeBetTx_), makeBetIndicator(makeBetIndicator_), maxPayoff(maxPayoff_), maxReward(maxReward_)
 {
     blockSubsidy=GetBlockSubsidy(chainActive.Height(), params);
     uint256 hash=block.GetHash();
@@ -561,6 +561,7 @@ bool VerifyBlockReward::isBetPayoffExceeded()
 
     CAmount inAcc=0;
     CAmount payoffAcc=0;
+    bool bidExceededSubsidy = false;
     for (const auto& tx : block.vtx)
     {
         try
@@ -581,13 +582,16 @@ bool VerifyBlockReward::isBetPayoffExceeded()
                 {
                     size_t pos=betType.find("+");
                     int reward=(*getReward)(betType.substr(0,pos), argument);
+                    CAmount payoff = 0;
                     if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
                     {
-                        CAmount payoff=tx->vout[i].nValue * reward;
+                        payoff=tx->vout[i].nValue * reward;
                         payoffAcc+=payoff;
                     }
                     inAcc+=tx->vout[i].nValue;
 
+                    // single potential reward higher than half of block subsidy
+                    if (payoff > (blockSubsidy/2)) bidExceededSubsidy = true;
 
                     if(pos==std::string::npos)
                     {
@@ -604,11 +608,20 @@ bool VerifyBlockReward::isBetPayoffExceeded()
         }
     }
 
+    // sum of all bets higher than 90% of block subsidy
     if(inAcc >= ((9*blockSubsidy)/10))
     {
+        // sum of all wins should be less than sum of all bets + block subsidy
         if(payoffAcc>inAcc+blockSubsidy)
         {
             LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
+            return true;
+        }
+
+        // potential reward of single bet should be less than half of block subsidy
+        if (bidExceededSubsidy)
+        {
+            LogPrintf("Potential reward of one bet higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
             return true;
         }
     }
@@ -616,7 +629,7 @@ bool VerifyBlockReward::isBetPayoffExceeded()
     return false;
 }
 
-bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTransaction &txn, bool ignoreHardfork)
+bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
 {
     if (!ignoreHardfork && chainActive.Height() < MAKEBET_REWARD_LIMIT)
     {
@@ -625,6 +638,7 @@ bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTra
 
     if (isMakeBetTx(txn))
     {
+        bool bidExceededSubsidy = false;
         std::string betType = getBetType(txn);
         if (betType.empty())
         {
@@ -637,13 +651,22 @@ bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTra
         {
             size_t pos =  betType.find("+");
             int reward = (*getReward)(betType.substr(0, pos), argument);
-            CAmount payoff = reward * txn.vout[i].nValue;
-
-            if (payoff > (blockSubsidy/2))
+            // max single multiplier should be less than MAX_REWARD
+            if (reward > maxReward)
             {
-                LogPrintf("%s: ERROR potential reward of one bet %ld higher than half subsidy value, blockSubsidy: %d\n", __func__, payoff, blockSubsidy);
+                LogPrintf("%s: ERROR potential reward of one bet %ld higher than admissible limit: %ld\n", __func__, reward, maxReward);
                 return false;
             }
+
+            CAmount payoff = reward * txn.vout[i].nValue;
+            if (betsSum < ((9*blockSubsidy)/10))
+            {
+                // do not add if it overlimit
+                betsSum += txn.vout[i].nValue;
+            }
+
+            // single potential reward higher than half of block subsidy
+            if (payoff > (blockSubsidy/2)) bidExceededSubsidy = true;
 
             rewardSum += payoff;
 
@@ -654,14 +677,50 @@ bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, const CTra
             betType = betType.substr(pos+1);
         }
 
-        bool rv = (rewardSum <= maxPayoff);
-        if (!rv)
+        // sum of all potential wins in block should be less than MAX_PAYOFF
+        if (rewardSum > maxPayoff)
         {
             LogPrintf("%s: ERROR potential:%ld max:%ld\n", __func__, rewardSum, maxPayoff);
+            return false;
         }
-        return rv;
+        // sum of all bets higher than 90% of block subsidy
+        if (betsSum >= ((9*blockSubsidy)/10))
+        {
+            // potential reward of single bet should be less than half of block subsidy
+            if (bidExceededSubsidy)
+            {
+                LogPrintf("Potential reward of one bet higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
+                return false;
+            }
+        }
+
     }
     return true;
+}
+
+CAmount VerifyBlockReward::getSumOfTxnBets(const CTransaction& txn)
+{
+    CAmount sumOfBets{};
+    if(isMakeBetTx(txn))
+    {
+        std::string betType=getBetType(txn);
+        if(betType.empty())
+        {
+            LogPrintf("%s ERROR: empty betType", __func__);
+            return sumOfBets;
+        }
+        for(size_t i=0;true;++i)//all tx.otputs
+        {
+            size_t pos=betType.find("+");
+            sumOfBets+=txn.vout[i].nValue;
+            if(pos==std::string::npos)
+            {
+                break;
+            }
+            betType=betType.substr(pos+1);
+        }
+    }
+    return sumOfBets;
 }
 
 bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator)
