@@ -1834,6 +1834,7 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
     struct MakeBetData {
         CTxOut out;
         CAmount payoff;
+        CKeyID keyID;
     };
 
     std::map<uint256, MakeBetData> prevBlockWinningBets;
@@ -1848,7 +1849,8 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
                 MakeBetWinningProcess makeBetWinningProcess(tx, hashPrevBlock);
                 if (makeBetWinningProcess.isMakeBetWinning()) {
                     const CAmount payoff = makeBetWinningProcess.getMakeBetPayoff();
-                    prevBlockWinningBets[tx.GetHash()] = MakeBetData{tx.vout[0], payoff};
+                    const CKeyID keyID = getTxKeyID(tx);
+                    prevBlockWinningBets[tx.GetHash()] = MakeBetData{tx.vout[0], payoff, keyID};
                 }
             }
         }
@@ -1896,6 +1898,15 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
         MakeBetData& makeBetData = iter->second;
         if (makeBetData.payoff < output.nValue) {
             LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+            return false;
+        }
+
+        std::vector<unsigned char> vpubkeyHash(output.scriptPubKey.begin()+3, output.scriptPubKey.end()-2);
+        uint160 pubkeyHash(vpubkeyHash);
+        CKeyID keyID(pubkeyHash);
+        if(!(makeBetData.keyID == keyID))
+        {
+            LogPrintf("Error: keyIDs don't match\n");
             return false;
         }
 
