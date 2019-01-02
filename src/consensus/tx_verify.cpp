@@ -246,7 +246,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount nValueIn = 0;
     unsigned int getBetInCount=0;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
-        if (isInputBet(tx.vin[i])) {
+        if (modulo::isInputBet(tx.vin[i])) {
             ++getBetInCount;
         }
 
@@ -276,7 +276,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         if (nValueIn < value_out)
         {
             //LogPrintf("nValueIn < value_out\n");
-            correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
+            correctBetTx=modulo::txGetBetVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
             if(!correctBetTx)
             {
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
@@ -313,7 +313,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "not all inputs are getbets");
         }
         else {
-            if(modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
+            if(modulo::txGetBetVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
             {
                 correctBetTx = true;
                 txfee_aux=betFee;

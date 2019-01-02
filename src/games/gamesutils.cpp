@@ -75,7 +75,7 @@ UniValue findTx(const std::string& txid)
 
 CKeyID getTxKeyID(const CTransaction& tx, int inputIdx)
 {
-    //TODO what if funding transacton is neither p2pkh nor p2sh-wittness?
+    //<-----TODO what if funding transacton is neither p2pkh nor p2sh-wittness?
     if(!tx.vin[inputIdx].scriptWitness.IsNull())
     {
         return CKeyID(Hash160(tx.vin[inputIdx].scriptWitness.stack[1].begin(), tx.vin[inputIdx].scriptWitness.stack[1].end()));
@@ -182,7 +182,7 @@ bool MakeBetWinningProcess::isMakeBetWinning()
         LogPrintf("betType = %s\n", betType.c_str());
         
         if(idx) {
-            throw std::runtime_error("Bet type idx is not zero");
+            throw std::runtime_error(strprintf("Bet type idx is not zero: %d\n", idx));
         }
 
         const unsigned argument = getArgumentFromBetType(betType);
