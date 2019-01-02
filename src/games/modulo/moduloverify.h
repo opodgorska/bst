@@ -37,7 +37,8 @@ namespace modulo
 namespace modulo_ver_2
 {
     bool isMakeBetTx(const CTransaction& tx);
-    bool isGetBetTx(const CTransaction& tx);    
+    bool isGetBetTx(const CTransaction& tx);
+    bool txMakeBetVerify(const CTransaction& tx);
 }
 
 #endif

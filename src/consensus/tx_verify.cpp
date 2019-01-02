@@ -208,7 +208,15 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {
         if(!modulo::txMakeBetVerify(tx))
         {
-            return state.DoS(10, false, REJECT_INVALID, "bad-makebed-format");
+            return state.DoS(10, false, REJECT_INVALID, "modulo::bad-makebed-format");
+        }
+    }
+
+    if(modulo_ver_2::isMakeBetTx(tx))
+    {
+        if(!modulo_ver_2::txMakeBetVerify(tx))
+        {
+            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebed-format");
         }
     }
 

@@ -90,36 +90,45 @@ CScript createScriptPubkey(const CTransaction& prevTx)
     return CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
-static std::string getBetType(const CTransaction& tx)
+std::string getBetType(const CTransaction& tx, size_t& idx)
 {
-    CScript::const_iterator it_beg=tx.vout[0].scriptPubKey.begin();
-    CScript::const_iterator it_end=tx.vout[0].scriptPubKey.end();
-    std::string hexStr;
-    int order = *(it_beg+1);
-    if(*it_beg==OP_RETURN)
+    idx=0;
+    for(size_t i=0;i<tx.vout.size();++i)
     {
-        if(order<=0x4b)
+        CScript::const_iterator it_beg=tx.vout[i].scriptPubKey.begin();
+        CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
+        std::string hexStr;
+        int order = *(it_beg+1);
+        if(*it_beg==OP_RETURN)
         {
-            hexStr=std::string(it_beg+2, it_end);
-        }
-        else if(order==0x4c)
-        {
-            hexStr=std::string(it_beg+3, it_end);
-        }
-        else if(order==0x4d)
-        {
-            hexStr=std::string(it_beg+4, it_end);
-        }
-        else if(order==0x4e)
-        {
-            hexStr=std::string(it_beg+6, it_end);
-        }
-        else
-        {
-            LogPrintf("getBetType length is too-large\n");
+            if(order<=0x4b)
+            {
+                hexStr=std::string(it_beg+2, it_end);
+            }
+            else if(order==0x4c)
+            {
+                hexStr=std::string(it_beg+3, it_end);
+            }
+            else if(order==0x4d)
+            {
+                hexStr=std::string(it_beg+4, it_end);
+            }
+            else if(order==0x4e)
+            {
+                hexStr=std::string(it_beg+6, it_end);
+            }
+            else
+            {
+                LogPrintf("getBetType length is too-large\n");
+                return std::string("");
+            }
+            //LogPrintf("getBetType: %s\n", hexStr);
+            idx=i;
+            return hexStr;
         }
     }
-    return hexStr;
+    LogPrintf("getBetType no op-return\n");
+    return std::string("");
 }
 
 unsigned int blockHashStr2Int(const std::string& hashStr)
@@ -165,11 +174,16 @@ bool MakeBetWinningProcess::isMakeBetWinning()
 {
     try{
         //example bet: 00000024_black@200000000+red@100000000
-        std::string betType = getBetType(m_tx);
+        size_t idx;
+        std::string betType = getBetType(m_tx, idx);
         if (betType.empty()) {
             throw std::runtime_error("Improper bet type");
         }
         LogPrintf("betType = %s\n", betType.c_str());
+        
+        if(idx) {
+            throw std::runtime_error("Bet type idx is not zero");
+        }
 
         const unsigned argument = getArgumentFromBetType(betType);
         LogPrintf("argument = %u\n", argument);

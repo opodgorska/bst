@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <validation.h>
 #include <algorithm>
 #include <games/gamesverify.h>
 #include <games/modulo/moduloverify.h>
@@ -351,7 +352,34 @@ namespace modulo
     {
         try
         {
-            return txMakeBetVerify(tx, MAKE_MODULO_GAME_INDICATOR);
+            //bioinfo hardfork due to incorrect format of makebet transactions
+            if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+            {
+                return true;
+            }
+
+            if(tx.vout.size()<2)
+            {
+                LogPrintf("modulo::txMakeBetVerify: tx.size too small: %d\n", tx.vout.size());
+                return false;
+            }
+
+            size_t opReturnIdx;
+            if(getBetType(tx, opReturnIdx).empty())
+            {
+                LogPrintf("modulo::txMakeBetVerify: betType is empty\n");
+                return false;
+            }
+
+            for(size_t i=0;i<opReturnIdx;++i)
+            {
+               if(!tx.vout[i].scriptPubKey.IsPayToScriptHash(false))
+               {
+                   LogPrintf("modulo::txMakeBetVerify: not P2SH before opReturn\n");
+               }
+            }
+
+            return true;
         }
         catch(...)
         {
@@ -376,5 +404,36 @@ namespace modulo_ver_2
     {
         return isBetTx(tx, GET_MODULO_NEW_GAME_INDICATOR);
     }
-    
+
+    bool txMakeBetVerify(const CTransaction& tx)
+    {
+        try
+        {
+            if(tx.vout.size()!=1 && tx.vout.size()!=2)
+            {
+                LogPrintf("modulo_ver_2::txMakeBetVerify: tx.size incorrect: %d\n", tx.vout.size());
+                return false;
+            }
+            
+            size_t opReturnIdx;
+            if(getBetType(tx, opReturnIdx).empty())
+            {
+                LogPrintf("modulo_ver_2::txMakeBetVerify: betType is empty\n");
+                return false;
+            }
+            
+            if(opReturnIdx)
+            {
+                LogPrintf("modulo_ver_2::txMakeBetVerify: opReturnIdx is not zero\n");
+                return false;
+            }
+            
+            return true;
+        }
+        catch(...)
+        {
+            LogPrintf("modulo_ver_2::txMakeBetVerify exception occured");
+            return false;
+        }
+    } 
 }

@@ -483,53 +483,6 @@ VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlo
     blockHash=blockHashStr2Int(hash.ToString());
 }
 
-static std::string getBetType_(const CTransaction& tx, size_t& idx)
-{
-    idx=0;
-    for(size_t i=1;i<tx.vout.size();++i)
-    {
-        CScript::const_iterator it_beg=tx.vout[i].scriptPubKey.begin();
-        CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
-        std::string hexStr;
-        int order = *(it_beg+1);
-        if(*it_beg==OP_RETURN)
-        {
-            if(order<=0x4b)
-            {
-                hexStr=std::string(it_beg+2, it_end);
-            }
-            else if(order==0x4c)
-            {
-                hexStr=std::string(it_beg+3, it_end);
-            }
-            else if(order==0x4d)
-            {
-                hexStr=std::string(it_beg+4, it_end);
-            }
-            else if(order==0x4e)
-            {
-                hexStr=std::string(it_beg+6, it_end);
-            }
-            else
-            {
-                LogPrintf("getBetType length is too-large\n");
-                return std::string("");
-            }
-            //LogPrintf("getBetType: %s\n", hexStr);
-            idx=i;
-            return hexStr;
-        }
-    }
-    LogPrintf("getBetType no op-return\n");
-    return std::string("");
-}
-
-std::string VerifyBlockReward::getBetType(const CTransaction& tx)
-{
-    size_t idx;
-    return getBetType_(tx, idx);
-}
-
 unsigned int VerifyBlockReward::getArgument(std::string& betType)
 {
     size_t pos_=betType.find("_");
@@ -547,16 +500,6 @@ unsigned int VerifyBlockReward::getArgument(std::string& betType)
     return opReturnArgNum;
 }
 
-bool VerifyBlockReward::isMakeBetTx(const CTransaction& tx)
-{
-    int32_t txMakeBetVersion=(tx.nVersion ^ makeBetIndicator);
-    if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)
-    {
-        return true;
-    }
-    return false;
-}
-
 bool VerifyBlockReward::isBetPayoffExceeded()
 {
     //bioinfo hardfork due to roulette bets definition change
@@ -571,9 +514,10 @@ bool VerifyBlockReward::isBetPayoffExceeded()
     {
         try
         {
-            if(isMakeBetTx(*tx))
+            if(isBetTx(*tx, makeBetIndicator))
             {
-                std::string betType=getBetType(*tx);
+                size_t idx;
+                std::string betType=getBetType(*tx, idx);
                 if(betType.empty())
                 {
                     LogPrintf("isBetPayoffExceeded: empty betType");
@@ -635,36 +579,4 @@ bool isBetTx(const CTransaction& tx, int32_t makeBetIndicator)
         return true;
     }
     return false;
-}
-
-bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator)
-{
-    //bioinfo hardfork due to incorrect format of makebet transactions
-    if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
-    {
-        return true;
-    }
-
-    if(tx.vout.size()<2)
-    {
-        LogPrintf("txMakeBetVerify: tx.size too small: %d\n", tx.vout.size());
-        return false;
-    }
-
-    size_t opReturnIdx;
-    if(getBetType_(tx, opReturnIdx).empty())
-    {
-        LogPrintf("txMakeBetVerify: betType is empty\n");
-        return false;
-    }
-
-   for(size_t i=0;i<opReturnIdx;++i)
-   {
-       if(!tx.vout[i].scriptPubKey.IsPayToScriptHash(false))
-       {
-           LogPrintf("txMakeBetVerify: not P2SH before opReturn\n");
-       }
-   }
-
-    return true;
 }
