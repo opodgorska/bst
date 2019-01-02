@@ -29,11 +29,15 @@ namespace modulo
     };
 
     bool isMakeBetTx(const CTransaction& tx);
-    bool isNewMakeBetTx(const CTransaction& tx);
-    bool isNewGetBetTx(const CTransaction& tx);
     bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee);
     bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
     bool txMakeBetVerify(const CTransaction& tx);
+}
+
+namespace modulo_ver_2
+{
+    bool isMakeBetTx(const CTransaction& tx);
+    bool isGetBetTx(const CTransaction& tx);    
 }
 
 #endif

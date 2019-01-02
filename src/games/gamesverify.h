@@ -61,7 +61,7 @@ private:
     const CAmount maxPayoff;
 };
 
-bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
+bool isBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 bool isInputBet(const CTxIn& input);
 bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator);
 

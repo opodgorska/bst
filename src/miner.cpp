@@ -143,7 +143,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     {
         for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
             const CTransaction& tx = *(prevBlock.vtx[i]);
-            if (isMakeBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR)) {
+            if (modulo_ver_2::isMakeBetTx(tx)) {
                 std::cout << "is makebet\n";
                 makeBets.push_back(tx);
             }
@@ -198,7 +198,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 CTxIn in;
                 in.prevout.hash = makeBets[i].GetHash();
                 in.prevout.n = 0;
-                in.scriptSig = CScript() << nHeight << OP_0;
+                in.scriptSig = CScript() << nHeight << i;
                 getBetTx.vin.push_back(in);
                 CTxOut out;
                 out.scriptPubKey = createScriptPubkey(makeBets[i]);

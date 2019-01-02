@@ -1336,7 +1336,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
-            if(!modulo::isNewGetBetTx(tx))
+            if(!modulo_ver_2::isGetBetTx(tx))
             {
                 bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
                 assert(is_spent);
@@ -1845,7 +1845,7 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
         for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
             const CTransaction& tx = *(prevBlock.vtx[i]);
 
-            if (isMakeBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR)) {
+            if (modulo_ver_2::isMakeBetTx(tx)) {
                 MakeBetWinningProcess makeBetWinningProcess(tx, hashPrevBlock);
                 if (makeBetWinningProcess.isMakeBetWinning()) {
                     const CAmount payoff = makeBetWinningProcess.getMakeBetPayoff();
@@ -1862,7 +1862,7 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
 
     CTransactionRef getBet;
     for (const CTransactionRef& tx: currentBlock.vtx) {
-        if (modulo::isNewGetBetTx(*tx)) {
+        if (modulo_ver_2::isGetBetTx(*tx)) {
             if (getBet == nullptr) {
                 getBet = tx;
             }
@@ -2130,7 +2130,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         nInputs += tx.vin.size();
 
-        if (!tx.IsCoinBase() && !modulo::isNewGetBetTx(tx))
+        if (!tx.IsCoinBase() && !modulo_ver_2::isGetBetTx(tx))
         {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, flags, txfee)) {
@@ -2160,7 +2160,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        if(!modulo::isNewGetBetTx(tx))
+        if(!modulo_ver_2::isGetBetTx(tx))
         {
             nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
             if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
@@ -2169,7 +2169,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         txdata.emplace_back(tx);
-        if (!tx.IsCoinBase() && !modulo::isNewGetBetTx(tx))
+        if (!tx.IsCoinBase() && !modulo_ver_2::isGetBetTx(tx))
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -2185,7 +2185,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
         
-        if(!modulo::isNewGetBetTx(tx))
+        if(!modulo_ver_2::isGetBetTx(tx))
         {
             ApplyNameTransaction(tx, pindex->nHeight, view, blockundo);
         }

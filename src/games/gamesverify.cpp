@@ -627,7 +627,7 @@ bool VerifyBlockReward::isBetPayoffExceeded()
     return false;
 }
 
-bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator)
+bool isBetTx(const CTransaction& tx, int32_t makeBetIndicator)
 {
     int32_t txMakeBetVersion=(tx.nVersion ^ makeBetIndicator);
     if(txMakeBetVersion <= CTransaction::MAX_STANDARD_VERSION && txMakeBetVersion >= 1)

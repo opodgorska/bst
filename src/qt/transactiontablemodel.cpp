@@ -263,7 +263,7 @@ void TransactionTableModel::updateTransaction(const QString &hash, int status, b
     int outStatus=status;
 
     auto tx = wallet.getTx(updated);
-    if(modulo::isNewMakeBetTx(*tx))
+    if(modulo_ver_2::isMakeBetTx(*tx))
     {
         if(inStatus == CT_NEW && outStatus == CT_NEW)
         {
