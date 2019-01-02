@@ -1911,8 +1911,6 @@ bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& curre
         }
 
         fee += makeBetData.payoff - output.nValue;
-
-        //what else should be checked????
         prevBlockWinningBets.erase(iter);
     }
 

@@ -10,6 +10,7 @@
 #include <primitives/transaction.h>
 #include <wallet/wallet.h>
 #include <games/gamesutils.h>
+#include <data/datautils.h>
 
 //bioinfo hardfork due to roulette bets definition change
 #define ROULETTE_NEW_DEFS (108600)

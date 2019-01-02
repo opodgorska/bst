@@ -66,7 +66,6 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
     walletModel(0),
     clientModel(0),
     changeAddress(""),
-    selectedItem(nullptr),
     fFeeMinimized(true)
 {
     ui->setupUi(this);
@@ -100,11 +99,6 @@ GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
     ui->rewardRatioSpinBox->setMaximum(MAX_REWARD);
     ui->amountSpinBox->setDecimals(8);
     ui->amountSpinBox->setMaximum(MAX_PAYOFF/COIN);
-
-    {
-        std::lock_guard<std::mutex> lck(mtx);
-        loadListFromFile(QString("bets.dat"));
-    }
 }
 
 GamePage::~GamePage()
@@ -300,33 +294,9 @@ void GamePage::setModel(WalletModel *model)
     connect(ui->addBetButton, SIGNAL(clicked()), this, SLOT(addBet()));
     connect(ui->deleteBetButton, SIGNAL(clicked()), this, SLOT(deleteBet()));
     connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
-    connect(ui->getBetButton, SIGNAL(clicked()), this, SLOT(getBet()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
-
-    connect(walletModel->getTransactionTableModel(), SIGNAL(newTx(const QString& )), this, SLOT(newTx(const QString& )));
-    connect(walletModel->getTransactionTableModel(), SIGNAL(deletedTx(const QString& )), this, SLOT(deletedTx(const QString& )));
-
     updateBetNumberLimit();
 }
-
-void GamePage::deletedTx(const QString &hash)
-{
-    std::lock_guard<std::mutex> lck(mtx);
-    if(removeTxidFromList(hash))
-    {
-        dumpListToFile(QString("bets.dat"));
-    }
-}
-
-void GamePage::newTx(const QString &hash)
-{
-    std::lock_guard<std::mutex> lck(mtx);
-    if(addTxidToList(hash))
-    {
-        dumpListToFile(QString("bets.dat"));
-    }
-}
-
 
 void GamePage::clearGameTypeBox()
 {
@@ -528,93 +498,6 @@ void GamePage::unlockWallet()
     }
 }
 
-void GamePage::dumpListToFile(const QString& fileName)
-{
-    fs::path dataPath = GetDataDir();
-
-    if (!fs::exists(dataPath))
-    {
-        throw std::runtime_error(std::string("Data directory doesn't exist"));
-    }
-    QString path=GUIUtil::boostPathToQString(dataPath)+QString("/")+fileName;
-
-    QFile dumpFile(path);
-    dumpFile.open(QIODevice::WriteOnly | QIODevice::Text);
-    if(!dumpFile.isOpen())
-    {
-        throw std::runtime_error(std::string("Data directory doesn't exist"));
-    }
-    QTextStream outStream(&dumpFile);
-    for(int i = 0; i < ui->transactionListWidget->count(); ++i)
-    {
-        QString txid = ui->transactionListWidget->item(i)->text();
-        outStream << txid << QString("\n");
-    }
-    dumpFile.close();
-}
-
-void GamePage::loadListFromFile(const QString& fileName)
-{
-    fs::path dataPath = GetDataDir();
-
-    if (!fs::exists(dataPath))
-    {
-        throw std::runtime_error(std::string("Data directory doesn't exist"));
-    }
-    QString path=GUIUtil::boostPathToQString(dataPath)+QString("/")+fileName;
-
-    QFile inputFile(path);
-    if (inputFile.open(QIODevice::ReadOnly))
-    {
-        QTextStream in(&inputFile);
-        while (!in.atEnd())
-        {
-            QString txid = in.readLine();
-            QListWidgetItem *newItem = new QListWidgetItem;
-            newItem->setText(txid.left(64));
-            ui->transactionListWidget->insertItem(0, newItem);
-        }
-        inputFile.close();
-    }
-}
-
-bool GamePage::isTxidInList(const QString& txid)
-{
-    for(int i = 0; i < ui->transactionListWidget->count(); ++i)
-    {
-        if(txid==ui->transactionListWidget->item(i)->text())
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool GamePage::addTxidToList(const QString& txid)
-{
-    if(!isTxidInList(txid))
-    {
-        QListWidgetItem *newItem = new QListWidgetItem;
-        newItem->setText(txid);
-        ui->transactionListWidget->insertItem(0, newItem);
-        return true;
-    }
-    return false;
-}
-
-bool GamePage::removeTxidFromList(const QString& txid)
-{
-    for(int i = 0; i < ui->transactionListWidget->count(); ++i)
-    {
-        if(txid==ui->transactionListWidget->item(i)->text())
-        {
-            delete ui->transactionListWidget->takeItem(i);
-            return true;
-        }
-    }
-    return false;
-}
-
 std::string GamePage::makeBetPattern()
 {
     std::string betTypePattern;
@@ -721,140 +604,3 @@ void GamePage::makeBet()
     }
 }
 
-void GamePage::getBet()
-{
-    if(walletModel)
-    {
-        bool txRemoveFlag=false;
-        try
-        {
-            std::shared_ptr<CWallet> wallet = GetWallets()[0];
-            if(wallet != nullptr)
-            {
-                CWallet* const pwallet=wallet.get();
-                
-                selectedItem = ui->transactionListWidget->currentItem();
-                if(selectedItem==nullptr)
-                {
-                    throw std::runtime_error(std::string("No transaction selected"));
-                }
-                QString qtxid = selectedItem->text();
-                std::string txidIn = qtxid.toStdString();
-                
-                UniValue txPrev(UniValue::VOBJ);
-                txPrev=findTx(txidIn);
-                UniValue prevTxBlockHash(UniValue::VSTR);
-                prevTxBlockHash=txPrev["blockhash"].get_str();
-                
-                std::string address = ui->addressLineEdit->text().toStdString();
-
-                CCoinControl coin_control;
-                updateCoinControlState(coin_control);
-                int returned_target;
-                FeeReason reason;
-                CFeeRate feeRate = CFeeRate(walletModel->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
-
-                std::string txid;
-                size_t nPrevOut=txPrev["vout"].size()-2;
-                for(size_t voutIdx=0;voutIdx<nPrevOut;++voutIdx)
-                {
-                    UniValue vout(UniValue::VOBJ);
-                    vout=txPrev["vout"][voutIdx];
-
-                    UniValue scriptPubKeyStr(UniValue::VSTR);
-                    scriptPubKeyStr=vout["scriptPubKey"]["hex"];
-
-                    const CScript redeemScript = getRedeemScript(pwallet, scriptPubKeyStr.get_str());
-                    size_t redeemScriptSize=getRedeemScriptSize(redeemScript);
-
-                    size_t txSize=200+redeemScriptSize;
-                    double fee=static_cast<double>(feeRate.GetFee(txSize))/COIN;
-                    if(fee>(static_cast<double>(maxTxFee)/COIN))
-                    {
-                        fee=(static_cast<double>(maxTxFee)/COIN);
-                    }
-
-                    int reward=getReward(pwallet, scriptPubKeyStr.get_str());
-                    std::string amount=double2str(reward*vout["value"].get_real()-fee);
-
-                    UniValue txIn(UniValue::VOBJ);
-                    txIn.pushKV("txid", txidIn);
-                    txIn.pushKV("vout", static_cast<int>(voutIdx));
-
-                    UniValue sendTo(UniValue::VOBJ);
-                    sendTo.pushKV("address", address);
-                    sendTo.pushKV("amount", amount);
-
-                    ModuloOperation operation;
-                    GetBetTxs tx(pwallet, txIn, sendTo, prevTxBlockHash, &operation, 0, ui->optInRBF->isChecked());
-                    unlockWallet();
-                    try
-                    {
-                        tx.signTx();
-                    }
-                    catch(std::exception const& e)
-                    {
-                        if(!txid.empty())
-                        {
-                            txid+=std::string("\n");
-                        }
-                        txid+=e.what();
-                        continue;
-                    }
-                    catch(...)
-                    {
-                        if(!txid.empty())
-                        {
-                            txid+=std::string("\n");
-                        }
-                        txid+=std::string("unknown exception occured");
-                        continue;
-                    }
-                    
-                    if(!txid.empty())
-                    {
-                        txid+=std::string("\n");
-                    }
-                    txid+=tx.sendTx().get_str();
-                    txRemoveFlag=true;//no exception means signing at least one input succeeded
-                }
-
-                QMessageBox msgBox;
-                msgBox.setWindowTitle("Getting bet status:");
-                msgBox.setText(QString::fromStdString(txid));
-                msgBox.exec();
-		{
-		    std::lock_guard<std::mutex> lck(mtx);
-		    delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
-		    dumpListToFile(QString("bets.dat"));
-		}
-            }
-            else
-            {
-                throw std::runtime_error(std::string("No wallet found"));
-            }
-        }
-        catch(std::exception const& e)
-        {
-            std::string info=e.what();
-            if(info==std::string("Script failed an OP_EQUALVERIFY operation") || 
-               info==std::string("Input not found or already spent") ||
-               txRemoveFlag==true)
-            {
-                std::lock_guard<std::mutex> lck(mtx);
-                delete ui->transactionListWidget->takeItem(ui->transactionListWidget->row(selectedItem));
-                dumpListToFile(QString("bets.dat"));
-            }
-            
-            QMessageBox msgBox;
-            msgBox.setText(e.what());
-            msgBox.exec();
-        }
-        catch(...)
-        {
-            QMessageBox msgBox;
-            msgBox.setText("Unknown exception occured");
-            msgBox.exec();
-        }
-    }
-}
