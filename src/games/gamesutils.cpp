@@ -243,7 +243,6 @@ CAmount MakeBetWinningProcess::getMakeBetPayoff()
 
 CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost)
 {
-    //TODO what if fee is greater than payoff
     if(tx.vout.size()==0)
     {
         return 0;
@@ -258,10 +257,27 @@ CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost)
     
     for(auto& txOut : tx.vout)
     {
-        txOut.nValue-=fee;
+        if(txOut.nValue>fee)
+        {
+            txOut.nValue-=fee;
+        }
+        else
+        {
+            totalFee-=fee;
+            txOut.nValue=0;
+        }
     }
-    
-    tx.vout.back().nValue-=feeReminder;
+
+    auto& txOut = tx.vout.back();
+    if(txOut.nValue>feeReminder)
+    {
+        txOut.nValue-=feeReminder;
+    }
+    else
+    {
+        totalFee-=feeReminder;
+        txOut.nValue=0;
+    }
     
     return totalFee;
 }
