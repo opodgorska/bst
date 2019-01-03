@@ -311,80 +311,132 @@ namespace modulo
         return true;
     }
 
-    bool isMakeBetTx(const CTransaction& tx)
+    namespace ver_1
     {
-        return isBetTx(tx, MAKE_MODULO_GAME_INDICATOR);
-    }
 
-    static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsigned int argument, ArgumentOperation* operation)
-    {
-        unsigned int blockhashTmp=blockHashStr2Int(makeTxBlockHash);
-        operation->setArgument(argument);
-        return (*operation)(blockhashTmp);
-    }
+        VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_, int32_t makeBetIndicator_, CAmount maxPayoff_) : 
+                                             block(block_), argumentOperation(argumentOperation_), getReward(getReward_), verifyMakeBetTx(verifyMakeBetTx_), makeBetIndicator(makeBetIndicator_), maxPayoff(maxPayoff_)
+        {
+            blockSubsidy=GetBlockSubsidy(chainActive.Height(), params);
+            uint256 hash=block.GetHash();
+            blockHash=blockHashStr2Int(hash.ToString());
+        }
 
-    bool isInputBet(const CTxIn& input) {
-        int numOfBetsNumbers=0;
-        CScript::const_iterator it_end=input.scriptSig.end()-1;
-
-        if(*it_end!=OP_DROP)
+        unsigned int VerifyBlockReward::getArgument(std::string& betType)
         {
-            return false;
-        }
-        it_end-=6;
-        if(*it_end!=OP_ENDIF)
-        {
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_FALSE)
-        {
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_DROP)
-        {
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_ELSE)
-        {
-            return false;
-        }
-        --it_end;
-        for(CScript::const_iterator it=it_end;it>it_end-18;--it)
-        {
-            if(OP_TRUE==*it)
+            size_t pos_=betType.find("_");
+            if(pos_==std::string::npos)
             {
-                numOfBetsNumbers=it_end-it+1;
-                it_end=it;
-                break;
+                LogPrintf("VerifyBlockReward::getArgument() find _ failed");
+                throw std::runtime_error(std::string("VerifyBlockReward::getArgument() find _ failed"));
             }
-            else if(OP_ENDIF!=*it)
+            std::string opReturnArg=betType.substr(0,pos_);
+            betType=betType.substr(pos_+1);
+
+            unsigned int opReturnArgNum;
+            sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
+
+            return opReturnArgNum;
+        }
+
+        bool VerifyBlockReward::isBetPayoffExceeded()
+        {
+            //bioinfo hardfork due to roulette bets definition change
+            if(chainActive.Height() < ROULETTE_NEW_DEFS)
             {
                 return false;
             }
-        }
-        --it_end;
-        if(*it_end!=OP_EQUALVERIFY)
-        {
+
+            CAmount inAcc=0;
+            CAmount payoffAcc=0;
+            for (const auto& tx : block.vtx)
+            {
+                try
+                {
+                    if(isBetTx(*tx, makeBetIndicator))
+                    {
+                        size_t idx;
+                        std::string betType=getBetType(*tx, idx);
+                        if(betType.empty())
+                        {
+                            LogPrintf("isBetPayoffExceeded: empty betType");
+                            continue;
+                        }
+
+                        unsigned int argument=getArgument(betType);
+                        argumentOperation->setArgument(argument);
+                        argumentResult=(*argumentOperation)(blockHash);
+                        for(size_t i=0;true;++i)//all tx.otputs
+                        {
+                            size_t pos=betType.find("+");
+                            if(verifyMakeBetTx->isWinning(betType.substr(0,pos), argument, argumentResult))
+                            {
+                                int reward=(*getReward)(betType.substr(0,pos), argument);
+                                CAmount payoff=tx->vout[i].nValue * reward;
+                                payoffAcc+=payoff;
+                            }
+                            inAcc+=tx->vout[i].nValue;
+
+                            if(pos==std::string::npos)
+                            {
+                                break;
+                            }
+                            betType=betType.substr(pos+1);
+                        }
+                    }
+                }
+                catch(...)
+                {
+                    LogPrintf("isBetPayoffExceeded: argumentOperation failed");
+                    continue;
+                }
+            }
+
+            if(inAcc >= ((9*blockSubsidy)/10))
+            {
+                if(payoffAcc>inAcc+blockSubsidy)
+                {
+                    LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
+                    return true;
+                }
+            }
+
+            if(payoffAcc>maxPayoff)
+            {
+                LogPrintf("payoffAcc: %d, maxPayoff: %d\n", payoffAcc, maxPayoff);
+                return true;
+            }
+
             return false;
         }
 
-        std::vector<unsigned char> betNumber_(it_end-4, it_end);
-        int betNumber=0;
-        array2type(betNumber_, betNumber);
-        std::vector<int> betNumbers(1, betNumber);
-        it_end-=6;
-
-        for(int i=0;i<numOfBetsNumbers-1;++i)
+        bool isMakeBetTx(const CTransaction& tx)
         {
-            if(*it_end!=OP_ELSE)
+            return isBetTx(tx, MAKE_MODULO_GAME_INDICATOR);
+        }
+
+        static unsigned int getMakeTxBlockHash(const std::string& makeTxBlockHash, unsigned int argument, ArgumentOperation* operation)
+        {
+            unsigned int blockhashTmp=blockHashStr2Int(makeTxBlockHash);
+            operation->setArgument(argument);
+            return (*operation)(blockhashTmp);
+        }
+
+        bool isInputBet(const CTxIn& input) {
+            int numOfBetsNumbers=0;
+            CScript::const_iterator it_end=input.scriptSig.end()-1;
+
+            if(*it_end!=OP_DROP)
+            {
+                return false;
+            }
+            it_end-=6;
+            if(*it_end!=OP_ENDIF)
             {
                 return false;
             }
             --it_end;
-            if(*it_end!=OP_TRUE)
+            if(*it_end!=OP_FALSE)
             {
                 return false;
             }
@@ -394,283 +446,269 @@ namespace modulo
                 return false;
             }
             --it_end;
+            if(*it_end!=OP_ELSE)
+            {
+                return false;
+            }
+            --it_end;
+            for(CScript::const_iterator it=it_end;it>it_end-18;--it)
+            {
+                if(OP_TRUE==*it)
+                {
+                    numOfBetsNumbers=it_end-it+1;
+                    it_end=it;
+                    break;
+                }
+                else if(OP_ENDIF!=*it)
+                {
+                    return false;
+                }
+            }
+            --it_end;
+            if(*it_end!=OP_EQUALVERIFY)
+            {
+                return false;
+            }
+
+            std::vector<unsigned char> betNumber_(it_end-4, it_end);
+            int betNumber=0;
+            array2type(betNumber_, betNumber);
+            std::vector<int> betNumbers(1, betNumber);
+            it_end-=6;
+
+            for(int i=0;i<numOfBetsNumbers-1;++i)
+            {
+                if(*it_end!=OP_ELSE)
+                {
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_TRUE)
+                {
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_DROP)
+                {
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_IF)
+                {
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_EQUAL)
+                {
+                    return false;
+                }
+                --it_end;
+                betNumber_[3]=*it_end--;
+                betNumber_[2]=*it_end--;
+                betNumber_[1]=*it_end--;
+                betNumber_[0]=*it_end--;
+                --it_end;
+                if(*it_end!=OP_DUP)
+                {
+                    return false;
+                }
+                --it_end;
+
+               array2type(betNumber_, betNumber);
+               betNumbers.push_back(betNumber);
+            }
+
             if(*it_end!=OP_IF)
             {
                 return false;
             }
             --it_end;
-            if(*it_end!=OP_EQUAL)
+            if(*it_end!=OP_CHECKSIG)
             {
                 return false;
             }
             --it_end;
-            betNumber_[3]=*it_end--;
-            betNumber_[2]=*it_end--;
-            betNumber_[1]=*it_end--;
-            betNumber_[0]=*it_end--;
-            --it_end;
-            if(*it_end!=OP_DUP)
+            if(*it_end!=OP_EQUALVERIFY)
             {
                 return false;
             }
-            --it_end;
 
-           array2type(betNumber_, betNumber);
-           betNumbers.push_back(betNumber);
-        }
+            if(*(it_end-22)!=OP_HASH160)
+            {
+                return false;
+            }
+            if(*(it_end-23)!=OP_DUP)
+            {
+                return false;
+            }
 
-        if(*it_end!=OP_IF)
-        {
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_CHECKSIG)
-        {
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_EQUALVERIFY)
-        {
-            return false;
-        }
-
-        if(*(it_end-22)!=OP_HASH160)
-        {
-            return false;
-        }
-        if(*(it_end-23)!=OP_DUP)
-        {
-            return false;
-        }
-
-        CScript::const_iterator it_begin=input.scriptSig.begin();
-        it_begin+=(*it_begin)+1;
-        it_begin+=(*it_begin)+1;
-        it_begin+=(*it_begin)+1;
-        if(*it_begin==0x4c)
-        {
+            CScript::const_iterator it_begin=input.scriptSig.begin();
+            it_begin+=(*it_begin)+1;
+            it_begin+=(*it_begin)+1;
+            it_begin+=(*it_begin)+1;
+            if(*it_begin==0x4c)
+            {
+                it_begin++;
+            }
             it_begin++;
-        }
-        it_begin++;
 
-        if((it_end-23)!=it_begin)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    static bool txGetBetVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
-    {
-        fee=0;
-        UniValue txPrev(UniValue::VOBJ);
-        try
-        {
-            txPrev=findTx(tx.vin[0].prevout.hash.GetHex());
-        }
-        catch(...)
-        {
-            LogPrintf("txVerify findTx() failed\n");
-            return false;
-        }
-        int32_t txVersion=txPrev["version"].get_int();
-
-        int32_t makeBetIndicator = txVersion ^ indicator;
-        if(makeBetIndicator > CTransaction::MAX_STANDARD_VERSION || makeBetIndicator < 1)
-        {
-            return false;
-        }
-
-        std::string blockhashStr=txPrev["blockhash"].get_str();
-        CScript redeemScript(tx.vin[0].scriptSig.begin(), tx.vin[0].scriptSig.end());
-        unsigned int argument = getArgument(redeemScript);
-        unsigned int blockhash=getMakeTxBlockHash(blockhashStr, argument, operation);
-
-        CScript::const_iterator it_beg=tx.vin[0].scriptSig.begin()+1;
-        std::vector<unsigned char> blockhashFromScript_(it_beg, it_beg+4);
-
-        unsigned int blockhashFromScript;
-        array2type(blockhashFromScript_, blockhashFromScript);
-
-        if(blockhash!=blockhashFromScript)
-        {
-            LogPrintf("txVerify: blockhash-mismatch\n");
-            return false;
-        }
-
-        std::string betType;
-        try
-        {
-            bool isOpReturnFlag=false;
-            for(size_t i=1; i<txPrev["vout"].size();++i)
+            if((it_end-23)!=it_begin)
             {
-                if(txPrev["vout"][i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
+                return false;
+            }
+
+            return true;
+        }
+
+        static bool txGetBetVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward)
+        {
+            fee=0;
+            UniValue txPrev(UniValue::VOBJ);
+            try
+            {
+                txPrev=findTx(tx.vin[0].prevout.hash.GetHex());
+            }
+            catch(...)
+            {
+                LogPrintf("txVerify findTx() failed\n");
+                return false;
+            }
+            int32_t txVersion=txPrev["version"].get_int();
+
+            int32_t makeBetIndicator = txVersion ^ indicator;
+            if(makeBetIndicator > CTransaction::MAX_STANDARD_VERSION || makeBetIndicator < 1)
+            {
+                return false;
+            }
+
+            std::string blockhashStr=txPrev["blockhash"].get_str();
+            CScript redeemScript(tx.vin[0].scriptSig.begin(), tx.vin[0].scriptSig.end());
+            unsigned int argument = getArgument(redeemScript);
+            unsigned int blockhash=getMakeTxBlockHash(blockhashStr, argument, operation);
+
+            CScript::const_iterator it_beg=tx.vin[0].scriptSig.begin()+1;
+            std::vector<unsigned char> blockhashFromScript_(it_beg, it_beg+4);
+
+            unsigned int blockhashFromScript;
+            array2type(blockhashFromScript_, blockhashFromScript);
+
+            if(blockhash!=blockhashFromScript)
+            {
+                LogPrintf("txVerify: blockhash-mismatch\n");
+                return false;
+            }
+
+            std::string betType;
+            try
+            {
+                bool isOpReturnFlag=false;
+                for(size_t i=1; i<txPrev["vout"].size();++i)
                 {
-                    int length=0;
-                    int offset=0;
-                    std::string hexStr=txPrev["vout"][i][std::string("scriptPubKey")][std::string("hex")].get_str();
-                    int order=std::stoi(hexStr.substr(2,2),nullptr,16);
-                    if(order<=0x4b)
+                    if(txPrev["vout"][i][std::string("scriptPubKey")][std::string("asm")].get_str().find(std::string("OP_RETURN"))==0)
                     {
-                        length=order;
-                        offset=4;
+                        int length=0;
+                        int offset=0;
+                        std::string hexStr=txPrev["vout"][i][std::string("scriptPubKey")][std::string("hex")].get_str();
+                        int order=std::stoi(hexStr.substr(2,2),nullptr,16);
+                        if(order<=0x4b)
+                        {
+                            length=order;
+                            offset=4;
+                        }
+                        else if(order==0x4c)
+                        {
+                            length=std::stoi(hexStr.substr(4,2),nullptr,16);
+                            offset=6;
+                        }
+                        else if(order==0x4d)
+                        {
+                            std::string strLength=hexStr.substr(4,4);
+                            reverseEndianess(strLength);
+                            length=std::stoi(strLength,nullptr,16);
+                            offset=8;
+                        }
+                        else if(order==0x4e)
+                        {
+                            std::string strLength=hexStr.substr(4,8);
+                            reverseEndianess(strLength);
+                            length=std::stoi(strLength,nullptr,16);
+                            offset=12;
+                        }
+                        else
+                        {
+                            LogPrintf("txVerify: betType length is too-large\n");
+                            return false;
+                        }
+
+                        length*=2;
+                        std::string betTypeHex=hexStr.substr(offset, length);
+                        hex2ascii(betTypeHex, betType);
+                        //LogPrintf("txVerify: betType: %s\n", betType);
+                        isOpReturnFlag=true;
+                        break;
                     }
-                    else if(order==0x4c)
+                }
+                if(!isOpReturnFlag)
+                {
+                    LogPrintf("txVerify: betType length is empty\n");
+                    return false;
+                }
+                else
+                {
+                    size_t pos_=betType.find("_");
+                    std::string opReturnArg=betType.substr(0,pos_);
+                    betType=betType.substr(pos_+1);
+
+                    unsigned int opReturnArgNum;
+                    sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
+                    if(opReturnArgNum != argument)
                     {
-                        length=std::stoi(hexStr.substr(4,2),nullptr,16);
-                        offset=6;
-                    }
-                    else if(order==0x4d)
-                    {
-                        std::string strLength=hexStr.substr(4,4);
-                        reverseEndianess(strLength);
-                        length=std::stoi(strLength,nullptr,16);
-                        offset=8;
-                    }
-                    else if(order==0x4e)
-                    {
-                        std::string strLength=hexStr.substr(4,8);
-                        reverseEndianess(strLength);
-                        length=std::stoi(strLength,nullptr,16);
-                        offset=12;
-                    }
-                    else
-                    {
-                        LogPrintf("txVerify: betType length is too-large\n");
+                        LogPrintf("txVerify: opReturnArgNum: %x != argument: %x \n", opReturnArgNum, argument);
                         return false;
                     }
 
-                    length*=2;
-                    std::string betTypeHex=hexStr.substr(offset, length);
-                    hex2ascii(betTypeHex, betType);
+                    uint32_t nPrevOut=tx.vin[0].prevout.n;
+                    for(uint32_t n=0;n<nPrevOut;++n)
+                    {
+                        size_t pos=betType.find("+");
+                        betType=betType.substr(pos+1);
+                    }
+                    size_t pos=betType.find("+");
+                    betType=betType.substr(0,pos);
                     //LogPrintf("txVerify: betType: %s\n", betType);
-                    isOpReturnFlag=true;
-                    break;
                 }
             }
-            if(!isOpReturnFlag)
+            catch(const std::out_of_range& oor)
             {
-                LogPrintf("txVerify: betType length is empty\n");
+                LogPrintf("txVerify: betType is out-of-range\n");
                 return false;
             }
-            else
+            if(betType.empty())
             {
-                size_t pos_=betType.find("_");
-                std::string opReturnArg=betType.substr(0,pos_);
-                betType=betType.substr(pos_+1);
-
-                unsigned int opReturnArgNum;
-                sscanf(opReturnArg.c_str(), "%x", &opReturnArgNum);
-                if(opReturnArgNum != argument)
-                {
-                    LogPrintf("txVerify: opReturnArgNum: %x != argument: %x \n", opReturnArgNum, argument);
-                    return false;
-                }
-
-                uint32_t nPrevOut=tx.vin[0].prevout.n;
-                for(uint32_t n=0;n<nPrevOut;++n)
-                {
-                    size_t pos=betType.find("+");
-                    betType=betType.substr(pos+1);
-                }
-                size_t pos=betType.find("+");
-                betType=betType.substr(0,pos);
-                //LogPrintf("txVerify: betType: %s\n", betType);
+                LogPrintf("txVerify: betType is empty\n");
+                return false;
             }
-        }
-        catch(const std::out_of_range& oor)
-        {
-            LogPrintf("txVerify: betType is out-of-range\n");
-            return false;
-        }
-        if(betType.empty())
-        {
-            LogPrintf("txVerify: betType is empty\n");
-            return false;
-        }
 
-        int opReturnReward=(*getReward)(betType, argument);
+            int opReturnReward=(*getReward)(betType, argument);
 
-        //LogPrintf("txVerify opReturnReward: %d\n", opReturnReward);
+            //LogPrintf("txVerify opReturnReward: %d\n", opReturnReward);
 
-        int numOfBetsNumbers=0;
-        CScript::const_iterator it_end=tx.vin[0].scriptSig.end()-1;
+            int numOfBetsNumbers=0;
+            CScript::const_iterator it_end=tx.vin[0].scriptSig.end()-1;
 
-        if(*it_end!=OP_DROP)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        it_end-=6;
-        if(*it_end!=OP_ENDIF)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_FALSE)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_DROP)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_ELSE)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        for(CScript::const_iterator it=it_end;it>it_end-18;--it)
-        {
-            if(OP_TRUE==*it)
-            {
-                numOfBetsNumbers=it_end-it+1;
-                it_end=it;
-                break;
-            }
-            else if(OP_ENDIF!=*it)
+            if(*it_end!=OP_DROP)
             {
                 LogPrintf("txVerify: transaction format check failed\n");
                 return false;
             }
-        }
-        --it_end;
-        if(*it_end!=OP_EQUALVERIFY)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-
-        const int scriptReward=argument/numOfBetsNumbers;
-        //LogPrintf("txVerify scriptReward: %d\n", scriptReward);
-        if(opReturnReward != scriptReward)
-        {
-            LogPrintf("txVerify: opReturnReward != scriptReward\n");
-            return false;
-        }
-
-        std::vector<unsigned char> betNumber_(it_end-4, it_end);
-        int betNumber=0;
-        array2type(betNumber_, betNumber);
-        std::vector<int> betNumbers(1, betNumber);
-        it_end-=6;
-        for(int i=0;i<numOfBetsNumbers-1;++i)
-        {
-            //OP_DUP << betNumberArray << OP_EQUAL << OP_IF << OP_DROP << OP_TRUE << OP_ELSE
-            if(*it_end!=OP_ELSE)
+            it_end-=6;
+            if(*it_end!=OP_ENDIF)
             {
                 LogPrintf("txVerify: transaction format check failed\n");
                 return false;
             }
             --it_end;
-            if(*it_end!=OP_TRUE)
+            if(*it_end!=OP_FALSE)
             {
                 LogPrintf("txVerify: transaction format check failed\n");
                 return false;
@@ -682,322 +720,477 @@ namespace modulo
                 return false;
             }
             --it_end;
+            if(*it_end!=OP_ELSE)
+            {
+                LogPrintf("txVerify: transaction format check failed\n");
+                return false;
+            }
+            --it_end;
+            for(CScript::const_iterator it=it_end;it>it_end-18;--it)
+            {
+                if(OP_TRUE==*it)
+                {
+                    numOfBetsNumbers=it_end-it+1;
+                    it_end=it;
+                    break;
+                }
+                else if(OP_ENDIF!=*it)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+            }
+            --it_end;
+            if(*it_end!=OP_EQUALVERIFY)
+            {
+                LogPrintf("txVerify: transaction format check failed\n");
+                return false;
+            }
+
+            const int scriptReward=argument/numOfBetsNumbers;
+            //LogPrintf("txVerify scriptReward: %d\n", scriptReward);
+            if(opReturnReward != scriptReward)
+            {
+                LogPrintf("txVerify: opReturnReward != scriptReward\n");
+                return false;
+            }
+
+            std::vector<unsigned char> betNumber_(it_end-4, it_end);
+            int betNumber=0;
+            array2type(betNumber_, betNumber);
+            std::vector<int> betNumbers(1, betNumber);
+            it_end-=6;
+            for(int i=0;i<numOfBetsNumbers-1;++i)
+            {
+                //OP_DUP << betNumberArray << OP_EQUAL << OP_IF << OP_DROP << OP_TRUE << OP_ELSE
+                if(*it_end!=OP_ELSE)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_TRUE)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_DROP)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_IF)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+                --it_end;
+                if(*it_end!=OP_EQUAL)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+                --it_end;
+                betNumber_[3]=*it_end--;
+                betNumber_[2]=*it_end--;
+                betNumber_[1]=*it_end--;
+                betNumber_[0]=*it_end--;
+                --it_end;
+                if(*it_end!=OP_DUP)
+                {
+                    LogPrintf("txVerify: transaction format check failed\n");
+                    return false;
+                }
+                --it_end;
+
+               array2type(betNumber_, betNumber);
+               betNumbers.push_back(betNumber);
+            }
+
+            if(!(*compareBet2Vector)(nSpendHeight, betType, betNumbers))
+            {
+                LogPrintf("txVerify: compareBet2Vector check failed\n");
+                return false;
+            }
+
+            //OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << OP_IF;
             if(*it_end!=OP_IF)
             {
                 LogPrintf("txVerify: transaction format check failed\n");
                 return false;
             }
             --it_end;
-            if(*it_end!=OP_EQUAL)
+            if(*it_end!=OP_CHECKSIG)
             {
                 LogPrintf("txVerify: transaction format check failed\n");
                 return false;
             }
             --it_end;
-            betNumber_[3]=*it_end--;
-            betNumber_[2]=*it_end--;
-            betNumber_[1]=*it_end--;
-            betNumber_[0]=*it_end--;
-            --it_end;
-            if(*it_end!=OP_DUP)
+            if(*it_end!=OP_EQUALVERIFY)
             {
                 LogPrintf("txVerify: transaction format check failed\n");
                 return false;
             }
-            --it_end;
 
-           array2type(betNumber_, betNumber);
-           betNumbers.push_back(betNumber);
-        }
+            if(*(it_end-22)!=OP_HASH160)
+            {
+                LogPrintf("txVerify: transaction format check failed\n");
+                return false;
+            }
+            if(*(it_end-23)!=OP_DUP)
+            {
+                LogPrintf("txVerify: transaction format check failed\n");
+                return false;
+            }
 
-        if(!(*compareBet2Vector)(nSpendHeight, betType, betNumbers))
-        {
-            LogPrintf("txVerify: compareBet2Vector check failed\n");
-            return false;
-        }
-
-        //OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << OP_IF;
-        if(*it_end!=OP_IF)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_CHECKSIG)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        --it_end;
-        if(*it_end!=OP_EQUALVERIFY)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-
-        if(*(it_end-22)!=OP_HASH160)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-        if(*(it_end-23)!=OP_DUP)
-        {
-            LogPrintf("txVerify: transaction format check failed\n");
-            return false;
-        }
-
-        CScript::const_iterator it_begin=tx.vin[0].scriptSig.begin();
-        it_begin+=(*it_begin)+1;
-        it_begin+=(*it_begin)+1;
-        it_begin+=(*it_begin)+1;
-        if(*it_begin==0x4c)
-        {
+            CScript::const_iterator it_begin=tx.vin[0].scriptSig.begin();
+            it_begin+=(*it_begin)+1;
+            it_begin+=(*it_begin)+1;
+            it_begin+=(*it_begin)+1;
+            if(*it_begin==0x4c)
+            {
+                it_begin++;
+            }
             it_begin++;
-        }
-        it_begin++;
 
-        if((it_end-23)!=it_begin)
-        {
-            LogPrintf("txVerify: script length check failed\n");
-            return false;
-        }
-
-        fee=(scriptReward*in)-out;
-        if(out > scriptReward*in)
-        {
-            LogPrintf("txVerify: out > scriptReward*in\n");
-            return false;
-        }
-
-        if(out>maxPayoff)
-        {
-            LogPrintf("txVerify: out > maxPayoff\n");
-            return false;
-        }
-
-        if(opReturnReward>maxReward || scriptReward>maxReward)
-        {
-            LogPrintf("txVerify: maxReward exceeded\n");
-            return false;
-        }
-
-        return true;
-    }
-
-    bool txGetBetVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
-    {
-        try
-        {
-            ModuloOperation moduloOperation;
-            GetModuloReward getModuloReward;
-            CompareModuloBet2Vector compareModulobet2Vector;
-            return txGetBetVerify(nSpendHeight, tx, in, out, fee, &moduloOperation, &getModuloReward, &compareModulobet2Vector, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
-        }
-        catch(...)
-        {
-            LogPrintf("modulo::txVerify exception occured");
-            return false;
-        }
-    };
-
-    bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block)
-    {
-        try
-        {
-            VerifyMakeModuloBetTx verifyMakeModuloBetTx;
-            ModuloOperation moduloOperation;
-            GetModuloReward getModuloReward;
-            VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
-            return verifyBlockReward.isBetPayoffExceeded();
-        }
-        catch(...)
-        {
-            LogPrintf("modulo::isBetPayoffExceeded exception occured");
-            return false;
-        }
-    };
-
-    bool txMakeBetVerify(const CTransaction& tx)
-    {
-        try
-        {
-            //bioinfo hardfork due to incorrect format of makebet transactions
-            if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+            if((it_end-23)!=it_begin)
             {
-                return true;
-            }
-
-            if(tx.vout.size()<2)
-            {
-                LogPrintf("modulo::txMakeBetVerify: tx.size too small: %d\n", tx.vout.size());
+                LogPrintf("txVerify: script length check failed\n");
                 return false;
             }
 
-            size_t opReturnIdx;
-            if(getBetType(tx, opReturnIdx).empty())
+            fee=(scriptReward*in)-out;
+            if(out > scriptReward*in)
             {
-                LogPrintf("modulo::txMakeBetVerify: betType is empty\n");
+                LogPrintf("txVerify: out > scriptReward*in\n");
                 return false;
             }
 
-            for(size_t i=0;i<opReturnIdx;++i)
+            if(out>maxPayoff)
             {
-               if(!tx.vout[i].scriptPubKey.IsPayToScriptHash(false))
-               {
-                   LogPrintf("modulo::txMakeBetVerify: not P2SH before opReturn\n");
-               }
+                LogPrintf("txVerify: out > maxPayoff\n");
+                return false;
+            }
+
+            if(opReturnReward>maxReward || scriptReward>maxReward)
+            {
+                LogPrintf("txVerify: maxReward exceeded\n");
+                return false;
             }
 
             return true;
         }
-        catch(...)
+
+        bool txGetBetVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee)
         {
-            LogPrintf("modulo::txMakeBetVerify exception occured");
-            return false;
-        }
+            try
+            {
+                ModuloOperation moduloOperation;
+                GetModuloReward getModuloReward;
+                CompareModuloBet2Vector compareModulobet2Vector;
+                return txGetBetVerify(nSpendHeight, tx, in, out, fee, &moduloOperation, &getModuloReward, &compareModulobet2Vector, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF, MAX_REWARD);
+            }
+            catch(...)
+            {
+                LogPrintf("modulo::txVerify exception occured");
+                return false;
+            }
+        };
+
+        bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block)
+        {
+            try
+            {
+                VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+                ModuloOperation moduloOperation;
+                GetModuloReward getModuloReward;
+                VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx, MAKE_MODULO_GAME_INDICATOR, MAX_PAYOFF);
+                return verifyBlockReward.isBetPayoffExceeded();
+            }
+            catch(...)
+            {
+                LogPrintf("modulo::isBetPayoffExceeded exception occured");
+                return false;
+            }
+        };
+
+        bool txMakeBetVerify(const CTransaction& tx)
+        {
+            try
+            {
+                //bioinfo hardfork due to incorrect format of makebet transactions
+                if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+                {
+                    return true;
+                }
+
+                if(tx.vout.size()<2)
+                {
+                    LogPrintf("modulo::txMakeBetVerify: tx.size too small: %d\n", tx.vout.size());
+                    return false;
+                }
+
+                size_t opReturnIdx;
+                if(getBetType(tx, opReturnIdx).empty())
+                {
+                    LogPrintf("modulo::txMakeBetVerify: betType is empty\n");
+                    return false;
+                }
+
+                for(size_t i=0;i<opReturnIdx;++i)
+                {
+                   if(!tx.vout[i].scriptPubKey.IsPayToScriptHash(false))
+                   {
+                       LogPrintf("modulo::txMakeBetVerify: not P2SH before opReturn\n");
+                   }
+                }
+
+                return true;
+            }
+            catch(...)
+            {
+                LogPrintf("modulo::txMakeBetVerify exception occured");
+                return false;
+            }
+
+        };
 
     };
 
-}
 
-
-namespace modulo_ver_2
-{
-
-    bool isMakeBetTx(const CTransaction& tx)
+    namespace ver_2
     {
-        return isBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR);
-    }
 
-    bool isGetBetTx(const CTransaction& tx)
-    {
-        return isBetTx(tx, GET_MODULO_NEW_GAME_INDICATOR);
-    }
+        bool MakeBetWinningProcess::isMakeBetWinning()
+        {
+            try{
+                //example bet: 00000024_black@200000000+red@100000000
+                size_t idx;
+                std::string betType = getBetType(m_tx, idx);
+                if (betType.empty()) {
+                    throw std::runtime_error("Improper bet type");
+                }
+                LogPrintf("betType = %s\n", betType.c_str());
+                
+                if(idx) {
+                    throw std::runtime_error(strprintf("Bet type idx is not zero: %d\n", idx));
+                }
 
-    bool txGetBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, const Consensus::Params& params, CAmount& fee)
-    {
-        struct MakeBetData {
-            CTxOut out;
-            CAmount payoff;
-            CKeyID keyID;
-        };
+                const unsigned argument = getArgumentFromBetType(betType);
+                LogPrintf("argument = %u\n", argument);
 
-        std::map<uint256, MakeBetData> prevBlockWinningBets;
-        const CBlockIndex* pindexPrev = LookupBlockIndex(hashPrevBlock);
-        CBlock prevBlock;
+                const std::string blockhashStr = m_hash.ToString();
+                LogPrintf("blockhashStr = %s\n", blockhashStr.c_str());
 
-        if (ReadBlockFromDisk(prevBlock, pindexPrev, params)) {
-            for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
-                const CTransaction& tx = *(prevBlock.vtx[i]);
+                const unsigned int blockhashTmp = blockHashStr2Int(blockhashStr);
+                LogPrintf("blockhashTmp = %u\n", blockhashTmp);
 
-                if (modulo_ver_2::isMakeBetTx(tx)) {
-                    MakeBetWinningProcess makeBetWinningProcess(tx, hashPrevBlock);
-                    if (makeBetWinningProcess.isMakeBetWinning()) {
-                        const CAmount payoff = makeBetWinningProcess.getMakeBetPayoff();
-                        const CKeyID keyID = getTxKeyID(tx);
-                        prevBlockWinningBets[tx.GetHash()] = MakeBetData{tx.vout[0], payoff, keyID};
+                ModuloOperation moduloOperation;
+                moduloOperation.setArgument(argument);
+                const unsigned argumentResult = moduloOperation(blockhashTmp);
+                LogPrintf("argumenteResult = %u\n", argumentResult);
+
+                while (true) {
+                    const size_t typePos = betType.find("@");
+                    if (typePos == std::string::npos) {
+                        throw std::runtime_error("Improper bet type");
+                    }
+
+                    const std::string type = betType.substr(0, typePos);
+                    betType = betType.substr(typePos+1);
+
+                    const size_t amountPos = betType.find("+");
+                    const std::string amountStr = betType.substr(0, amountPos);
+
+                    CAmount amount = std::stoll(amountStr);
+                    if (amount<=0) {
+                        throw std::runtime_error("Improper bet amount");
+                    }
+
+                    if (VerifyMakeModuloBetTx().isWinning(type, argument, argumentResult)) {
+                        const unsigned reward = GetModuloReward()(type, argument);
+                        LogPrintf("reward = %u\n", reward);
+
+                        const CAmount wonAmount = reward*amount;
+                        if (wonAmount>MAX_CAMOUNT-m_payoff) {
+                            throw std::runtime_error("Improper bet amount");
+                        }
+                        m_payoff += wonAmount;
+                        LogPrintf("%s is winning\n", type.c_str());
+                    }
+
+                    if (amountPos == std::string::npos) {
+                        break;
+                    }
+                    betType = betType.substr(amountPos+1);
+                }
+
+                LogPrintf("m_payoff = %d\n", m_payoff);
+                if (m_payoff <= 0) {
+                    return false;
+                }
+
+                return true;
+            }
+            catch(const std::exception& e) {
+                LogPrintf("Error while processing bet transaction: %s\n", e.what());
+            }
+            catch(...) {
+                LogPrintf("Unknown error while processing bet transaction\n");
+            }
+            return false;
+        }
+
+        CAmount MakeBetWinningProcess::getMakeBetPayoff()
+        {
+            return m_payoff;
+        }
+
+        bool isMakeBetTx(const CTransaction& tx)
+        {
+            return isBetTx(tx, MAKE_MODULO_NEW_GAME_INDICATOR);
+        }
+
+        bool isGetBetTx(const CTransaction& tx)
+        {
+            return isBetTx(tx, GET_MODULO_NEW_GAME_INDICATOR);
+        }
+
+        bool txGetBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, const Consensus::Params& params, CAmount& fee)
+        {
+            struct MakeBetData {
+                CTxOut out;
+                CAmount payoff;
+                CKeyID keyID;
+            };
+
+            std::map<uint256, MakeBetData> prevBlockWinningBets;
+            const CBlockIndex* pindexPrev = LookupBlockIndex(hashPrevBlock);
+            CBlock prevBlock;
+
+            if (ReadBlockFromDisk(prevBlock, pindexPrev, params)) {
+                for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
+                    const CTransaction& tx = *(prevBlock.vtx[i]);
+
+                    if (modulo::ver_2::isMakeBetTx(tx)) {
+                        MakeBetWinningProcess makeBetWinningProcess(tx, hashPrevBlock);
+                        if (makeBetWinningProcess.isMakeBetWinning()) {
+                            const CAmount payoff = makeBetWinningProcess.getMakeBetPayoff();
+                            const CKeyID keyID = getTxKeyID(tx);
+                            prevBlockWinningBets[tx.GetHash()] = MakeBetData{tx.vout[0], payoff, keyID};
+                        }
                     }
                 }
             }
-        }
-        else {
-            LogPrintf("Error: could not read previous block: %s\n", hashPrevBlock.ToString().c_str());
-            return false;
-        }
+            else {
+                LogPrintf("Error: could not read previous block: %s\n", hashPrevBlock.ToString().c_str());
+                return false;
+            }
 
-        CTransactionRef getBet;
-        for (const CTransactionRef& tx: currentBlock.vtx) {
-            if (modulo_ver_2::isGetBetTx(*tx)) {
-                if (getBet == nullptr) {
-                    getBet = tx;
+            CTransactionRef getBet;
+            for (const CTransactionRef& tx: currentBlock.vtx) {
+                if (modulo::ver_2::isGetBetTx(*tx)) {
+                    if (getBet == nullptr) {
+                        getBet = tx;
+                    }
+                    else {
+                        LogPrintf("Error: more than one get bet in block: %s\n", currentBlock.ToString().c_str());
+                        return false;
+                    }
                 }
-                else {
-                    LogPrintf("Error: more than one get bet in block: %s\n", currentBlock.ToString().c_str());
+            }
+
+            if (getBet == nullptr) {
+                if (prevBlockWinningBets.size() == 0) {
+                    return true;
+                }
+                LogPrintf("Error: get bet transaction not found for block: %s\n", currentBlock.ToString().c_str());
+                return false;
+            }
+
+            if ((*getBet).vout.size() != prevBlockWinningBets.size()) {
+                LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                return false;
+            }
+
+            for (unsigned idx=0; idx<(*getBet).vout.size(); ++idx) {
+                const CTxOut& output = (*getBet).vout[idx];
+                const uint256 makeBetHash = (*getBet).vin[idx].prevout.hash;
+                const auto iter = prevBlockWinningBets.find(makeBetHash);
+                if (iter == prevBlockWinningBets.end()) {
+                    LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
                     return false;
                 }
+
+                MakeBetData& makeBetData = iter->second;
+                if (makeBetData.payoff < output.nValue) {
+                    LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                    return false;
+                }
+
+                std::vector<unsigned char> vpubkeyHash(output.scriptPubKey.begin()+3, output.scriptPubKey.end()-2);
+                uint160 pubkeyHash(vpubkeyHash);
+                CKeyID keyID(pubkeyHash);
+                if(!(makeBetData.keyID == keyID))
+                {
+                    LogPrintf("Error: keyIDs don't match\n");
+                    return false;
+                }
+
+                fee += makeBetData.payoff - output.nValue;
+
+                //what else should be checked????
+                prevBlockWinningBets.erase(iter);
             }
-        }
 
-        if (getBet == nullptr) {
-            if (prevBlockWinningBets.size() == 0) {
-                return true;
-            }
-            LogPrintf("Error: get bet transaction not found for block: %s\n", currentBlock.ToString().c_str());
-            return false;
-        }
-
-        if ((*getBet).vout.size() != prevBlockWinningBets.size()) {
-            LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-            return false;
-        }
-
-        for (unsigned idx=0; idx<(*getBet).vout.size(); ++idx) {
-            const CTxOut& output = (*getBet).vout[idx];
-            const uint256 makeBetHash = (*getBet).vin[idx].prevout.hash;
-            const auto iter = prevBlockWinningBets.find(makeBetHash);
-            if (iter == prevBlockWinningBets.end()) {
+            if (!prevBlockWinningBets.empty()) {
                 LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
                 return false;
             }
 
-            MakeBetData& makeBetData = iter->second;
-            if (makeBetData.payoff < output.nValue) {
-                LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-                return false;
-            }
-
-            std::vector<unsigned char> vpubkeyHash(output.scriptPubKey.begin()+3, output.scriptPubKey.end()-2);
-            uint160 pubkeyHash(vpubkeyHash);
-            CKeyID keyID(pubkeyHash);
-            if(!(makeBetData.keyID == keyID))
-            {
-                LogPrintf("Error: keyIDs don't match\n");
-                return false;
-            }
-
-            fee += makeBetData.payoff - output.nValue;
-
-            //what else should be checked????
-            prevBlockWinningBets.erase(iter);
-        }
-
-        if (!prevBlockWinningBets.empty()) {
-            LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-            return false;
-        }
-
-        return true;
-    }
-
-    bool txMakeBetVerify(const CTransaction& tx)
-    {
-        try
-        {
-            if(tx.vout.size()!=1 && tx.vout.size()!=2)
-            {
-                LogPrintf("modulo_ver_2::txMakeBetVerify: tx.size incorrect: %d\n", tx.vout.size());
-                return false;
-            }
-            
-            size_t opReturnIdx;
-            if(getBetType(tx, opReturnIdx).empty())
-            {
-                LogPrintf("modulo_ver_2::txMakeBetVerify: betType is empty\n");
-                return false;
-            }
-            
-            if(opReturnIdx)
-            {
-                LogPrintf("modulo_ver_2::txMakeBetVerify: opReturnIdx is not zero\n");
-                return false;
-            }
-            
             return true;
         }
-        catch(...)
+
+        bool txMakeBetVerify(const CTransaction& tx)
         {
-            LogPrintf("modulo_ver_2::txMakeBetVerify exception occured");
-            return false;
+            try
+            {
+                if(tx.vout.size()!=1 && tx.vout.size()!=2)
+                {
+                    LogPrintf("modulo_ver_2::txMakeBetVerify: tx.size incorrect: %d\n", tx.vout.size());
+                    return false;
+                }
+                
+                size_t opReturnIdx;
+                if(getBetType(tx, opReturnIdx).empty())
+                {
+                    LogPrintf("modulo_ver_2::txMakeBetVerify: betType is empty\n");
+                    return false;
+                }
+                
+                if(opReturnIdx)
+                {
+                    LogPrintf("modulo_ver_2::txMakeBetVerify: opReturnIdx is not zero\n");
+                    return false;
+                }
+                
+                return true;
+            }
+            catch(...)
+            {
+                LogPrintf("modulo_ver_2::txMakeBetVerify exception occured");
+                return false;
+            }
         }
-    } 
+        
+        MakeBetWinningProcess::MakeBetWinningProcess(const CTransaction& tx, uint256 hash) :
+            m_tx(tx),
+            m_hash(hash)
+        {
+        }
+
+    };
+
 }

@@ -37,29 +37,6 @@ public:
     virtual bool isWinning(const std::string& betType, unsigned int maxArgument, unsigned int argument)=0;
 };
 
-class VerifyBlockReward
-{
-public:
-    VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, 
-                      ArgumentOperation* argumentOperation, GetReward* getReward, VerifyMakeBetTx* verifyMakeBetTx,
-                      int32_t makeBetIndicator, CAmount maxPayoff);
-    bool isBetPayoffExceeded();
-
-private:
-    unsigned int getArgument(std::string& betType);
-
-private:
-    const CBlock& block;
-    ArgumentOperation* argumentOperation;
-    GetReward* getReward;
-    VerifyMakeBetTx* verifyMakeBetTx;
-    unsigned int argumentResult;
-    unsigned int blockHash;
-    int32_t makeBetIndicator;
-    CAmount blockSubsidy;
-    const CAmount maxPayoff;
-};
-
 bool isBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 
 #endif
