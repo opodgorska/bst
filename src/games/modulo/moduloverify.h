@@ -39,6 +39,7 @@ namespace modulo_ver_2
 {
     bool isMakeBetTx(const CTransaction& tx);
     bool isGetBetTx(const CTransaction& tx);
+    bool txGetBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, const Consensus::Params& params, CAmount& fee);
     bool txMakeBetVerify(const CTransaction& tx);
 }
 

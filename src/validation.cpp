@@ -187,7 +187,6 @@ public:
     void UnloadBlockIndex();
 
 private:
-    bool getBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, CAmount& fee);
     bool ActivateBestChainStep(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectTip(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -1829,99 +1828,6 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 static int64_t nBlocksTotal = 0;
 
-bool CChainState::getBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, CAmount& fee)
-{
-    struct MakeBetData {
-        CTxOut out;
-        CAmount payoff;
-        CKeyID keyID;
-    };
-
-    std::map<uint256, MakeBetData> prevBlockWinningBets;
-    const CBlockIndex* pindexPrev = LookupBlockIndex(hashPrevBlock);
-    CBlock prevBlock;
-
-    if (ReadBlockFromDisk(prevBlock, pindexPrev, Params().GetConsensus())) {
-        for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
-            const CTransaction& tx = *(prevBlock.vtx[i]);
-
-            if (modulo_ver_2::isMakeBetTx(tx)) {
-                MakeBetWinningProcess makeBetWinningProcess(tx, hashPrevBlock);
-                if (makeBetWinningProcess.isMakeBetWinning()) {
-                    const CAmount payoff = makeBetWinningProcess.getMakeBetPayoff();
-                    const CKeyID keyID = getTxKeyID(tx);
-                    prevBlockWinningBets[tx.GetHash()] = MakeBetData{tx.vout[0], payoff, keyID};
-                }
-            }
-        }
-    }
-    else {
-        LogPrintf("Error: could not read previous block: %s\n", hashPrevBlock.ToString().c_str());
-        return false;
-    }
-
-    CTransactionRef getBet;
-    for (const CTransactionRef& tx: currentBlock.vtx) {
-        if (modulo_ver_2::isGetBetTx(*tx)) {
-            if (getBet == nullptr) {
-                getBet = tx;
-            }
-            else {
-                LogPrintf("Error: more than one get bet in block: %s\n", currentBlock.ToString().c_str());
-                return false;
-            }
-        }
-    }
-
-    if (getBet == nullptr) {
-        if (prevBlockWinningBets.size() == 0) {
-            return true;
-        }
-        LogPrintf("Error: get bet transaction not found for block: %s\n", currentBlock.ToString().c_str());
-        return false;
-    }
-
-    if ((*getBet).vout.size() != prevBlockWinningBets.size()) {
-        LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-        return false;
-    }
-
-    for (unsigned idx=0; idx<(*getBet).vout.size(); ++idx) {
-        const CTxOut& output = (*getBet).vout[idx];
-        const uint256 makeBetHash = (*getBet).vin[idx].prevout.hash;
-        const auto iter = prevBlockWinningBets.find(makeBetHash);
-        if (iter == prevBlockWinningBets.end()) {
-            LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-            return false;
-        }
-
-        MakeBetData& makeBetData = iter->second;
-        if (makeBetData.payoff < output.nValue) {
-            LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-            return false;
-        }
-
-        std::vector<unsigned char> vpubkeyHash(output.scriptPubKey.begin()+3, output.scriptPubKey.end()-2);
-        uint160 pubkeyHash(vpubkeyHash);
-        CKeyID keyID(pubkeyHash);
-        if(!(makeBetData.keyID == keyID))
-        {
-            LogPrintf("Error: keyIDs don't match\n");
-            return false;
-        }
-
-        fee += makeBetData.payoff - output.nValue;
-        prevBlockWinningBets.erase(iter);
-    }
-
-    if (!prevBlockWinningBets.empty()) {
-        LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-        return false;
-    }
-
-    return true;
-}
-
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -1972,8 +1878,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     CAmount getBetFee=0;
-    if (!getBetVerify(hashPrevBlock, block, getBetFee)) {
-        return state.DoS(100, error("ConnectBlock(): getBetVerify failed"),
+    if (!modulo_ver_2::txGetBetVerify(hashPrevBlock, block, chainparams.GetConsensus(), getBetFee)) {
+        return state.DoS(100, error("ConnectBlock(): txGetBetVerify failed"),
                          REJECT_INVALID, "bad-getbet-verify");
     }
 
