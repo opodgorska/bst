@@ -1335,7 +1335,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
-            if(!modulo_ver_2::isGetBetTx(tx))
+            if(!modulo::ver_2::isGetBetTx(tx))
             {
                 bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
                 assert(is_spent);
@@ -1836,7 +1836,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                   std::set<valtype>& expiredNames,
                   const CChainParams& chainparams, bool fJustCheck)
 {
-    std::cout << "ConnectBlock\n";
     AssertLockHeld(cs_main);
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
@@ -1878,7 +1877,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     CAmount getBetFee=0;
-    if (!modulo_ver_2::txGetBetVerify(hashPrevBlock, block, chainparams.GetConsensus(), getBetFee)) {
+    if (!modulo::ver_2::txGetBetVerify(hashPrevBlock, block, chainparams.GetConsensus(), getBetFee)) {
         return state.DoS(100, error("ConnectBlock(): txGetBetVerify failed"),
                          REJECT_INVALID, "bad-getbet-verify");
     }
@@ -2030,11 +2029,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
-        std::cout << "txid: " << tx.GetHash().ToString() << " tx.vout[0].nValue: " << tx.vout[0].nValue << std::endl;
 
         nInputs += tx.vin.size();
 
-        if (!tx.IsCoinBase() && !modulo_ver_2::isGetBetTx(tx))
+        if (!tx.IsCoinBase() && !modulo::ver_2::isGetBetTx(tx))
         {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, flags, txfee)) {
@@ -2064,7 +2062,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        if(!modulo_ver_2::isGetBetTx(tx))
+        if(!modulo::ver_2::isGetBetTx(tx))
         {
             nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
             if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
@@ -2073,7 +2071,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         txdata.emplace_back(tx);
-        if (!tx.IsCoinBase() && !modulo_ver_2::isGetBetTx(tx))
+        if (!tx.IsCoinBase() && !modulo::ver_2::isGetBetTx(tx))
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -2089,7 +2087,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
         
-        if(!modulo_ver_2::isGetBetTx(tx))
+        if(!modulo::ver_2::isGetBetTx(tx))
         {
             ApplyNameTransaction(tx, pindex->nHeight, view, blockundo);
         }
@@ -3258,7 +3256,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check if bet transactions included in block don't give total potential reward greater than a limit
     if(fCheckPOW)
     {
-        if(modulo::isBetPayoffExceeded(consensusParams, block))
+        if(modulo::ver_1::isBetPayoffExceeded(consensusParams, block))
         {
             return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
         }

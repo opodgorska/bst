@@ -114,8 +114,6 @@ static std::string random_string( size_t length )
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx)
 {
-    std::cout << "CreateNewBlock\n";
-
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -143,12 +141,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     {
         for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
             const CTransaction& tx = *(prevBlock.vtx[i]);
-            if (modulo_ver_2::isMakeBetTx(tx)) {
-                std::cout << "is makebet\n";
+            if (modulo::ver_2::isMakeBetTx(tx)) {
                 makeBets.push_back(tx);
-            }
-            else {
-                std::cout << "is not makebet\n";
             }
         }
     }
@@ -192,7 +186,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         uint256 prevBlockHash = pindexPrev->GetBlockHash();
         for(size_t i=0;i<makeBets.size();++i)
         {
-            MakeBetWinningProcess makeBetWinningProcess(makeBets[i], prevBlockHash);
+            modulo::ver_2::MakeBetWinningProcess makeBetWinningProcess(makeBets[i], prevBlockHash);
             if(makeBetWinningProcess.isMakeBetWinning())
             {
                 CTxIn in;
@@ -238,8 +232,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees - getBetFee;
-
-    std::cout<< "CreateNewBlock(): block weight: " << GetBlockWeight(*pblock) << " txs: " << nBlockTx << " fees: " << nFees << " sigops: " << nBlockSigOpsCost << std::endl;
 
     LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 

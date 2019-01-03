@@ -27,19 +27,6 @@ protected:
 CKeyID getTxKeyID(const CTransaction& tx, int inputIdx=0);
 CScript createScriptPubkey(const CTransaction& prevTx);
 
-class MakeBetWinningProcess
-{
-public:
-    MakeBetWinningProcess(const CTransaction& tx, uint256 hash);
-    bool isMakeBetWinning();
-    CAmount getMakeBetPayoff();
-private:
-    static const CAmount MAX_CAMOUNT = std::numeric_limits<CAmount>::max();
-    const CTransaction& m_tx;
-    uint256 m_hash;
-    CAmount m_payoff=0;
-};
-
 std::string getBetType(const CTransaction& tx, size_t& idx);
 unsigned int blockHashStr2Int(const std::string& hashStr);
 CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost);
