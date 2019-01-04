@@ -322,6 +322,9 @@
                 <height>100</height>
                </size>
               </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::ExtendedSelection</enum>
+              </property>
              </widget>
             </item>
             <item>
