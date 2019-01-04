@@ -62,6 +62,24 @@ namespace modulo
     
     namespace ver_2
     {
+        class VerifyBlockReward
+        {
+        public:
+            VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation,
+                              GetReward* getReward, VerifyMakeBetTx* verifyMakeBetTx);
+            bool isBetPayoffExceeded();
+            bool checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork=false);
+            CAmount getSumOfTxnBets(const CTransaction& txn);
+        private:
+            const CBlock& block;
+            ArgumentOperation* argumentOperation;
+            GetReward* getReward;
+            VerifyMakeBetTx* verifyMakeBetTx;
+            unsigned int argumentResult;
+            unsigned int blockHash;
+            CAmount blockSubsidy;
+        };
+
         class MakeBetWinningProcess
         {
         public:
@@ -78,7 +96,10 @@ namespace modulo
         bool isMakeBetTx(const CTransaction& tx);
         bool isGetBetTx(const CTransaction& tx);
         bool txGetBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, const Consensus::Params& params, CAmount& fee);
-        bool txMakeBetVerify(const CTransaction& tx);
+        bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork = false);
+        bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
+        bool checkBetsPotentialReward(CAmount& rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork = false);
+        CAmount getSumOfTxnBets(const CTransaction& txn);
     };
     
 }

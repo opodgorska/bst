@@ -4,6 +4,7 @@
 
 #include <validation.h>
 #include <algorithm>
+#include <chainparams.h>
 #include <games/gamestxs.h>
 #include <games/gamesverify.h>
 #include <games/modulo/moduloverify.h>
@@ -1153,10 +1154,60 @@ namespace modulo
             return true;
         }
 
-        bool txMakeBetVerify(const CTransaction& tx)
+        bool is_lottery(const std::string& betStr)
+        {
+            return betStr.find_first_not_of("0123456789") == std::string::npos;
+        }
+
+        bool checkBetNumberLimit(int mod_argument, const std::string& bet_type)
+        {
+            if (is_lottery(bet_type))
+            {
+                unsigned int betAmount = 0;
+                try {
+                    betAmount = std::stoi(bet_type);
+                } catch (...) {}
+                if (betAmount == 0)
+                {
+                    LogPrintf("%s:ERROR bet amount below limit %u\n", __func__, betAmount);
+                    return false;
+                }
+                if ((int)betAmount > mod_argument)
+                {
+                    LogPrintf("%s:ERROR bet amount: %u above game limit %u\n", __func__, betAmount, mod_argument);
+                    return false;
+                }
+            } else
+            {
+                size_t pos_ = bet_type.find_last_of("_");
+                if (pos_ != std::string::npos && pos_ < bet_type.length()-1)
+                {
+                    unsigned int betAmount = std::stoi(bet_type.substr(pos_+1, std::string::npos));
+                    if (betAmount == 0)
+                    {
+                        LogPrintf("%s:ERROR bet amount below limit %u\n", __func__, betAmount);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork)
         {
             try
             {
+                //bioinfo hardfork due to incorrect format of makebet transactions
+                if(!ignoreHardfork && chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+                {
+                    return true;
+                }
+
+                if (!isMakeBetTx(tx))
+                {
+                    return true;
+                }
+
                 if(tx.vout.size()!=1 && tx.vout.size()!=2)
                 {
                     LogPrintf("modulo_ver_2::txMakeBetVerify: tx.size incorrect: %d\n", tx.vout.size());
@@ -1164,7 +1215,8 @@ namespace modulo
                 }
                 
                 size_t opReturnIdx;
-                if(getBetType(tx, opReturnIdx).empty())
+                std::string betType = getBetType(tx, opReturnIdx);
+                if(betType.empty())
                 {
                     LogPrintf("modulo_ver_2::txMakeBetVerify: betType is empty\n");
                     return false;
@@ -1175,6 +1227,57 @@ namespace modulo
                     LogPrintf("modulo_ver_2::txMakeBetVerify: opReturnIdx is not zero\n");
                     return false;
                 }
+
+                unsigned int argument = getArgumentFromBetType(betType, MAX_REWARD);
+
+                // check does reward of each single bet is not over limit
+                while (true)
+                {
+                    const size_t typePos = betType.find("@");
+                    if (typePos == std::string::npos)
+                    {
+                        LogPrintf("%s: Incorrect bet type: %s\n", __func__, betType.c_str());
+                        return false;
+                    }
+
+                    const std::string type = betType.substr(0, typePos);
+                    betType = betType.substr(typePos + 1);
+
+                    const size_t amountPos = betType.find("+");
+                    const std::string amountStr = betType.substr(0, amountPos);
+                    CAmount amount = std::stoll(amountStr);
+                    const unsigned reward = GetModuloReward()(type, argument);
+
+                    if (reward == 0)
+                    {
+                        LogPrintf("%s:ERROR unknown bet type %s\n", __func__, betType.c_str());
+                        return false;
+                    }
+
+                    if (reward > MAX_REWARD)
+                    {
+                        LogPrintf("%s: ERROR reward of one bet %ld higher than admissible limit: %ld\n", __func__, reward, MAX_REWARD);
+                        return false;
+                    }
+
+                    if (amount == 0)
+                    {
+                        LogPrintf("%s:ERROR amount below limit %u\n", __func__, amount);
+                        return false;
+                    }
+
+                    if (!checkBetNumberLimit(argument, type))
+                    {
+                        return false;
+                    }
+
+                    if (amountPos == std::string::npos)
+                    {
+                        break;
+                    }
+
+                    betType = betType.substr(amountPos + 1);
+                }
                 
                 return true;
             }
@@ -1184,12 +1287,285 @@ namespace modulo
                 return false;
             }
         }
+
+        bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block)
+        {
+            try
+            {
+                VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+                ModuloOperation moduloOperation;
+                GetModuloReward getModuloReward;
+                VerifyBlockReward verifyBlockReward(params, block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx);
+                return verifyBlockReward.isBetPayoffExceeded();
+            }
+            catch(...)
+            {
+                LogPrintf("modulo::isBetPayoffExceeded exception occured");
+                return false;
+            }
+        };
+
+        bool checkBetsPotentialReward(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork)
+        {
+            if (isMakeBetTx(txn))
+            {
+                try
+                {
+                    CBlock block;
+                    VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+                    ModuloOperation moduloOperation;
+                    GetModuloReward getModuloReward;
+                    VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx);
+                    return verifyBlockReward.checkPotentialRewardLimit(rewardSum, betsSum, txn, ignoreHardfork);
+                }
+                catch(...)
+                {
+                    LogPrintf("modulo::isBetPayoffExceeded exception occured");
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        CAmount getSumOfTxnBets(const CTransaction& txn)
+        {
+            try
+            {
+                CBlock block;
+                VerifyMakeModuloBetTx verifyMakeModuloBetTx;
+                ModuloOperation moduloOperation;
+                GetModuloReward getModuloReward;
+                VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx);
+                return verifyBlockReward.getSumOfTxnBets(txn);
+            }
+            catch(...)
+            {
+                LogPrintf("modulo::isSumOfBetsOverSubsidyLimit exception occured");
+                return false;
+            }
+        }
+
         
         MakeBetWinningProcess::MakeBetWinningProcess(const CTransaction& tx, uint256 hash) :
             m_tx(tx),
             m_hash(hash)
         {
         }
+
+
+        VerifyBlockReward::VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation_, GetReward* getReward_, VerifyMakeBetTx* verifyMakeBetTx_) :
+                                             block(block_), argumentOperation(argumentOperation_), getReward(getReward_), verifyMakeBetTx(verifyMakeBetTx_)
+        {
+            blockSubsidy=GetBlockSubsidy(chainActive.Height(), params);
+            uint256 hash=block.GetHash();
+            blockHash=blockHashStr2Int(hash.ToString());
+        }
+
+        bool VerifyBlockReward::isBetPayoffExceeded()
+        {
+            //bioinfo hardfork due to roulette bets definition change
+            if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+            {
+                return false;
+            }
+
+            CAmount inAcc=0;
+            CAmount payoffAcc=0;
+            bool bidExceededSubsidy = false;
+            for (const auto& tx : block.vtx)
+            {
+                try
+                {
+                    if(isMakeBetTx(*tx))
+                    {
+                        std::string betType=getBetType(*tx);
+                        if(betType.empty())
+                        {
+                            LogPrintf("isBetPayoffExceeded: empty betType");
+                            continue;
+                        }
+
+                        unsigned int argument=getArgumentFromBetType(betType);
+                        argumentOperation->setArgument(argument);
+                        argumentResult=(*argumentOperation)(blockHash);
+                        while (true)
+                        {
+                            const size_t typePos = betType.find("@");
+                            if (typePos == std::string::npos)
+                            {
+                                LogPrintf("%s: Incorrect bet type: %s\n", __func__, betType.c_str());
+                                return true;
+                            }
+
+                            const std::string type = betType.substr(0, typePos);
+                            betType = betType.substr(typePos + 1);
+
+                            const size_t amountPos = betType.find("+");
+                            const std::string amountStr = betType.substr(0, amountPos);
+                            CAmount amount = std::stoll(amountStr);
+                            const unsigned reward = GetModuloReward()(type, argument);
+
+                            CAmount payoff{};
+                            if (verifyMakeBetTx->isWinning(type, argument, argumentResult))
+                            {
+                                payoff = amount * reward;
+                                payoffAcc += payoff;
+                            }
+                            inAcc += amount;
+
+                            // single potential reward higher than half of block subsidy
+                            if (payoff > (blockSubsidy/2)) bidExceededSubsidy = true;
+
+                            if (amountPos == std::string::npos)
+                            {
+                                break;
+                            }
+
+                            betType = betType.substr(amountPos + 1);
+                        }
+                    }
+                }
+                catch(...)
+                {
+                    LogPrintf("isBetPayoffExceeded: argumentOperation failed");
+                    continue;
+                }
+            }
+
+            // sum of all bets higher than 90% of block subsidy
+            if(inAcc >= ((9*blockSubsidy)/10))
+            {
+                // sum of all wins should be less than sum of all bets + block subsidy
+                if(payoffAcc>inAcc+blockSubsidy)
+                {
+                    LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
+                    return true;
+                }
+
+                // potential reward of single bet should be less than half of block subsidy
+                if (bidExceededSubsidy)
+                {
+                    LogPrintf("Potential reward of one bet higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
+        {
+            if (!ignoreHardfork && chainActive.Height() < GETBET_NEW_VERIFY)
+            {
+                return true;
+            }
+
+            if (!isMakeBetTx(txn))
+            {
+                return true;
+            }
+
+            bool bidExceededSubsidy = false;
+            std::string betType = getBetType(txn);
+            if (betType.empty())
+            {
+                LogPrintf("%s: Bet type empty\n", __func__);
+                return false;
+            }
+            unsigned int argument = getArgumentFromBetType(betType);
+
+            while (true)
+            {
+                const size_t typePos = betType.find("@");
+                if (typePos == std::string::npos)
+                {
+                    LogPrintf("%s: Incorrect bet type: %s\n", __func__, betType.c_str());
+                    return false;
+                }
+
+                const std::string type = betType.substr(0, typePos);
+                betType = betType.substr(typePos + 1);
+
+                const size_t amountPos = betType.find("+");
+                const std::string amountStr = betType.substr(0, amountPos);
+
+                CAmount amount = std::stoll(amountStr);
+                const unsigned reward = GetModuloReward()(type, argument);
+                if (reward > MAX_REWARD)
+                {
+                    LogPrintf("%s: ERROR potential reward of one bet %ld higher than admissible limit: %ld\n", __func__, reward, MAX_REWARD);
+                    return false;
+                }
+
+                CAmount payoff = reward * amount;
+                if (betsSum < ((9*blockSubsidy)/10))
+                {
+                    // do not add if it overlimit
+                    betsSum += amount;
+                }
+                // single potential reward higher than half of block subsidy
+                if (payoff > (blockSubsidy/2)) bidExceededSubsidy = true;
+
+                rewardSum += payoff;
+
+                if (amountPos == std::string::npos)
+                {
+                    break;
+                }
+
+                betType = betType.substr(amountPos + 1);
+
+            }
+
+            // sum of all potential wins in block should be less than MAX_PAYOFF
+            if (rewardSum > MAX_PAYOFF)
+            {
+                LogPrintf("%s: ERROR potential:%ld max:%ld\n", __func__, rewardSum, MAX_PAYOFF);
+                return false;
+            }
+            // sum of all bets higher than 90% of block subsidy
+            if (betsSum >= ((9*blockSubsidy)/10))
+            {
+                // potential reward of single bet should be less than half of block subsidy
+                if (bidExceededSubsidy)
+                {
+                    LogPrintf("Potential reward of one bet higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        CAmount VerifyBlockReward::getSumOfTxnBets(const CTransaction& txn)
+        {
+            CAmount sumOfBets{};
+            if(isMakeBetTx(txn))
+            {
+                std::string betType=getBetType(txn);
+                if(betType.empty())
+                {
+                    LogPrintf("%s ERROR: empty betType", __func__);
+                    return sumOfBets;
+                }
+                for(size_t i=0;true;++i)//all tx.otputs
+                {
+                    size_t pos=betType.find("+");
+                    sumOfBets+=txn.vout[i].nValue;
+                    if(pos==std::string::npos)
+                    {
+                        break;
+                    }
+                    betType=betType.substr(pos+1);
+                }
+            }
+            return sumOfBets;
+        }
+
+
+
+
+
 
     };
 

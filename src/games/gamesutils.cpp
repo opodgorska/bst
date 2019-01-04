@@ -90,6 +90,12 @@ CScript createScriptPubkey(const CTransaction& prevTx)
     return CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
+std::string getBetType(const CTransaction& tx)
+{
+    size_t index{};
+    return getBetType(tx, index);
+}
+
 std::string getBetType(const CTransaction& tx, size_t& idx)
 {
     idx=0;
@@ -99,23 +105,28 @@ std::string getBetType(const CTransaction& tx, size_t& idx)
         CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
         std::string hexStr;
         int order = *(it_beg+1);
+        uint length = 0;
         if(*it_beg==OP_RETURN)
         {
             if(order<=0x4b)
             {
                 hexStr=std::string(it_beg+2, it_end);
+                memcpy((char*)&length, std::string(it_beg+1, it_beg+2).c_str(), 1);
             }
             else if(order==0x4c)
             {
                 hexStr=std::string(it_beg+3, it_end);
+                memcpy((char*)&length, std::string(it_beg+2, it_beg+3).c_str(), 1);
             }
             else if(order==0x4d)
             {
                 hexStr=std::string(it_beg+4, it_end);
+                memcpy((char*)&length, std::string(it_beg+2, it_beg+4).c_str(), 2);
             }
             else if(order==0x4e)
             {
                 hexStr=std::string(it_beg+6, it_end);
+                memcpy((char*)&length, std::string(it_beg+2, it_beg+6).c_str(), 4);
             }
             else
             {
@@ -124,6 +135,11 @@ std::string getBetType(const CTransaction& tx, size_t& idx)
             }
             //LogPrintf("getBetType: %s\n", hexStr);
             idx=i;
+            if (hexStr.length() != length)
+            {
+                LogPrintf("%s ERROR: length difference %u, script: %s\n", length, hexStr.c_str());
+                return std::string("");
+            }
             return hexStr;
         }
     }
