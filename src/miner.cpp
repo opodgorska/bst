@@ -595,16 +595,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
-        // check does sum of bets exceedes 90% of block subsidy limit
-        CAmount blockSubsidy = GetBlockSubsidy(chainActive.Height(), Params().GetConsensus());
         CAmount sumOfBlockBets{}, potentialWinSum{};
-        for (size_t i=0; i<sortedEntries.size(); ++i) {
-            const CTransaction txn = *(sortedEntries[i]->GetSharedTx());
-            sumOfBlockBets += modulo::ver_2::getSumOfTxnBets(txn);
-        }
-
-        if (sumOfBlockBets < ((9*blockSubsidy)/10)) sumOfBlockBets = 0;
-
         for (size_t i=0; i<sortedEntries.size(); ++i) {
             const CTransaction txn = *(sortedEntries[i]->GetSharedTx());
             if (!modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn))

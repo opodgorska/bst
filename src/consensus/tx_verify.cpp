@@ -213,7 +213,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     }
 
     if(modulo::ver_2::isMakeBetTx(tx))
-    {
+    {       
         if(!modulo::ver_2::txMakeBetVerify(tx))
         {
             return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebed-format");

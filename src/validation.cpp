@@ -3261,19 +3261,23 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
         }
 
-        if(modulo::ver_2::isBetPayoffExceeded(consensusParams, block))
-        {
-            return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
-        }
         // Check if bet transaction included in block don't give potential reward grater than a limit
         CAmount potentialRewardSum{}, potentialBetsSum;
         for (const auto& txn : block.vtx)
         {
+            if (chainActive.Height() > MAKEBET_FORMAT_VERIFY)
+            {
+                if (modulo::ver_1::isMakeBetTx(*txn))
+                {
+                    return state.DoS(100, false, REJECT_INVALID, "bad-makebet-txn-version", false, "Incorrect makebet version");
+                }
+            }
             if (!modulo::ver_2::checkBetsPotentialReward(potentialRewardSum, potentialBetsSum, *txn))
             {
                 return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Sum of potential bet rewards higher than max");
             }
         }
+
 
         // Check if block contains more than one NAME_NEW transaction
         int nameNewCount=0;

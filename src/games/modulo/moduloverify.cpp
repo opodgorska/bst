@@ -343,7 +343,7 @@ namespace modulo
         bool VerifyBlockReward::isBetPayoffExceeded()
         {
             //bioinfo hardfork due to roulette bets definition change
-            if(chainActive.Height() < ROULETTE_NEW_DEFS)
+            if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
             {
                 return false;
             }
@@ -1371,7 +1371,6 @@ namespace modulo
 
             CAmount inAcc=0;
             CAmount payoffAcc=0;
-            bool bidExceededSubsidy = false;
             for (const auto& tx : block.vtx)
             {
                 try
@@ -1386,8 +1385,10 @@ namespace modulo
                         }
 
                         unsigned int argument=getArgumentFromBetType(betType);
-                        argumentOperation->setArgument(argument);
-                        argumentResult=(*argumentOperation)(blockHash);
+                        ModuloOperation moduloOperation;
+                        moduloOperation.setArgument(argument);
+                        argumentResult = moduloOperation(blockHash);
+
                         while (true)
                         {
                             const size_t typePos = betType.find("@");
@@ -1413,9 +1414,6 @@ namespace modulo
                             }
                             inAcc += amount;
 
-                            // single potential reward higher than half of block subsidy
-                            if (payoff > (blockSubsidy/2)) bidExceededSubsidy = true;
-
                             if (amountPos == std::string::npos)
                             {
                                 break;
@@ -1435,19 +1433,8 @@ namespace modulo
             // sum of all bets higher than 90% of block subsidy
             if(inAcc >= ((9*blockSubsidy)/10))
             {
-                // sum of all wins should be less than sum of all bets + block subsidy
-                if(payoffAcc>inAcc+blockSubsidy)
-                {
-                    LogPrintf("payoffAcc: %d, inAcc: %d, blockSubsidy: %d\n", payoffAcc, inAcc, blockSubsidy);
-                    return true;
-                }
-
-                // potential reward of single bet should be less than half of block subsidy
-                if (bidExceededSubsidy)
-                {
-                    LogPrintf("Potential reward of one bet higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
-                    return true;
-                }
+                LogPrintf("%s:ERROR Sum of all bets: %d higher than 90% of blockSubsidy: %d\n", __func__, inAcc, blockSubsidy);
+                return true;
             }
 
             return false;
@@ -1455,7 +1442,7 @@ namespace modulo
 
         bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
         {
-            if (!ignoreHardfork && chainActive.Height() < GETBET_NEW_VERIFY)
+            if (!ignoreHardfork && chainActive.Height() < MAKEBET_FORMAT_VERIFY)
             {
                 return true;
             }
@@ -1465,7 +1452,6 @@ namespace modulo
                 return true;
             }
 
-            bool bidExceededSubsidy = false;
             std::string betType = getBetType(txn);
             if (betType.empty())
             {
@@ -1498,14 +1484,7 @@ namespace modulo
                 }
 
                 CAmount payoff = reward * amount;
-                if (betsSum < ((9*blockSubsidy)/10))
-                {
-                    // do not add if it overlimit
-                    betsSum += amount;
-                }
-                // single potential reward higher than half of block subsidy
-                if (payoff > (blockSubsidy/2)) bidExceededSubsidy = true;
-
+                betsSum += amount;
                 rewardSum += payoff;
 
                 if (amountPos == std::string::npos)
@@ -1524,14 +1503,10 @@ namespace modulo
                 return false;
             }
             // sum of all bets higher than 90% of block subsidy
-            if (betsSum >= ((9*blockSubsidy)/10))
+            if (betsSum > ((9*blockSubsidy)/10))
             {
-                // potential reward of single bet should be less than half of block subsidy
-                if (bidExceededSubsidy)
-                {
-                    LogPrintf("Potential reward of one bet higher than half subsidy value, blockSubsidy: %d\n", blockSubsidy);
-                    return false;
-                }
+                LogPrintf("%s:ERROR Sum of all bets: %d higher than 90% of blockSubsidy: %d\n", __func__, betsSum, blockSubsidy);
+                return false;
             }
 
             return true;
