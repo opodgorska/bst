@@ -1231,6 +1231,7 @@ namespace modulo
                 unsigned int argument = getArgumentFromBetType(betType, MAX_REWARD);
 
                 // check does reward of each single bet is not over limit
+                CAmount amountSum = 0;
                 while (true)
                 {
                     const size_t typePos = betType.find("@");
@@ -1247,6 +1248,7 @@ namespace modulo
                     const std::string amountStr = betType.substr(0, amountPos);
                     CAmount amount = std::stoll(amountStr);
                     const unsigned reward = GetModuloReward()(type, argument);
+                    amountSum += amount;
 
                     if (reward == 0)
                     {
@@ -1279,6 +1281,12 @@ namespace modulo
                     betType = betType.substr(amountPos + 1);
                 }
                 
+                if (amountSum != tx.vout[0].nValue)
+                {
+                    LogPrintf("%s:ERROR amount mismatch between script: %d and nValue: %d\n", __func__, amountSum, tx.vout[0].nValue);
+                    return false;
+                }
+
                 return true;
             }
             catch(...)

@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountBelowLimit)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloArgAboveLimit)
 {
-    CAmount amount = 5;
+    CAmount amount = 3;
 
     std::string game_tag;
     const std::string command = "_10@300000000";
@@ -138,7 +138,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloArgAboveLimit)
     CMutableTransaction txn;
     prepareTransaction(txn);
 
-    txn.vout[0].nValue = amount;
+    txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
     BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
 
@@ -291,6 +291,26 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
 
     command = "00_1@300000000";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+}
+
+BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountMismatch)
+{
+    uint amount = 3+4+2+1;
+    const std::string command = "24_1@300000000+2@400000000+1@200000000+1@100000000";
+
+    CMutableTransaction txn;
+    prepareTransaction(txn);
+
+    txn.vout[0].nValue = amount * COIN;
+    txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
+
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+
+    txn.vout[0].nValue -= 1;
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+
+    txn.vout[0].nValue += 2;
     BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
 }
 
