@@ -152,6 +152,22 @@ BASE_SCRIPTS = [
     'wallet_encryption.py',
     'feature_dersig.py',
     'feature_cltv.py',
+    'name_encodings.py',
+    'name_expiration.py',
+    'name_immature_inputs.py',
+    'name_ismine.py',
+    'name_list.py',
+    'name_listunspent.py',
+    'name_multisig.py',
+    'name_pending.py',
+    'name_rawtx.py',
+    'name_registration.py',
+    'name_reorg.py',
+    'name_scanning.py',
+    'name_sendcoins.py',
+    'name_utxo.py',
+    'name_wallet.py',
+    'feature_games.py',
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
@@ -517,7 +533,7 @@ class TestResult():
 def check_script_prefixes():
     """Check that test scripts start with one of the allowed name prefixes."""
 
-    good_prefixes_re = re.compile("(example|feature|interface|mempool|mining|p2p|rpc|wallet)_")
+    good_prefixes_re = re.compile("(example|feature|interface|mempool|mining|p2p|rpc|wallet|name)_")
     bad_script_names = [script for script in ALL_SCRIPTS if good_prefixes_re.match(script) is None]
 
     if bad_script_names:
