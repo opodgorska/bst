@@ -656,7 +656,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // Are inputs missing because we already have the tx?
                 for (size_t out = 0; out < tx.vout.size(); out++) {
                     // Optimistically just do efficient check of cache for outputs
-                    if (pcoinsTip->HaveCoinInCache(COutPoint(hash, out))) {
+                    //bioinfo fork: change from namecoin - use HaveCoin() instead of HaveCoinInCache()
+                    if (pcoinsTip->HaveCoin(COutPoint(hash, out))) {
                         return state.Invalid(false, REJECT_DUPLICATE, "txn-already-known");
                     }
                 }
