@@ -363,7 +363,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         Join the (previously split) network halves together.
         """
         connect_nodes_bi(self.nodes, 1, 2)
-        self.sync_all()
+
+        # Only sync blocks after re-joining the network, since the mempools
+        # might conflict.
+        sync_blocks(self.nodes)
 
     def sync_all(self, node_groups=None):
         if not node_groups:
