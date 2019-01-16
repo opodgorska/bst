@@ -43,6 +43,7 @@
 
 #include <future>
 #include <sstream>
+#include <map>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/thread.hpp>
@@ -1335,8 +1336,11 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
-            bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
-            assert(is_spent);
+            if(!modulo::ver_2::isGetBetTx(tx))
+            {
+                bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
+                assert(is_spent);
+            }
         }
     }
     // add outputs
@@ -1873,6 +1877,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
+    CAmount getBetFee=0;
+    if (!modulo::ver_2::txGetBetVerify(hashPrevBlock, block, chainparams.GetConsensus(), getBetFee)) {
+        return state.DoS(100, error("ConnectBlock(): txGetBetVerify failed"),
+                         REJECT_INVALID, "bad-getbet-verify");
+    }
+
     nBlocksTotal++;
 
     bool fScriptChecks = true;
@@ -2023,7 +2033,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         nInputs += tx.vin.size();
 
-        if (!tx.IsCoinBase())
+        if (!tx.IsCoinBase() && !modulo::ver_2::isGetBetTx(tx))
         {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, flags, txfee)) {
@@ -2053,13 +2063,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
-        if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
-            return state.DoS(100, error("ConnectBlock(): too many sigops"),
-                             REJECT_INVALID, "bad-blk-sigops");
+        if(!modulo::ver_2::isGetBetTx(tx))
+        {
+            nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
+            if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
+                return state.DoS(100, error("ConnectBlock(): too many sigops"),
+                                 REJECT_INVALID, "bad-blk-sigops");
+        }
 
         txdata.emplace_back(tx);
-        if (!tx.IsCoinBase())
+        if (!tx.IsCoinBase() && !modulo::ver_2::isGetBetTx(tx))
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -2074,11 +2087,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
-        ApplyNameTransaction(tx, pindex->nHeight, view, blockundo);
+        
+        if(!modulo::ver_2::isGetBetTx(tx))
+        {
+            ApplyNameTransaction(tx, pindex->nHeight, view, blockundo);
+        }
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
+    nFees+=getBetFee;    
+    if (!MoneyRange(nFees)) {
+        return state.DoS(100, error("%s: accumulated fee including getBetFee in the block out of range.", __func__),
+                         REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
+    }
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
         return state.DoS(100,
@@ -3235,10 +3257,28 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check if bet transactions included in block don't give total potential reward greater than a limit
     if(fCheckPOW)
     {
-        if(modulo::isBetPayoffExceeded(consensusParams, block))
+        if(modulo::ver_1::isBetPayoffExceeded(consensusParams, block))
         {
             return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Bet rewards sum too high");
         }
+
+        // Check if bet transaction included in block don't give potential reward grater than a limit
+        CAmount potentialRewardSum = 0, potentialBetsSum = 0;
+        for (const auto& txn : block.vtx)
+        {
+            if (chainActive.Height() > MAKEBET_FORMAT_VERIFY)
+            {
+                if (modulo::ver_1::isMakeBetTx(*txn))
+                {
+                    return state.DoS(100, false, REJECT_INVALID, "bad-makebet-txn-version", false, "Incorrect makebet version");
+                }
+            }
+            if (!modulo::ver_2::checkBetsPotentialReward(potentialRewardSum, potentialBetsSum, *txn))
+            {
+                return state.DoS(100, false, REJECT_INVALID, "bad-bet-sum", false, "Sum of potential bet rewards higher than max");
+            }
+        }
+
 
         // Check if block contains more than one NAME_NEW transaction
         int nameNewCount=0;

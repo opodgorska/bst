@@ -204,11 +204,24 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
                 return state.DoS(10, false, REJECT_INVALID, "bad-txns-prevout-null");
     }
 
-    if(modulo::isMakeBetTx(tx))
+    if(modulo::ver_1::isMakeBetTx(tx))
     {
-        if(!modulo::txMakeBetVerify(tx))
+        if(!modulo::ver_1::txMakeBetVerify(tx))
         {
-            return state.DoS(10, false, REJECT_INVALID, "bad-makebed-format");
+            return state.DoS(10, false, REJECT_INVALID, "modulo::bad-makebet-format");
+        }
+    }
+
+    if(modulo::ver_2::isMakeBetTx(tx))
+    {       
+        if(!modulo::ver_2::txMakeBetVerify(tx))
+        {
+            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebet-format");
+        }
+        CAmount rewardSum{}, betsSum{};
+        if(!modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, tx))
+        {
+            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebet-overlimit");
         }
     }
 
@@ -238,7 +251,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount nValueIn = 0;
     unsigned int getBetInCount=0;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
-        if (isInputBet(tx.vin[i])) {
+        if (modulo::ver_1::isInputBet(tx.vin[i])) {
             ++getBetInCount;
         }
 
@@ -268,7 +281,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         if (nValueIn < value_out)
         {
             //LogPrintf("nValueIn < value_out\n");
-            correctBetTx=modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
+            correctBetTx=modulo::ver_1::txGetBetVerify(nSpendHeight, tx, nValueIn, value_out, betFee);
             if(!correctBetTx)
             {
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
@@ -305,10 +318,14 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "not all inputs are getbets");
         }
         else {
-            if(modulo::txVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
+            if(modulo::ver_1::txGetBetVerify(nSpendHeight, tx, nValueIn, value_out, betFee))
             {
                 correctBetTx = true;
                 txfee_aux=betFee;
+                if (nSpendHeight > MAKEBET_FORMAT_VERIFY)
+                {
+                    return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "Incorrect getbet version");
+                }
             }
             else {
                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-verify", false,

@@ -13,6 +13,8 @@
 #include <uint256.h>
 
 constexpr int32_t MAKE_MODULO_GAME_INDICATOR=0x40000000;
+constexpr int32_t MAKE_MODULO_NEW_GAME_INDICATOR=0x20000000;
+constexpr int32_t GET_MODULO_NEW_GAME_INDICATOR=0x10000000;
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */

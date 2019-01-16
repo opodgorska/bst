@@ -13,6 +13,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
+#include <games/gamesutils.h>
 #include <hash.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -24,10 +25,12 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>
-
+#include <utilstrencodings.h>
 #include <algorithm>
 #include <queue>
 #include <utility>
+
+#include <games/modulo/moduloverify.h>
 
 // Unconfirmed transactions in the memory pool often depend on other
 // transactions in the memory pool. When we select transactions from the
@@ -96,6 +99,19 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
+static std::string random_string( size_t length )
+{
+    auto randchar = []() -> char
+    {
+        const char charset[] = "0123456789abcdef";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    std::string str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    return str;
+}
+
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx)
 {
     int64_t nTimeStart = GetTimeMicros();
@@ -113,9 +129,24 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxFees.push_back(-1); // updated at end
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
+
     LOCK2(cs_main, mempool.cs);
+
     CBlockIndex* pindexPrev = chainActive.Tip();
     assert(pindexPrev != nullptr);
+    
+    CBlock prevBlock;
+    std::vector<CTransaction> makeBets;
+    if(ReadBlockFromDisk(prevBlock, pindexPrev, Params().GetConsensus()))
+    {
+        for (unsigned int i = 0; i < prevBlock.vtx.size(); i++) {
+            const CTransaction& tx = *(prevBlock.vtx[i]);
+            if (modulo::ver_2::isMakeBetTx(tx)) {
+                makeBets.push_back(tx);
+            }
+        }
+    }
+    
     nHeight = pindexPrev->nHeight + 1;
 
     pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
@@ -145,6 +176,49 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
+    CAmount getBetFee = 0;
+    if (makeBets.size() > 0) 
+    {
+        CMutableTransaction getBetTx;
+        getBetTx.nVersion=(GET_MODULO_NEW_GAME_INDICATOR | CTransaction::CURRENT_VERSION);
+        bool hasWinningBets = false;
+        uint256 prevBlockHash = pindexPrev->GetBlockHash();
+        for(size_t i=0;i<makeBets.size();++i)
+        {
+            modulo::ver_2::MakeBetWinningProcess makeBetWinningProcess(makeBets[i], prevBlockHash);
+            if(makeBetWinningProcess.isMakeBetWinning())
+            {
+                CTxIn in;
+                in.prevout.hash = makeBets[i].GetHash();
+                in.prevout.n = 0;
+                in.scriptSig = CScript() << nHeight << i;
+                getBetTx.vin.push_back(in);
+                CTxOut out;
+                out.scriptPubKey = createScriptPubkey(makeBets[i]);
+                out.nValue = makeBetWinningProcess.getMakeBetPayoff();
+                getBetTx.vout.push_back(out);
+                hasWinningBets=true;
+            }
+        }
+        
+        if(hasWinningBets)
+        {
+            int64_t sigOpCost= WITNESS_SCALE_FACTOR * GetLegacySigOpCount(CTransaction(getBetTx));
+            nBlockSigOpsCost += sigOpCost;
+            pblocktemplate->vTxSigOpsCost.push_back(sigOpCost);
+
+            nBlockTx++;
+            int64_t nTxWeight = GetTransactionWeight(getBetTx);
+            nBlockWeight += nTxWeight;
+
+            getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);
+            nFees += getBetFee;
+            pblocktemplate->vTxFees.push_back(getBetFee);
+
+           pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
+        }
+    }
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -179,7 +253,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime2 = GetTimeMicros();
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
-
+    makeBets.clear();
     return std::move(pblocktemplate);
 }
 
@@ -319,15 +393,6 @@ bool BlockAssembler::hasNameNew() const
 
 void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
 {
-    const CTransaction& txIn = *(iter->GetSharedTx());
-    if(isNameNew(txIn))
-    {    
-        if(hasNameNew())
-        {
-            return;
-        }
-    }
-
     pblock->vtx.emplace_back(iter->GetSharedTx());
     pblocktemplate->vTxFees.push_back(iter->GetFee());
     pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
@@ -431,6 +496,18 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
+        uint nameTxnCounter = 0;
+        // get balance of transactions already added to block
+        CAmount sumOfBlockBets{}, potentialWinSum{};
+        for (size_t i=0; i<pblock->vtx.size(); ++i)
+        {
+            if(pblock->vtx[i]) {
+                const CTransaction& txn = *(pblock->vtx[i]);
+                if (isNameNew(txn)) ++nameTxnCounter;
+                modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn);
+            }
+        }
+
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<ancestor_score>().end() &&
                 SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
@@ -509,9 +586,28 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         onlyUnconfirmed(ancestors);
         ancestors.insert(iter);
 
+        bool txnLimitExceeded = false;
+        uint localNameTxnCounter = 0;
+        for (auto it : ancestors)
+        {
+            const CTransaction& txn = it->GetTx();
+            if (isNameNew(txn)) ++localNameTxnCounter;
+            if (!modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn))
+            {
+                txnLimitExceeded = true;
+                break;
+            }
+        }
+
+        if (!txnLimitExceeded && (localNameTxnCounter + nameTxnCounter) > 1)
+        {
+            txnLimitExceeded = true;
+        }
+
         // Test if all tx's are Final
-        if (!TestPackageTransactions(ancestors) || !DbLockLimitOk(ancestors)) {
+        if (txnLimitExceeded || !TestPackageTransactions(ancestors) || !DbLockLimitOk(ancestors)) {
             if (fUsingModified) {
+                LogPrintf("%s skipping transaction %s\n", __func__, iter->GetTx().GetHash().ToString().c_str());
                 mapModifiedTx.get<ancestor_score>().erase(modit);
                 failedTx.insert(iter);
             }

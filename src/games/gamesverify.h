@@ -10,11 +10,12 @@
 #include <primitives/transaction.h>
 #include <wallet/wallet.h>
 #include <games/gamesutils.h>
+#include <data/datautils.h>
 
 //bioinfo hardfork due to roulette bets definition change
 #define ROULETTE_NEW_DEFS (108600)
 //bioinfo hardfork due to incorrect format of makebet transactions
-#define MAKEBET_FORMAT_VERIFY (132015)
+#define MAKEBET_FORMAT_VERIFY (224841)
 //bioinfo hardfork due to incorrect getbet verification
 #define GETBET_NEW_VERIFY (169757)
 
@@ -30,39 +31,12 @@ public:
     virtual bool operator()(int nSpendHeight, const std::string& betTypePattern, const std::vector<int>& betNumbers)=0;
 };
 
-bool txVerify(int nSpendHeight, const CTransaction& tx, CAmount in, CAmount out, CAmount& fee, ArgumentOperation* operation, GetReward* getReward, CompareBet2Vector* compareBet2Vector, int32_t indicator, CAmount maxPayoff, int32_t maxReward);
-
 class VerifyMakeBetTx
 {
 public:
     virtual bool isWinning(const std::string& betType, unsigned int maxArgument, unsigned int argument)=0;
 };
 
-class VerifyBlockReward
-{
-public:
-    VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation, GetReward* getReward, VerifyMakeBetTx* verifyMakeBetTx, int32_t makeBetIndicator, CAmount maxPayoff);
-    bool isBetPayoffExceeded();
-
-private:
-    std::string getBetType(const CTransaction& tx);
-    unsigned int getArgument(std::string& betType);
-    bool isMakeBetTx(const CTransaction& tx);
-
-private:
-    const CBlock& block;
-    ArgumentOperation* argumentOperation;
-    GetReward* getReward;
-    VerifyMakeBetTx* verifyMakeBetTx;
-    unsigned int argumentResult;
-    unsigned int blockHash;
-    int32_t makeBetIndicator;
-    CAmount blockSubsidy;
-    const CAmount maxPayoff;
-};
-
-bool isMakeBetTx(const CTransaction& tx, int32_t makeBetIndicator);
-bool isInputBet(const CTxIn& input);
-bool txMakeBetVerify(const CTransaction& tx, int32_t makeBetIndicator);
+bool isBetTx(const CTransaction& tx, int32_t makeBetIndicator);
 
 #endif

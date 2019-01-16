@@ -42,19 +42,12 @@ private:
     WalletModel *walletModel;
     ClientModel *clientModel;
     std::string changeAddress;
-    QListWidgetItem *selectedItem;
     bool fFeeMinimized;
     CFeeRate feeRate;
     QButtonGroup *groupFee;
-    std::mutex mtx;
 
 private:
     void unlockWallet();
-    void dumpListToFile(const QString& fileName);
-    void loadListFromFile(const QString& fileName);
-    bool isTxidInList(const QString& txid);
-    bool addTxidToList(const QString& txid);
-    bool removeTxidFromList(const QString& txid);
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
     void updateCoinControlState(CCoinControl& ctrl);
@@ -64,13 +57,10 @@ private:
 
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);
-    void newTx(const QString &hash);
-    void deletedTx(const QString &hash);
 
 private Q_SLOTS:
     void makeBet();
-    void getBet();
-    
+
     void updateGameType();
     void updateBetType();
     void addBet();

@@ -198,10 +198,6 @@ public:
             int64_t adjustedTime;
             if (wallet.tryGetTxStatus(rec->hash, wtx, numBlocks, adjustedTime) && rec->statusUpdateNeeded(numBlocks)) {
                 rec->updateStatus(wtx, numBlocks, adjustedTime);
-                if(rec->status.status == TransactionStatus::Status::Conflicted)
-                {
-                    Q_EMIT parent->deletedTx(QString::fromStdString(rec->hash.GetHex()));
-                }
             }
             return rec;
         }
@@ -256,24 +252,11 @@ void TransactionTableModel::updateTransaction(const QString &hash, int status, b
 {
     uint256 updated;
     updated.SetHex(hash.toStdString());
-    int inStatus=status;
 
     interfaces::Wallet& wallet=walletModel->wallet();
     priv->updateWallet(wallet, updated, status, showTransaction);
-    int outStatus=status;
 
     auto tx = wallet.getTx(updated);
-    if(modulo::isMakeBetTx(*tx))
-    {
-        if(inStatus == CT_NEW && outStatus == CT_NEW)
-        {
-            Q_EMIT newTx(hash);
-        }
-        else if(inStatus == CT_UPDATED && outStatus == CT_DELETED)
-        {
-            Q_EMIT deletedTx(hash);
-        }
-    }
 }
 
 void TransactionTableModel::updateConfirmations()

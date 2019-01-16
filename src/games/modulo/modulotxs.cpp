@@ -13,7 +13,7 @@ namespace modulo
 
     void ModuloOperation::setArgument(unsigned int argument)
     {
-        ModuloOperation::setArgument(argument);
+        ArgumentOperation::setArgument(argument);
     }
 
     unsigned int ModuloOperation::operator()(unsigned int blockHash)
