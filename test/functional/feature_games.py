@@ -49,12 +49,12 @@ class MakeBetTest(BitcoinTestFramework):
 
     def lottery_must_succeed(self):
         bal_1 = self.nodeA.getbalance()
-        self.nodeA.makebet(type_of_bet="1@10", range=4)
-        self.nodeA.makebet(type_of_bet="2@10", range=4)
-        self.nodeA.makebet(type_of_bet="3@10", range=4)
-        self.nodeA.makebet(type_of_bet="4@10", range=4)
+        self.nodeA.makebet(type_of_bet="1@5", range=4)
+        self.nodeA.makebet(type_of_bet="2@5", range=4)
+        self.nodeA.makebet(type_of_bet="3@5", range=4)
+        self.nodeA.makebet(type_of_bet="4@5", range=4)
         bal_2 = self.nodeA.getbalance()
-        assert_almost_equal(bal_1, bal_2 + 4*10)
+        assert_almost_equal(bal_1, bal_2 + 4*5)
 
         self.generate_block()
         bal_3 = self.nodeA.getbalance()
@@ -63,7 +63,7 @@ class MakeBetTest(BitcoinTestFramework):
 
         self.generate_block()
         bal_4 = self.nodeA.getbalance()
-        won_amount = 4*10
+        won_amount = 4*5
         assert_almost_equal(bal_3 + won_amount + block_amount, bal_4)
 
         self.generate_block()
@@ -72,14 +72,14 @@ class MakeBetTest(BitcoinTestFramework):
 
     def roulette_two_nodes(self):
         bal_A_1 = self.nodeA.getbalance()
-        self.nodeA.makebet(type_of_bet="red@10+black@10")
+        self.nodeA.makebet(type_of_bet="red@8+black@8")
         bal_A_2 = self.nodeA.getbalance()
-        assert_almost_equal(bal_A_1, bal_A_2+2*10)
+        assert_almost_equal(bal_A_1, bal_A_2+2*8)
 
         bal_B_1 = self.nodeB.getbalance()
-        self.nodeB.makebet(type_of_bet="red@5+black@5")
+        self.nodeB.makebet(type_of_bet="red@3+black@3")
         bal_B_2 = self.nodeB.getbalance()
-        assert_almost_equal(bal_B_1, bal_B_2+2*5)
+        assert_almost_equal(bal_B_1, bal_B_2+2*3)
 
         self.sync_all()
         self.generate_block()
@@ -92,10 +92,10 @@ class MakeBetTest(BitcoinTestFramework):
 
         self.generate_block()
         bal_A_4 = self.nodeA.getbalance()
-        won_amount_A = 2*10
+        won_amount_A = 2*8
         assert_almost_equal(bal_A_3 + won_amount_A + block_amount, bal_A_4)
         bal_B_4 = self.nodeB.getbalance()
-        won_amount_B = 2*5
+        won_amount_B = 2*3
         assert_almost_equal(bal_B_3 + won_amount_B, bal_B_4)
 
         self.generate_block()
@@ -138,7 +138,7 @@ class MakeBetTest(BitcoinTestFramework):
         self.nodeA = self.nodes[0]
         self.nodeB = self.nodes[1]
 
-        #test scenarios:
+        # test scenarios:
         self.roulette_must_succeed()
         self.lottery_must_succeed()
         self.roulette_two_nodes()
