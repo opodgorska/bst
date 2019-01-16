@@ -205,14 +205,18 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if(hasWinningBets)
         {
             int64_t sigOpCost= WITNESS_SCALE_FACTOR * GetLegacySigOpCount(CTransaction(getBetTx));
+            nBlockSigOpsCost += sigOpCost;
             pblocktemplate->vTxSigOpsCost.push_back(sigOpCost);
-            
+
             nBlockTx++;
             int64_t nTxWeight = GetTransactionWeight(getBetTx);
             nBlockWeight += nTxWeight;
-            
+
             getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);
-            pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
+            nFees += getBetFee;
+            pblocktemplate->vTxFees.push_back(getBetFee);
+
+           pblock->vtx.emplace_back(MakeTransactionRef(std::move(getBetTx)));
         }
     }
 
@@ -227,11 +231,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + getBetFee + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
-    pblocktemplate->vTxFees[0] = -nFees - getBetFee;
+    pblocktemplate->vTxFees[0] = -nFees;
 
     LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
@@ -501,6 +505,14 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
+        // get balance of transactions already added to block
+        CAmount sumOfBlockBets{}, potentialWinSum{};
+        for (size_t i=0; i<pblock->vtx.size(); ++i)
+        {
+            if(pblock->vtx[i])
+                modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, *(pblock->vtx[i]));
+        }
+
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<ancestor_score>().end() &&
                 SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
@@ -579,6 +591,23 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         onlyUnconfirmed(ancestors);
         ancestors.insert(iter);
 
+        bool gameLimitsExceeded = false;
+        for (auto it : ancestors)
+        {
+            const CTransaction& txn = it->GetTx();
+            if (!modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn))
+            {
+                if (fUsingModified) {
+                    mapModifiedTx.get<ancestor_score>().erase(modit);
+                    failedTx.insert(iter);
+                }
+                LogPrintf("%s skipping transaction %s\n", __func__, txn.GetHash().ToString().c_str());
+                gameLimitsExceeded = true;
+                break;
+            }
+        }
+        if (gameLimitsExceeded) continue;
+
         // Test if all tx's are Final
         if (!TestPackageTransactions(ancestors) || !DbLockLimitOk(ancestors)) {
             if (fUsingModified) {
@@ -595,14 +624,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
-        CAmount sumOfBlockBets{}, potentialWinSum{};
         for (size_t i=0; i<sortedEntries.size(); ++i) {
-            const CTransaction txn = *(sortedEntries[i]->GetSharedTx());
-            if (!modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn))
-            {
-                LogPrintf("%s: WARNING skipping transaction: %s", __func__, txn.GetHash().ToString().c_str());
-                continue;
-            }
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);

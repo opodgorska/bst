@@ -28,6 +28,7 @@
 #include <games/modulo/modulotxs.h>
 #include <games/gamesutils.h>
 #include <games/modulo/moduloutils.h>
+#include <games/modulo/moduloverify.h>
 
 using namespace modulo;
 
@@ -159,6 +160,12 @@ UniValue makebet(const JSONRPCRequest& request)
             strFailReason = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         }        
         throw std::runtime_error(std::string("CreateTransaction failed with reason: ")+strFailReason);
+    }
+
+    CAmount rewardSum{}, betsSum{};
+    if (!modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, *tx))
+    {
+        throw std::runtime_error("checkBetsPotentialReward failed with reason: potential reward or sum of bets over limit");
     }
 
     CValidationState state;

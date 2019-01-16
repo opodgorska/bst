@@ -657,7 +657,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // Are inputs missing because we already have the tx?
                 for (size_t out = 0; out < tx.vout.size(); out++) {
                     // Optimistically just do efficient check of cache for outputs
-                    if (pcoinsTip->HaveCoinInCache(COutPoint(hash, out))) {
+                    if (pcoinsTip->HaveCoin(COutPoint(hash, out))) {
                         return state.Invalid(false, REJECT_DUPLICATE, "txn-already-known");
                     }
                 }
@@ -3262,7 +3262,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         }
 
         // Check if bet transaction included in block don't give potential reward grater than a limit
-        CAmount potentialRewardSum{}, potentialBetsSum;
+        CAmount potentialRewardSum = 0, potentialBetsSum = 0;
         for (const auto& txn : block.vtx)
         {
             if (chainActive.Height() > MAKEBET_FORMAT_VERIFY)

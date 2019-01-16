@@ -1291,7 +1291,7 @@ namespace modulo
             }
             catch(...)
             {
-                LogPrintf("modulo_ver_2::txMakeBetVerify exception occured");
+                LogPrintf("modulo_ver_2::txMakeBetVerify exception occured\n");
                 return false;
             }
         }
@@ -1308,7 +1308,7 @@ namespace modulo
             }
             catch(...)
             {
-                LogPrintf("modulo::isBetPayoffExceeded exception occured");
+                LogPrintf("modulo::isBetPayoffExceeded exception occured\n");
                 return false;
             }
         };
@@ -1328,7 +1328,7 @@ namespace modulo
                 }
                 catch(...)
                 {
-                    LogPrintf("modulo::isBetPayoffExceeded exception occured");
+                    LogPrintf("modulo::checkPotentialReward exception occured\n");
                     return false;
                 }
             }
@@ -1348,7 +1348,7 @@ namespace modulo
             }
             catch(...)
             {
-                LogPrintf("modulo::isSumOfBetsOverSubsidyLimit exception occured");
+                LogPrintf("modulo::isSumOfBetsOverSubsidyLimit exception occured\n");
                 return false;
             }
         }
@@ -1388,7 +1388,7 @@ namespace modulo
                         std::string betType=getBetType(*tx);
                         if(betType.empty())
                         {
-                            LogPrintf("isBetPayoffExceeded: empty betType");
+                            LogPrintf("isBetPayoffExceeded: empty betType\n");
                             continue;
                         }
 
@@ -1433,7 +1433,7 @@ namespace modulo
                 }
                 catch(...)
                 {
-                    LogPrintf("isBetPayoffExceeded: argumentOperation failed");
+                    LogPrintf("isBetPayoffExceeded: argumentOperation failed\n");
                     continue;
                 }
             }
@@ -1441,7 +1441,7 @@ namespace modulo
             // sum of all bets higher than 90% of block subsidy
             if(inAcc >= ((9*blockSubsidy)/10))
             {
-                LogPrintf("%s:ERROR Sum of all bets: %d higher than 90% of blockSubsidy: %d\n", __func__, inAcc, blockSubsidy);
+                LogPrintf("%s:ERROR Sum of all bets: %d higher than 90%% of blockSubsidy: %d\n", __func__, inAcc, blockSubsidy);
                 return true;
             }
 
@@ -1513,7 +1513,7 @@ namespace modulo
             // sum of all bets higher than 90% of block subsidy
             if (betsSum > ((9*blockSubsidy)/10))
             {
-                LogPrintf("%s:ERROR Sum of all bets: %d higher than 90% of blockSubsidy: %d\n", __func__, betsSum, blockSubsidy);
+                LogPrintf("%s:ERROR Sum of all bets: %d higher than 90%% of blockSubsidy: %d\n", __func__, betsSum, blockSubsidy);
                 return false;
             }
 
@@ -1528,7 +1528,7 @@ namespace modulo
                 std::string betType=getBetType(txn);
                 if(betType.empty())
                 {
-                    LogPrintf("%s ERROR: empty betType", __func__);
+                    LogPrintf("%s ERROR: empty betType\n", __func__);
                     return sumOfBets;
                 }
                 for(size_t i=0;true;++i)//all tx.otputs
