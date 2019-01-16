@@ -393,15 +393,6 @@ bool BlockAssembler::hasNameNew() const
 
 void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
 {
-    const CTransaction& txIn = *(iter->GetSharedTx());
-    if(isNameNew(txIn))
-    {    
-        if(hasNameNew())
-        {
-            return;
-        }
-    }
-
     pblock->vtx.emplace_back(iter->GetSharedTx());
     pblocktemplate->vTxFees.push_back(iter->GetFee());
     pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
@@ -505,12 +496,16 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
+        uint nameTxnCounter = 0;
         // get balance of transactions already added to block
         CAmount sumOfBlockBets{}, potentialWinSum{};
         for (size_t i=0; i<pblock->vtx.size(); ++i)
         {
-            if(pblock->vtx[i])
-                modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, *(pblock->vtx[i]));
+            if(pblock->vtx[i]) {
+                const CTransaction& txn = *(pblock->vtx[i]);
+                if (isNameNew(txn)) ++nameTxnCounter;
+                modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn);
+            }
         }
 
         // First try to find a new transaction in mapTx to evaluate.
@@ -591,26 +586,28 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         onlyUnconfirmed(ancestors);
         ancestors.insert(iter);
 
-        bool gameLimitsExceeded = false;
+        bool txnLimitExceeded = false;
+        uint localNameTxnCounter = 0;
         for (auto it : ancestors)
         {
             const CTransaction& txn = it->GetTx();
+            if (isNameNew(txn)) ++localNameTxnCounter;
             if (!modulo::ver_2::checkBetsPotentialReward(potentialWinSum, sumOfBlockBets, txn))
             {
-                if (fUsingModified) {
-                    mapModifiedTx.get<ancestor_score>().erase(modit);
-                    failedTx.insert(iter);
-                }
-                LogPrintf("%s skipping transaction %s\n", __func__, txn.GetHash().ToString().c_str());
-                gameLimitsExceeded = true;
+                txnLimitExceeded = true;
                 break;
             }
         }
-        if (gameLimitsExceeded) continue;
+
+        if (!txnLimitExceeded && (localNameTxnCounter + nameTxnCounter) > 1)
+        {
+            txnLimitExceeded = true;
+        }
 
         // Test if all tx's are Final
-        if (!TestPackageTransactions(ancestors) || !DbLockLimitOk(ancestors)) {
+        if (txnLimitExceeded || !TestPackageTransactions(ancestors) || !DbLockLimitOk(ancestors)) {
             if (fUsingModified) {
+                LogPrintf("%s skipping transaction %s\n", __func__, iter->GetTx().GetHash().ToString().c_str());
                 mapModifiedTx.get<ancestor_score>().erase(modit);
                 failedTx.insert(iter);
             }

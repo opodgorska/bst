@@ -322,6 +322,10 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             {
                 correctBetTx = true;
                 txfee_aux=betFee;
+                if (nSpendHeight > MAKEBET_FORMAT_VERIFY)
+                {
+                    return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "Incorrect getbet version");
+                }
             }
             else {
                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-verify", false,

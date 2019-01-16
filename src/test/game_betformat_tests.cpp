@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountMismatch)
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit_SumOfBetsBelow90)
 {
     CAmount amount = GetBlockSubsidy(1, Params().GetConsensus()) / 2;
-    CAmount rewardSum = 0, betsSum;
+    CAmount rewardSum = 0, betsSum = 0;
     std::string amountStr = std::to_string(amount);
 
     const std::string game_tag = "3030303030303031";
