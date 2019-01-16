@@ -131,6 +131,14 @@ struct Params {
     int BIP66Height;
     /** Block height at which DAA  becomes active */
     uint32_t DAAHeight;
+
+    /** bioinfo hardfork due to roulette bets definition change */
+    int RouletteNewDefs;
+    /** bioinfo hardfork due to incorrect format of makebet transaction */
+    int MakebetFormatVerify;
+    /** bioinfo hardfork due to incorrect getbet verification */
+    int GetbetNewVerify;
+
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nPowTargetTimespan / nPowTargetSpacing) which is also used for BIP9 deployments.

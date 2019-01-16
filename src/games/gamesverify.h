@@ -12,13 +12,6 @@
 #include <games/gamesutils.h>
 #include <data/datautils.h>
 
-//bioinfo hardfork due to roulette bets definition change
-#define ROULETTE_NEW_DEFS (108600)
-//bioinfo hardfork due to incorrect format of makebet transactions
-#define MAKEBET_FORMAT_VERIFY (224841)
-//bioinfo hardfork due to incorrect getbet verification
-#define GETBET_NEW_VERIFY (169757)
-
 class GetReward
 {
 public:

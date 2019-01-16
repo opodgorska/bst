@@ -3266,7 +3266,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         CAmount potentialRewardSum = 0, potentialBetsSum = 0;
         for (const auto& txn : block.vtx)
         {
-            if (chainActive.Height() > MAKEBET_FORMAT_VERIFY)
+            if (chainActive.Height() > Params().GetConsensus().MakebetFormatVerify)
             {
                 if (modulo::ver_1::isMakeBetTx(*txn))
                 {

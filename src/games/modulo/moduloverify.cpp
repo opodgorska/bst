@@ -267,7 +267,7 @@ namespace modulo
     bool CompareModuloBet2Vector::operator()(int nSpendHeight, const std::string& betTypePattern, const std::vector<int>& betNumbers)
     {
         //bioinfo hardfork due to roulette bets definition change
-        if(nSpendHeight < ROULETTE_NEW_DEFS)
+        if(nSpendHeight < Params().GetConsensus().RouletteNewDefs)
         {
             return true;
         }
@@ -343,7 +343,7 @@ namespace modulo
         bool VerifyBlockReward::isBetPayoffExceeded()
         {
             //bioinfo hardfork due to roulette bets definition change
-            if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+            if(chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
             {
                 return false;
             }
@@ -922,7 +922,7 @@ namespace modulo
             try
             {
                 //bioinfo hardfork due to incorrect format of makebet transactions
-                if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+                if(chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
                 {
                     return true;
                 }
@@ -1197,7 +1197,7 @@ namespace modulo
             try
             {
                 //bioinfo hardfork due to incorrect format of makebet transactions
-                if(!ignoreHardfork && chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+                if(!ignoreHardfork && chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
                 {
                     return true;
                 }
@@ -1371,7 +1371,7 @@ namespace modulo
         bool VerifyBlockReward::isBetPayoffExceeded()
         {
             //bioinfo hardfork due to roulette bets definition change
-            if(chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+            if(chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
             {
                 return false;
             }
@@ -1449,7 +1449,7 @@ namespace modulo
 
         bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
         {
-            if (!ignoreHardfork && chainActive.Height() < MAKEBET_FORMAT_VERIFY)
+            if (!ignoreHardfork && chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
             {
                 return true;
             }

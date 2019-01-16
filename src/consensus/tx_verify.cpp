@@ -10,6 +10,7 @@
 #include <script/interpreter.h>
 #include <consensus/validation.h>
 #include <games/modulo/moduloverify.h>
+#include <chainparams.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -277,7 +278,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     bool correctBetTx=false;
     CAmount betFee;
 
-    if (nSpendHeight < GETBET_NEW_VERIFY) {
+    if (nSpendHeight < ::Params().GetConsensus().GetbetNewVerify) {
         if (nValueIn < value_out)
         {
             //LogPrintf("nValueIn < value_out\n");
@@ -322,7 +323,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             {
                 correctBetTx = true;
                 txfee_aux=betFee;
-                if (nSpendHeight > MAKEBET_FORMAT_VERIFY)
+                if (nSpendHeight > ::Params().GetConsensus().MakebetFormatVerify)
                 {
                     return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "Incorrect getbet version");
                 }
