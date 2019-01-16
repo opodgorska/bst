@@ -208,7 +208,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {
         if(!modulo::ver_1::txMakeBetVerify(tx))
         {
-            return state.DoS(10, false, REJECT_INVALID, "modulo::bad-makebed-format");
+            return state.DoS(10, false, REJECT_INVALID, "modulo::bad-makebet-format");
         }
     }
 
@@ -216,12 +216,12 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {       
         if(!modulo::ver_2::txMakeBetVerify(tx))
         {
-            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebed-format");
+            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebet-format");
         }
         CAmount rewardSum{}, betsSum{};
         if(!modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, tx))
         {
-            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebed-overlimit");
+            return state.DoS(10, false, REJECT_INVALID, "modulo_ver_2::bad-makebet-overlimit");
         }
     }
 

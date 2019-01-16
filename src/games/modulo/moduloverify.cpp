@@ -1142,7 +1142,6 @@ namespace modulo
 
                 fee += makeBetData.payoff - output.nValue;
 
-                //what else should be checked????
                 prevBlockWinningBets.erase(iter);
             }
 
