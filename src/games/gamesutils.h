@@ -31,6 +31,6 @@ std::string getBetType(const CTransaction& tx, size_t& idx);
 std::string getBetType(const CTransaction& tx);
 unsigned int blockHashStr2Int(const std::string& hashStr);
 CAmount applyFee(CMutableTransaction& tx, int64_t nTxWeight, int64_t sigOpCost);
-unsigned int getArgumentFromBetType(std::string& betType, uint max_limit = std::numeric_limits<uint>::max());
+unsigned int getArgumentFromBetType(std::string& betType, unsigned int max_limit = std::numeric_limits<unsigned int>::max());
 
 #endif

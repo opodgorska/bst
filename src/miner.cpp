@@ -496,7 +496,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
-        uint nameTxnCounter = 0;
+        unsigned int nameTxnCounter = 0;
         // get balance of transactions already added to block
         CAmount sumOfBlockBets{}, potentialWinSum{};
         for (size_t i=0; i<pblock->vtx.size(); ++i)
@@ -587,7 +587,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         ancestors.insert(iter);
 
         bool txnLimitExceeded = false;
-        uint localNameTxnCounter = 0;
+        unsigned int localNameTxnCounter = 0;
         for (auto it : ancestors)
         {
             const CTransaction& txn = it->GetTx();

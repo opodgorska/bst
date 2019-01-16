@@ -105,7 +105,7 @@ std::string getBetType(const CTransaction& tx, size_t& idx)
         CScript::const_iterator it_end=tx.vout[i].scriptPubKey.end();
         std::string hexStr;
         int order = *(it_beg+1);
-        uint length = 0;
+        unsigned int length = 0;
         if(*it_beg==OP_RETURN)
         {
             if(order<=0x4b)
@@ -158,7 +158,7 @@ unsigned int blockHashStr2Int(const std::string& hashStr)
     return hash;
 }
 
-unsigned int getArgumentFromBetType(std::string& betType, uint max_limit)
+unsigned int getArgumentFromBetType(std::string& betType, unsigned int max_limit)
 {
     size_t pos_=betType.find("_");
     if(pos_==std::string::npos)
