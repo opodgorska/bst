@@ -41,7 +41,7 @@ BOOST_FIXTURE_TEST_SUITE(MakebetFormatTest, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_OpReturnExists)
 {
-    uint amount = 3;
+    unsigned int amount = 3;
     const std::string command = "24_straight_4@300000000";
 
     CMutableTransaction txn;
@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_OpReturnExists)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_OpReturnNotExists)
 {
-    uint amount = 3;
+    unsigned int amount = 3;
     const std::string command = "24_straight_4@300000000";
 
     CMutableTransaction txn;
@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_TxOutSizeToSmall)
 
     BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
 
-    uint amount = 30;
+    unsigned int amount = 30;
     const std::string command = "24_red@3000000000";
 
     txn.vout[0].nValue = amount * COIN;
@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_TxOutSizeToSmall)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_IncorrectDataLength)
 {
-    uint amount = 3;
+    unsigned int amount = 3;
     const std::string command = "24_straight_1@300000000";
 
     CMutableTransaction txn;
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_IncorrectDataLength)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountBelowLimit)
 {
-    uint amount = 0;
+    unsigned int amount = 0;
     const std::string command = "24_straight_4@0+straight_1@0";
 
     CMutableTransaction txn;
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_LotteryGameBetZero)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_RouletteGameBetZero)
 {
-    uint amount = 3;
+    unsigned int amount = 3;
     std::string command;
 
     CMutableTransaction txn;
@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloBetNumberOverLimit)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
 {
-    uint amount = 3;
+    unsigned int amount = 3;
     std::string command;
 
     CMutableTransaction txn;
@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountMismatch)
 {
-    uint amount = 3+4+2+1;
+    unsigned int amount = 3+4+2+1;
     const std::string command = "24_1@300000000+2@400000000+1@200000000+1@100000000";
 
     CMutableTransaction txn;
@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetsOverRewardLimit)
 {
     CAmount one_bet_limit = 1024*1024;
-    uint modulo = 10000000;
+    unsigned int modulo = 10000000;
     const std::string game_tag = "3030393839363830"; // modulo 10000000
     std::stringstream command{};
     command << "_";
@@ -390,7 +390,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetsOverRewardLimit)
     prepareTransaction(txn);
 
     CAmount potentialReward = 0;
-    for (uint i=0; true; ++i)
+    for (unsigned int i=0; true; ++i)
     {
         if ((potentialReward + (one_bet_limit * modulo)) > MAX_PAYOFF)
         {
