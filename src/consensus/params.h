@@ -136,8 +136,11 @@ struct Params {
     int RouletteNewDefs;
     /** bioinfo hardfork due to incorrect format of makebet transaction */
     int MakebetFormatVerify;
+    /** bioinfo hardfork due to games version 2 deployment */
+    int GamesVersion2;
     /** bioinfo hardfork due to incorrect getbet verification */
     int GetbetNewVerify;
+
 
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
