@@ -978,25 +978,25 @@ namespace modulo
                 if (betType.empty()) {
                     throw std::runtime_error("Improper bet type");
                 }
-                LogPrintf("betType = %s\n", betType.c_str());
-                
+                //LogPrintf("betType = %s\n", betType.c_str());
+
                 if(idx) {
                     throw std::runtime_error(strprintf("Bet type idx is not zero: %d\n", idx));
                 }
 
                 const unsigned argument = getArgumentFromBetType(betType);
-                LogPrintf("argument = %u\n", argument);
+                //LogPrintf("argument = %u\n", argument);
 
                 const std::string blockhashStr = m_hash.ToString();
-                LogPrintf("blockhashStr = %s\n", blockhashStr.c_str());
+                //LogPrintf("blockhashStr = %s\n", blockhashStr.c_str());
 
                 const unsigned int blockhashTmp = blockHashStr2Int(blockhashStr);
-                LogPrintf("blockhashTmp = %u\n", blockhashTmp);
+                //LogPrintf("blockhashTmp = %u\n", blockhashTmp);
 
                 ModuloOperation moduloOperation;
                 moduloOperation.setArgument(argument);
                 const unsigned argumentResult = moduloOperation(blockhashTmp);
-                LogPrintf("argumenteResult = %u\n", argumentResult);
+                //LogPrintf("argumenteResult = %u\n", argumentResult);
 
                 while (true) {
                     const size_t typePos = betType.find("@");
@@ -1017,14 +1017,14 @@ namespace modulo
 
                     if (VerifyMakeModuloBetTx().isWinning(type, argument, argumentResult)) {
                         const unsigned reward = GetModuloReward()(type, argument);
-                        LogPrintf("reward = %u\n", reward);
+                        //LogPrintf("reward = %u\n", reward);
 
                         const CAmount wonAmount = reward*amount;
                         if (wonAmount>MAX_CAMOUNT-m_payoff) {
                             throw std::runtime_error("Improper bet amount");
                         }
                         m_payoff += wonAmount;
-                        LogPrintf("%s is winning\n", type.c_str());
+                        //LogPrintf("%s is winning\n", type.c_str());
                     }
 
                     if (amountPos == std::string::npos) {
@@ -1033,7 +1033,7 @@ namespace modulo
                     betType = betType.substr(amountPos+1);
                 }
 
-                LogPrintf("m_payoff = %d\n", m_payoff);
+                //LogPrintf("m_payoff = %d\n", m_payoff);
                 if (m_payoff <= 0) {
                     return false;
                 }
