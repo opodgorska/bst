@@ -212,7 +212,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             int64_t nTxWeight = GetTransactionWeight(getBetTx);
             nBlockWeight += nTxWeight;
 
-            getBetFee = applyFee(getBetTx, nTxWeight, sigOpCost);
+            getBetFee = 0;//applyFee(getBetTx, nTxWeight, sigOpCost);
             nFees += getBetFee;
             pblocktemplate->vTxFees.push_back(getBetFee);
 
