@@ -74,7 +74,8 @@ public:
         consensus.BIP66Height = 1251;
         consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.RouletteNewDefs = 108600;
-        consensus.MakebetFormatVerify = 224841;
+        consensus.GamesVersion2 = 224841;
+        consensus.MakebetFormatVerify = 132015;
         consensus.GetbetNewVerify = 169757;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -180,7 +181,8 @@ public:
         consensus.BIP66Height = 330776; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.RouletteNewDefs = 108600;
-        consensus.MakebetFormatVerify = 224841;
+        consensus.GamesVersion2 = 224841;
+        consensus.MakebetFormatVerify = 132015;
         consensus.GetbetNewVerify = 169757;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -280,6 +282,7 @@ public:
         consensus.BIP66Height = 4540; // BIP66 activated on regtest (Used in rpc activation tests)
         consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.RouletteNewDefs = 0;
+        consensus.GamesVersion2 = 0;
         consensus.MakebetFormatVerify = 0;
         consensus.GetbetNewVerify = 0;
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");

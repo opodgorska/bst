@@ -323,7 +323,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             {
                 correctBetTx = true;
                 txfee_aux=betFee;
-                if (nSpendHeight > ::Params().GetConsensus().MakebetFormatVerify)
+                if (nSpendHeight > ::Params().GetConsensus().GamesVersion2)
                 {
                     return state.DoS(100, false, REJECT_INVALID, "bad-getbetformat", false, "Incorrect getbet version");
                 }
