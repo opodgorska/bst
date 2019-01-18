@@ -74,7 +74,7 @@ public:
         consensus.BIP66Height = 1251;
         consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.RouletteNewDefs = 108600;
-        consensus.GamesVersion2 = 224841;
+        consensus.GamesVersion2 = 224940;
         consensus.MakebetFormatVerify = 132015;
         consensus.GetbetNewVerify = 169757;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -181,7 +181,7 @@ public:
         consensus.BIP66Height = 330776; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.DAAHeight = Consensus::DAAHeightActive;
         consensus.RouletteNewDefs = 108600;
-        consensus.GamesVersion2 = 224841;
+        consensus.GamesVersion2 = 224940;
         consensus.MakebetFormatVerify = 132015;
         consensus.GetbetNewVerify = 169757;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
