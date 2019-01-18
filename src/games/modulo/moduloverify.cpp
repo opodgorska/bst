@@ -343,7 +343,7 @@ namespace modulo
         bool VerifyBlockReward::isBetPayoffExceeded()
         {
             //bioinfo hardfork due to roulette bets definition change
-            if(chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
+            if(chainActive.Height() < Params().GetConsensus().GamesVersion2)
             {
                 return false;
             }
@@ -921,10 +921,15 @@ namespace modulo
         {
             try
             {
-                //bioinfo hardfork due to incorrect format of makebet transactions
-                if(chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
+                //bioinfo hardfork due to incorrect format of makebet transactions version 1
+                if (chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
                 {
                     return true;
+                }
+                if(chainActive.Height() >= Params().GetConsensus().GamesVersion2)
+                {
+                    LogPrintf("%s ERROR: not supported makebet version 1\n", __func__);
+                    return false;
                 }
 
                 if(tx.vout.size()<2)
@@ -1197,7 +1202,7 @@ namespace modulo
             try
             {
                 //bioinfo hardfork due to incorrect format of makebet transactions
-                if(!ignoreHardfork && chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
+                if(!ignoreHardfork && chainActive.Height() < Params().GetConsensus().GamesVersion2)
                 {
                     return true;
                 }
@@ -1371,7 +1376,7 @@ namespace modulo
         bool VerifyBlockReward::isBetPayoffExceeded()
         {
             //bioinfo hardfork due to roulette bets definition change
-            if(chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
+            if(chainActive.Height() < Params().GetConsensus().GamesVersion2)
             {
                 return false;
             }
@@ -1449,7 +1454,7 @@ namespace modulo
 
         bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
         {
-            if (!ignoreHardfork && chainActive.Height() < Params().GetConsensus().MakebetFormatVerify)
+            if (!ignoreHardfork && chainActive.Height() < Params().GetConsensus().GamesVersion2)
             {
                 return true;
             }
