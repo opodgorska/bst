@@ -68,7 +68,7 @@ namespace modulo
             VerifyBlockReward(const Consensus::Params& params, const CBlock& block_, ArgumentOperation* argumentOperation,
                               GetReward* getReward, VerifyMakeBetTx* verifyMakeBetTx);
             bool isBetPayoffExceeded();
-            bool checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork=false);
+            bool checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn);
             CAmount getSumOfTxnBets(const CTransaction& txn);
         private:
             const CBlock& block;
@@ -96,9 +96,9 @@ namespace modulo
         bool isMakeBetTx(const CTransaction& tx);
         bool isGetBetTx(const CTransaction& tx);
         bool txGetBetVerify(const uint256& hashPrevBlock, const CBlock& currentBlock, const Consensus::Params& params, CAmount& fee);
-        bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork = false);
+        bool txMakeBetVerify(const CTransaction& tx);
         bool isBetPayoffExceeded(const Consensus::Params& params, const CBlock& block);
-        bool checkBetsPotentialReward(CAmount& rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork = false);
+        bool checkBetsPotentialReward(CAmount& rewardSum, CAmount &betsSum, const CTransaction& txn);
         CAmount getSumOfTxnBets(const CTransaction& txn);
     };
     

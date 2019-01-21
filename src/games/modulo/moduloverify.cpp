@@ -1197,12 +1197,12 @@ namespace modulo
             return true;
         }
 
-        bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork)
+        bool txMakeBetVerify(const CTransaction& tx)
         {
             try
             {
                 //bioinfo hardfork due to incorrect format of makebet transactions
-                if(!ignoreHardfork && chainActive.Height() < Params().GetConsensus().GamesVersion2)
+                if(chainActive.Height() < Params().GetConsensus().GamesVersion2)
                 {
                     return true;
                 }
@@ -1317,7 +1317,7 @@ namespace modulo
             }
         };
 
-        bool checkBetsPotentialReward(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork)
+        bool checkBetsPotentialReward(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn)
         {
             if (isMakeBetTx(txn))
             {
@@ -1328,7 +1328,7 @@ namespace modulo
                     ModuloOperation moduloOperation;
                     GetModuloReward getModuloReward;
                     VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx);
-                    return verifyBlockReward.checkPotentialRewardLimit(rewardSum, betsSum, txn, ignoreHardfork);
+                    return verifyBlockReward.checkPotentialRewardLimit(rewardSum, betsSum, txn);
                 }
                 catch(...)
                 {
@@ -1452,9 +1452,9 @@ namespace modulo
             return false;
         }
 
-        bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
+        bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn)
         {
-            if (!ignoreHardfork && chainActive.Height() < Params().GetConsensus().GamesVersion2)
+            if (chainActive.Height() < Params().GetConsensus().GamesVersion2)
             {
                 return true;
             }
