@@ -47,7 +47,7 @@ class MakeBetTest(BitcoinTestFramework):
         self.generate_block()
         bal_4 = self.nodeA.getbalance()
         won_amount = 2*1
-        assert_almost_equal(bal_3 + won_amount + block_amount, bal_4)
+        assert_equal(bal_3 + won_amount + block_amount, bal_4)
 
         self.generate_block()
         bal_5 = self.nodeA.getbalance()
@@ -70,7 +70,7 @@ class MakeBetTest(BitcoinTestFramework):
         self.generate_block()
         bal_4 = self.nodeA.getbalance()
         won_amount = 4*5
-        assert_almost_equal(bal_3 + won_amount + block_amount, bal_4)
+        assert_equal(bal_3 + won_amount + block_amount, bal_4)
 
         self.generate_block()
         bal_5 = self.nodeA.getbalance()
@@ -99,10 +99,10 @@ class MakeBetTest(BitcoinTestFramework):
         self.generate_block()
         bal_A_4 = self.nodeA.getbalance()
         won_amount_A = 2*8
-        assert_almost_equal(bal_A_3 + won_amount_A + block_amount, bal_A_4)
+        assert_equal(bal_A_3 + won_amount_A + block_amount, bal_A_4)
         bal_B_4 = self.nodeB.getbalance()
         won_amount_B = 2*3
-        assert_almost_equal(bal_B_3 + won_amount_B, bal_B_4)
+        assert_equal(bal_B_3 + won_amount_B, bal_B_4)
 
         self.generate_block()
         bal_A_5 = self.nodeA.getbalance()
@@ -126,15 +126,18 @@ class MakeBetTest(BitcoinTestFramework):
         self.nodeA.makebet(type_of_bet="1@10", range=2)
         self.nodeA.makebet(type_of_bet="2@10", range=2)
         bal_4 = self.nodeA.getbalance()
-        assert_almost_equal(bal_3 + block_amount + Decimal(2*7.15), bal_4 + 2*10)
+        won_amount = Decimal(2*7.15)
+        assert_almost_equal(bal_3 + block_amount + won_amount, bal_4 + 2*10)
 
         self.generate_block()
         bal_5 = self.nodeA.getbalance()
-        assert_almost_equal(bal_4 + block_amount + 3*5, bal_5)
+        won_amount = 3*5
+        assert_equal(bal_4 + block_amount + won_amount, bal_5)
 
         self.generate_block()
         bal_6 = self.nodeA.getbalance()
-        assert_almost_equal(bal_5 + block_amount + 2*10, bal_6)
+        won_amount = 2*10
+        assert_equal(bal_5 + block_amount + won_amount, bal_6)
 
         self.generate_block()
         bal_7 = self.nodeA.getbalance()
@@ -174,7 +177,7 @@ class MakeBetTest(BitcoinTestFramework):
         self.nodeA.makebet(type_of_bet="red@0.25+black@0.25")  # 100,000,000
 
         self.generate_block()
-        # coinbase + 2 makebets
+        # coinbase + 3 makebets
         self.assert_number_of_txs_current_block(1+3)
 
         self.generate_block()
