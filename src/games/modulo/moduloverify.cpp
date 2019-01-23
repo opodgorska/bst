@@ -1131,9 +1131,20 @@ namespace modulo
                 }
 
                 MakeBetData& makeBetData = iter->second;
-                if (makeBetData.payoff < output.nValue) {
-                    LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-                    return false;
+                const int NoFeeGetBetOffset = 121;
+                if (chainActive.Height() > params.GamesVersion2 + NoFeeGetBetOffset) {
+                    if (makeBetData.payoff != output.nValue) {
+                        LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                        LogPrintf("makeBetData.payoff(%d) != output.nValue(%d)\n", makeBetData.payoff, output.nValue);
+                        return false;
+                    }
+                }
+                else {
+                    if (makeBetData.payoff < output.nValue) {
+                        LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                        LogPrintf("makeBetData.payoff(%d) < output.nValue(%d)\n", makeBetData.payoff, output.nValue);
+                        return false;
+                    }
                 }
 
                 std::vector<unsigned char> vpubkeyHash(output.scriptPubKey.begin()+3, output.scriptPubKey.end()-2);
