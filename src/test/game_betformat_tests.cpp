@@ -20,7 +20,8 @@ const std::string GAME_TAG = "303030303030";
 
 void prepareTransaction(CMutableTransaction& txn_out)
 {
-    CreateChainParams(CBaseChainParams::TESTNET);
+    SelectParams(CBaseChainParams::REGTEST);
+    BOOST_ASSERT(Params().GetConsensus().GamesVersion2 == 0);
 
     txn_out.nVersion = MAKE_MODULO_NEW_GAME_INDICATOR ^ CTransaction::CURRENT_VERSION;
     txn_out.vin.resize(1);
