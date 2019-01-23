@@ -1102,7 +1102,7 @@ namespace modulo
                         getBet = tx;
                     }
                     else {
-                        LogPrintf("Error: more than one get bet in block: %s\n", currentBlock.ToString().c_str());
+                        LogPrintf("Error: more than one get bet in block: %s\n", currentBlock.GetHash().ToString().c_str());
                         return false;
                     }
                 }
@@ -1112,12 +1112,14 @@ namespace modulo
                 if (prevBlockWinningBets.size() == 0) {
                     return true;
                 }
-                LogPrintf("Error: get bet transaction not found for block: %s\n", currentBlock.ToString().c_str());
+                LogPrintf("Error: prevBlockWinningBets not empty, but getbet transaction not found for block: %s\n",
+                          currentBlock.GetHash().ToString().c_str());
                 return false;
             }
 
             if ((*getBet).vout.size() != prevBlockWinningBets.size()) {
-                LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                LogPrintf("Error: mismatch for getbet outputs and prevBlockWinningBets sizes for block: %s\n",
+                          currentBlock.GetHash().ToString().c_str());
                 return false;
             }
 
@@ -1126,22 +1128,34 @@ namespace modulo
                 const uint256 makeBetHash = (*getBet).vin[idx].prevout.hash;
                 const auto iter = prevBlockWinningBets.find(makeBetHash);
                 if (iter == prevBlockWinningBets.end()) {
-                    LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                    LogPrintf("Error: could not find makebet: %s in prevBlockWinningBets for block: %s\n",
+                              makeBetHash.ToString().c_str(), currentBlock.GetHash().ToString().c_str());
                     return false;
                 }
 
                 MakeBetData& makeBetData = iter->second;
-                if (makeBetData.payoff < output.nValue) {
-                    LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
-                    return false;
+                const int NoFeeGetBetOffset = 121;
+                if (chainActive.Height() > params.GamesVersion2 + NoFeeGetBetOffset) {
+                    if (makeBetData.payoff != output.nValue) {
+                        LogPrintf("Error: makeBetData.payoff(%d) != output.nValue(%d) for block: %s\n",
+                                  makeBetData.payoff, output.nValue, currentBlock.GetHash().ToString().c_str());
+                        return false;
+                    }
+                }
+                else {
+                    if (makeBetData.payoff < output.nValue) {
+                        LogPrintf("Error: makeBetData.payoff(%d) < output.nValue(%d) for block: %s\n",
+                                  makeBetData.payoff, output.nValue, currentBlock.GetHash().ToString().c_str());
+                        return false;
+                    }
                 }
 
                 std::vector<unsigned char> vpubkeyHash(output.scriptPubKey.begin()+3, output.scriptPubKey.end()-2);
                 uint160 pubkeyHash(vpubkeyHash);
                 CKeyID keyID(pubkeyHash);
-                if(!(makeBetData.keyID == keyID))
+                if (makeBetData.keyID != keyID)
                 {
-                    LogPrintf("Error: keyIDs don't match\n");
+                    LogPrintf("Error: keyIDs don't match for block %s\n", currentBlock.GetHash().ToString().c_str());
                     return false;
                 }
 
@@ -1151,7 +1165,8 @@ namespace modulo
             }
 
             if (!prevBlockWinningBets.empty()) {
-                LogPrintf("Error: incorrect get bet transaction for block: %s\n", currentBlock.ToString().c_str());
+                LogPrintf("Error: prevBlockWinningBets is not empty after getbet verification of block: %s\n",
+                          currentBlock.GetHash().ToString().c_str());
                 return false;
             }
 
@@ -1197,12 +1212,12 @@ namespace modulo
             return true;
         }
 
-        bool txMakeBetVerify(const CTransaction& tx, bool ignoreHardfork)
+        bool txMakeBetVerify(const CTransaction& tx)
         {
             try
             {
                 //bioinfo hardfork due to incorrect format of makebet transactions
-                if(!ignoreHardfork && chainActive.Height() < Params().GetConsensus().GamesVersion2)
+                if(chainActive.Height() < Params().GetConsensus().GamesVersion2)
                 {
                     return true;
                 }
@@ -1317,7 +1332,7 @@ namespace modulo
             }
         };
 
-        bool checkBetsPotentialReward(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn, bool ignoreHardfork)
+        bool checkBetsPotentialReward(CAmount &rewardSum, CAmount &betsSum, const CTransaction& txn)
         {
             if (isMakeBetTx(txn))
             {
@@ -1328,7 +1343,7 @@ namespace modulo
                     ModuloOperation moduloOperation;
                     GetModuloReward getModuloReward;
                     VerifyBlockReward verifyBlockReward(Params().GetConsensus(), block, &moduloOperation, &getModuloReward, &verifyMakeModuloBetTx);
-                    return verifyBlockReward.checkPotentialRewardLimit(rewardSum, betsSum, txn, ignoreHardfork);
+                    return verifyBlockReward.checkPotentialRewardLimit(rewardSum, betsSum, txn);
                 }
                 catch(...)
                 {
@@ -1452,9 +1467,9 @@ namespace modulo
             return false;
         }
 
-        bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn, bool ignoreHardfork)
+        bool VerifyBlockReward::checkPotentialRewardLimit(CAmount &rewardSum, CAmount &betsSum, const CTransaction &txn)
         {
-            if (!ignoreHardfork && chainActive.Height() < Params().GetConsensus().GamesVersion2)
+            if (chainActive.Height() < Params().GetConsensus().GamesVersion2)
             {
                 return true;
             }

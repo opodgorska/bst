@@ -20,6 +20,9 @@ const std::string GAME_TAG = "303030303030";
 
 void prepareTransaction(CMutableTransaction& txn_out)
 {
+    SelectParams(CBaseChainParams::REGTEST);
+    BOOST_ASSERT(Params().GetConsensus().GamesVersion2 == 0);
+
     txn_out.nVersion = MAKE_MODULO_NEW_GAME_INDICATOR ^ CTransaction::CURRENT_VERSION;
     txn_out.vin.resize(1);
     txn_out.vin[0].prevout.n = 1;
@@ -50,7 +53,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_OpReturnExists)
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_OpReturnNotExists)
@@ -64,7 +67,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_OpReturnNotExists)
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_TxOutSizeToSmall)
@@ -72,7 +75,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_TxOutSizeToSmall)
     CMutableTransaction txn;
     prepareTransaction(txn);
 
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     unsigned int amount = 30;
     const std::string command = "24_red@3000000000";
@@ -80,7 +83,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_TxOutSizeToSmall)
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_IncorrectDataLength)
@@ -94,20 +97,20 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_IncorrectDataLength)
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     // modifi length val
     txn.vout[0].scriptPubKey[1] = 0x4d;
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
     txn.vout[0].scriptPubKey[1] = 0x4e;
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
     txn.vout[0].scriptPubKey[1] = 0x4c;
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     // in this case length of data is on 1byte [2]
     txn.vout[0].scriptPubKey[1] = 0x4c;
     txn.vout[0].scriptPubKey[2] = 0x40;
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountBelowLimit)
@@ -121,7 +124,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountBelowLimit)
     txn.vout[0].nValue = amount;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloArgAboveLimit)
@@ -140,12 +143,12 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloArgAboveLimit)
 
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     sprintf(max_reward, "%x", MAX_REWARD+1);
     game_tag = toHex(max_reward);
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_UnrecognizedRouletteBetName)
@@ -159,7 +162,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_UnrecognizedRouletteBetName)
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_MultipleBetsOneTransaction)
@@ -173,7 +176,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_MultipleBetsOneTransaction)
     txn.vout[0].nValue = 3 * (amount * COIN);
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_PlusSignAtEndOfTxnsCommand)
@@ -187,7 +190,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_PlusSignAtEndOfTxnsCommand)
     txn.vout[0].nValue = 3 * (amount * COIN);
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_LotteryGameBetZero)
@@ -201,7 +204,7 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_LotteryGameBetZero)
     txn.vout[0].nValue = 3 * (amount * COIN);
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_RouletteGameBetZero)
@@ -215,32 +218,32 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_RouletteGameBetZero)
     command = "24_straight_0@300000000";
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_split_0@300000000";
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_line_0@300000000";
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_column_0@300000000";
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_column_01@300000000";
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_column_1@300000000+line_0@300000000";
     txn.vout[0].nValue = 2 * (amount * COIN);
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloBetNumberOverLimit)
@@ -254,10 +257,10 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_ModuloBetNumberOverLimit)
 
     txn.vout[0].nValue = 2 * (amount * COIN);
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(correct_command));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(abovelimit_command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
@@ -271,27 +274,27 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_DummyStringWithOpReturn)
 
     command = "very_dummy+string";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_++red";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24_++red@300000000";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "24";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "00_red@300000000+black@300000000";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     command = "00_1@300000000";
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountMismatch)
@@ -305,13 +308,13 @@ BOOST_AUTO_TEST_CASE(MakebetFormatTest_AmountMismatch)
     txn.vout[0].nValue = amount * COIN;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command));
 
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     txn.vout[0].nValue -= 1;
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 
     txn.vout[0].nValue += 2;
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::txMakeBetVerify(CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit_SumOfBetsBelow90)
@@ -333,7 +336,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit_S
     // limit
     txn.vout[0].nValue = amount;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn)));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
 
     // overlimit, but sum of bets is less than 90% of block subsidy
@@ -341,7 +344,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_SingleBetOverBlockSubsidyLimit_S
     amount += 1;
     txn.vout[0].nValue = amount;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit)
@@ -365,7 +368,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit
     // limit
     txn.vout[0].nValue = 4 * amount;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command.str()));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn)));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
 
     // overlimit
@@ -374,7 +377,7 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetOverBlockSubsidylimit
 
     txn.vout[0].nValue = 4 * amount + 1;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(GAME_TAG + toHex(command.str()));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetsOverRewardLimit)
@@ -407,14 +410,14 @@ BOOST_AUTO_TEST_CASE(MakebetPotentialRewardTest_MultipleBetsOverRewardLimit)
     // limit
     txn.vout[0].nValue = potentialReward;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command.str()));
-    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(true, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn)));
     BOOST_CHECK_EQUAL(potentialReward, rewardSum);
 
     // overlimit
     command << "+1@1";
     txn.vout[0].nValue = potentialReward;
     txn.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(game_tag + toHex(command.str()));
-    BOOST_CHECK_EQUAL(false, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn), true));
+    BOOST_CHECK_EQUAL(false, modulo::ver_2::checkBetsPotentialReward(rewardSum, betsSum, CTransaction(txn)));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
