@@ -1112,6 +1112,12 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
 
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams)
 {
+    if (!pindex)
+    {
+        LogPrintf("%s:%d pindex empty\n", __func__, __LINE__);
+        return false;
+    }
+
     CDiskBlockPos blockPos;
     {
         LOCK(cs_main);

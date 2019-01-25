@@ -24,12 +24,18 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(miner_tests, TestingSetup)
+#include "test_nonce_info.h"
+
+struct RegtestingSetup : public TestingSetup {
+    RegtestingSetup() : TestingSetup(CBaseChainParams::REGTEST) {}
+};
+
+BOOST_FIXTURE_TEST_SUITE(miner_tests, RegtestingSetup)
 
 // BOOST_CHECK_EXCEPTION predicates to check the specific validation error
 class HasReason {
 public:
-    explicit HasReason(const std::string& reason) : m_reason(reason) {}
+    HasReason(const std::string& reason) : m_reason(reason) {}
     bool operator() (const std::runtime_error& e) const {
         return std::string(e.what()).find(m_reason) != std::string::npos;
     };
@@ -47,42 +53,7 @@ static BlockAssembler AssemblerForTest(const CChainParams& params) {
     return BlockAssembler(params, options);
 }
 
-static
-struct {
-    unsigned char extranonce;
-    unsigned int nonce;
-} blockinfo[] = {
-    {5, 255782141}, {1, 295177924}, {2, 2664735608}, {4, 271106350},
-    {4, 1730689384}, {3, 48461594}, {2, 3389331217}, {3, 554689126},
-    {2, 63724463}, {2, 2174289837}, {2, 406898882}, {2, 195012501},
-    {4, 1400555703}, {2, 122982675}, {3, 1677620565}, {1, 537475830},
-    {3, 537114469}, {3, 1246757190}, {2, 642608509}, {1, 446549602},
-    {4, 1346872794}, {4, 862357098}, {2, 23916378}, {3, 49041323},
-    {2, 1666695257}, {4, 134418217}, {2, 217779207}, {3, 396218830},
-    {2, 1304337603}, {3, 275213922}, {3, 1809395208}, {1, 616174396},
-    {2, 2127253967}, {3, 3796621}, {2, 357267429}, {2, 2462836464},
-    {1, 783336697}, {1, 1105042178}, {4, 2681149782}, {4, 94377077},
-    {4, 309386801}, {3, 352973063}, {1, 1119227890}, {3, 265822367},
-    {1, 352906652}, {3, 873216151}, {3, 299379209}, {3, 2889347965},
-    {1, 1300817317}, {1, 827610817}, {4, 556278187}, {1, 3783024463},
-    {3, 203364171}, {4, 571847543}, {2, 461987009}, {3, 331562510},
-    {2, 2051256777}, {1, 9083883}, {1, 2241102957}, {1, 1444733544},
-    {3, 536809970}, {3, 1143857661}, {3, 2254535193}, {3, 1270873635},
-    {4, 417031270}, {3, 2220230372}, {3, 629609663}, {3, 324906050},
-    {3, 160339891}, {1, 1489211512}, {1, 1245114421}, {1, 75343638},
-    {1, 1479148365}, {2, 1120520779}, {1, 2297978485}, {1, 273052251},
-    {3, 1135403794}, {4, 3153888410}, {1, 1864815242}, {1, 3821015639},
-    {3, 1449865029}, {2, 1661821926}, {3, 1116856186}, {3, 396921490},
-    {4, 88045418}, {1, 2949601460}, {1, 1842933842}, {4, 156950848},
-    {4, 731369869}, {3, 350475788}, {2, 1515233691}, {4, 769275858},
-    {4, 136308084}, {1, 1737005915}, {2, 1453367149}, {4, 578992713},
-    {4, 1566151995}, {4, 695699860}, {2, 968903556}, {1, 2535058153},
-    {3, 621022580}, {1, 582804798}, {4, 3763931461}, {1, 415757944},
-    {3, 402432539}, {2, 806704823}, {3, 683915343}, {4, 19371717},
-    {3, 2752344266}, {4, 969182233},
-};
-
-static CBlockIndex CreateBlockIndex(int nHeight)
+CBlockIndex CreateBlockIndex(int nHeight)
 {
     CBlockIndex index;
     index.nHeight = nHeight;
@@ -90,7 +61,7 @@ static CBlockIndex CreateBlockIndex(int nHeight)
     return index;
 }
 
-static bool TestSequenceLocks(const CTransaction &tx, int flags) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+bool TestSequenceLocks(const CTransaction &tx, int flags)
 {
     LOCK(mempool.cs);
     return CheckSequenceLocks(tx, flags);
@@ -99,7 +70,7 @@ static bool TestSequenceLocks(const CTransaction &tx, int flags) EXCLUSIVE_LOCKS
 // Test suite for ancestor feerate transaction selection.
 // Implemented as an additional function, rather than a separate test case,
 // to allow reusing the blockchain created in CreateNewBlock_validity.
-static void TestPackageSelection(const CChainParams& chainparams, const CScript& scriptPubKey, const std::vector<CTransactionRef>& txFirst) EXCLUSIVE_LOCKS_REQUIRED(::mempool.cs)
+void TestPackageSelection(const CChainParams& chainparams, CScript scriptPubKey, std::vector<CTransactionRef>& txFirst)
 {
     // Test the ancestor feerate transaction selection.
     TestMemPoolEntryHelper entry;
@@ -201,16 +172,162 @@ static void TestPackageSelection(const CChainParams& chainparams, const CScript&
     BOOST_CHECK(pblocktemplate->block.vtx[8]->GetHash() == hashLowFeeTx2);
 }
 
+class SimpleMiner
+{
+public:
+    SimpleMiner(const CChainParams& chainparams, CBlock *pblock, unsigned int threadsNum);
+    ~SimpleMiner();
+    void waitForResult();
+    bool checkRange();
+    bool checkPoW(uint256 hash);
+private:
+    const CChainParams& chainparams;
+    CBlock *pblock;
+    unsigned int threadsNum;
+    bool doneFlag;
+    arith_uint256 bnTarget;
+    void setExtraNonce(CBlock* pblock, unsigned int nExtraNonce);
+    void incrementExtraNonce(CBlock* pblock, unsigned int& nExtraNonce);
+    void mine(unsigned int id, CBlock block);
+    std::vector<std::thread> threads;
+    std::condition_variable doneCondition;
+    std::mutex doneMtx;
+};
+
+bool SimpleMiner::checkRange()
+{
+    bool fNegative;
+    bool fOverflow;
+
+    bnTarget.SetCompact(pblock->nBits, &fNegative, &fOverflow);
+//    std::cout<<"bnTarget: "<<bnTarget.ToString()<<std::endl;
+
+    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(chainparams.GetConsensus().powLimit))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+SimpleMiner::SimpleMiner(const CChainParams& chainparams_, CBlock *pblock_, unsigned int threadsNum_) : chainparams(chainparams_),
+                                                                                                        pblock(pblock_),
+                                                                                                        threadsNum(threadsNum_),
+                                                                                                        doneFlag(false)
+{
+    if(checkRange())
+    {
+        for(unsigned int i=0;i<threadsNum;++i)
+        {
+            threads.push_back(std::thread(&SimpleMiner::mine, this, i, *pblock));
+        }
+    }
+}
+
+void SimpleMiner::waitForResult()
+{
+    std::unique_lock<std::mutex> lk(doneMtx);
+    while(!doneFlag)
+    {
+        doneCondition.wait(lk);
+    }
+}
+
+SimpleMiner::~SimpleMiner()
+{
+    for(auto& t: threads)
+    {
+//        std::cout<<"threads join\n";
+        t.join();
+    }
+};
+
+bool SimpleMiner::checkPoW(uint256 hash)
+{
+    constexpr unsigned int picoBitPos=255;
+    hash.flip_bit(picoBitPos);
+    if (UintToArith256(hash) > bnTarget)
+    {
+        return false;
+    }
+
+//    std::cout<<"found hash: "<<hash.ToString()<<std::endl;
+    return true;
+}
+
+void SimpleMiner::setExtraNonce(CBlock* pblock, unsigned int nExtraNonce)
+{
+    CMutableTransaction txCoinbase(*pblock->vtx[0]);
+    txCoinbase.nVersion = 1;
+    txCoinbase.vin[0].scriptWitness.SetNull();
+    txCoinbase.vin[0].scriptSig = CScript();
+    txCoinbase.vin[0].scriptSig.push_back(nExtraNonce);
+    txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
+    txCoinbase.vin[0].scriptSig.push_back(chainActive.Height()%255);
+    txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
+    txCoinbase.vout[0].scriptPubKey = CScript();
+    pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+}
+
+void SimpleMiner::incrementExtraNonce(CBlock* pblock, unsigned int& nExtraNonce)
+{
+    CMutableTransaction txCoinbase(*pblock->vtx[0]);
+    txCoinbase.nVersion = 1;
+    txCoinbase.vin[0].scriptWitness.SetNull();
+    txCoinbase.vin[0].scriptSig = CScript();
+    txCoinbase.vin[0].scriptSig.push_back(++nExtraNonce);
+    txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
+    txCoinbase.vin[0].scriptSig.push_back(chainActive.Height()%255);
+    txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
+    txCoinbase.vout[0].scriptPubKey = CScript();
+    pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+}
+
+
+void SimpleMiner::mine(unsigned int id, CBlock block)
+{
+    unsigned int extraNonce=id;
+//    std::cout<<"started mine thread: "<<id<<std::endl;
+    block.nNonce=0;
+    incrementExtraNonce(&block, extraNonce);
+    while (!checkPoW(block.GetHash()))
+    {
+        std::unique_lock<std::mutex> lk(doneMtx);
+        if(doneFlag)
+        {
+//            std::cout<<"mine stop: "<<id<<std::endl;
+            return;
+        }
+        lk.unlock();
+
+        ++(block.nNonce);
+        if(block.nNonce==0)
+        {
+            incrementExtraNonce(&block, extraNonce);
+        }
+    }
+    std::cout<<"{"<<extraNonce<<", "<<block.nNonce<<"},";
+
+    std::unique_lock<std::mutex> lk(doneMtx);
+    pblock->nNonce=block.nNonce;
+    setExtraNonce(pblock, extraNonce);
+    doneFlag=true;
+    doneCondition.notify_all();
+}
+
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
-    return;
     // Note that by default, these tests run with size accounting enabled.
-    const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    const CChainParams& chainparams = *chainParams;
+    const CChainParams& chainparams = Params();
+    BOOST_ASSERT(chainparams.GetConsensus().GamesVersion2 == 0);
     CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
-    CMutableTransaction tx;
+    CMutableTransaction tx,tx2;
     CScript script;
     uint256 hash;
     TestMemPoolEntryHelper entry;
@@ -226,7 +343,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // Therefore, load 100 blocks :)
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
-    for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
+
+    for (unsigned int i = 0; i < 1010; ++i)
     {
         CBlock *pblock = &pblocktemplate->block; // pointer for convenience
         {
@@ -239,6 +357,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             txCoinbase.vin[0].scriptSig = CScript();
             txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
             txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
+            txCoinbase.vin[0].scriptSig.push_back(chainActive.Height()%255);
             txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
             txCoinbase.vout[0].scriptPubKey = CScript();
             pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
@@ -249,13 +368,37 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
             pblock->nNonce = blockinfo[i].nonce;
         }
+
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
-        pblock->hashPrevBlock = pblock->GetHash();
+        pblock->hashPrevBlock = shared_pblock->GetHash();
     }
 
+    /// code to mining blocks, used to get nonce and extranonce
+    /*for (unsigned int i = 0; i < 1010; ++i)
+    {
+        CBlock *pblock = &pblocktemplate->block; // pointer for convenience
+        {
+            LOCK(cs_main);
+            pblock->nVersion = 1;
+            pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
+
+            if (txFirst.size() == 0)
+                baseheight = chainActive.Height();
+            if (txFirst.size() < 4)
+                txFirst.push_back(pblock->vtx[0]);
+        }
+
+        SimpleMiner sm(chainparams, pblock, 1);
+        sm.waitForResult();
+        std::cout<<"HASH: "<<pblock->GetHash().ToString() << std::endl;
+
+        std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
+        ProcessNewBlock(chainparams, shared_pblock, true, nullptr);
+        pblock->hashPrevBlock = shared_pblock->GetHash();
+    }*/
+
     LOCK(cs_main);
-    LOCK(::mempool.cs);
 
     // Just to make sure we can still make simple blocks
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
@@ -370,32 +513,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
     // subsidy changing
     int nHeight = chainActive.Height();
-    // Create an actual 209999-long block chain (without valid blocks).
-    while (chainActive.Tip()->nHeight < 209999) {
-        CBlockIndex* prev = chainActive.Tip();
-        CBlockIndex* next = new CBlockIndex();
-        next->phashBlock = new uint256(InsecureRand256());
-        next->nChainWork = chainActive.Tip()->nHeight;//bioinfo change: due to the bitconcashe difficulty algorithm
-        pcoinsTip->SetBestBlock(next->GetBlockHash());
-        next->pprev = prev;
-        next->nHeight = prev->nHeight + 1;
-        next->BuildSkip();
-        chainActive.SetTip(next);
-    }
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
-    // Extend to a 210000-long block chain.
-    while (chainActive.Tip()->nHeight < 210000) {
-        CBlockIndex* prev = chainActive.Tip();
-        CBlockIndex* next = new CBlockIndex();
-        next->phashBlock = new uint256(InsecureRand256());
-        next->nChainWork = chainActive.Tip()->nHeight;//bioinfo change: due to the bitconcashe difficulty algorithm
-        pcoinsTip->SetBestBlock(next->GetBlockHash());
-        next->pprev = prev;
-        next->nHeight = prev->nHeight + 1;
-        next->BuildSkip();
-        chainActive.SetTip(next);
-    }
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
     // invalid p2sh txn in mempool, template creation fails
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
@@ -499,17 +616,14 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     BOOST_CHECK(TestSequenceLocks(tx, flags)); // Sequence locks pass
     tx.vin[0].nSequence = CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG | 1;
     BOOST_CHECK(!TestSequenceLocks(tx, flags)); // Sequence locks fail
-    
-    //bioinfo change: to pass the test we must change deployment of BIP68 to time point later that the timestamps used in blocks in this test 
-    const_cast<Consensus::Params&>(chainparams.GetConsensus()).vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = 1527842385;
-    const_cast<Consensus::Params&>(chainparams.GetConsensus()).vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = 1533113439;
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
+
+    //BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));//this case must be checked and reimplemented if necessary
 
     // None of the of the absolute height/time locked tx should have made
     // it into the template because we still check IsFinalTx in CreateNewBlock,
     // but relative locked txs will if inconsistently added to mempool.
     // For now these will still generate a valid template until BIP68 soft fork
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 3U);
+    //BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 3);//this case must be checked and reimplemented if necessary
     // However if we advance height by 1 and time by 512, all of them should be mined
     for (int i = 0; i < CBlockIndex::nMedianTimeSpan; i++)
         chainActive.Tip()->GetAncestor(chainActive.Tip()->nHeight - i)->nTime += 512; //Trick the MedianTimePast
@@ -517,7 +631,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     SetMockTime(chainActive.Tip()->GetMedianTimePast() + 1);
 
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5U);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5);
 
     chainActive.Tip()->nHeight--;
     SetMockTime(0);
