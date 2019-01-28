@@ -93,7 +93,7 @@ class SegWitTest(BitcoinTestFramework):
 
 
     def run_test(self):
-        self.nodes[0].generate(161) #block 161
+        self.nodes[0].generate(1061) #block 161
 
         self.log.info("Verify sigops are counted in GBT with pre-BIP141 rules before the fork")
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
@@ -147,7 +147,9 @@ class SegWitTest(BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), 20*Decimal("49.999"))
         assert_equal(self.nodes[2].getbalance(), 20*Decimal("49.999"))
 
-        self.nodes[0].generate(260) #block 423
+        self.nodes[0].generate(1160)
+        self.nodes[0].generate(1160)
+        self.nodes[0].generate(88) #block 423
         sync_blocks(self.nodes)
 
         self.log.info("Verify witness txs are skipped for mining before the fork")
