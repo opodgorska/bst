@@ -51,7 +51,7 @@
 #include <games/modulo/moduloverify.h>
 
 #if defined(NDEBUG)
-# error "Bitcoin cannot be compiled without assertions."
+# error "Blockstamp cannot be compiled without assertions."
 #endif
 
 #define MICRO 0.000001
