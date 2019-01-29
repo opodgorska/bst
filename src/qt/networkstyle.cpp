@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <qt/networkstyle.h>
-
 #include <qt/guiconstants.h>
 
 #include <QApplication>
@@ -27,7 +26,8 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
     titleAddText(qApp->translate("SplashScreen", _titleAddText))
 {
     // load pixmap
-    QPixmap pixmap(":/icons/bitcoin");
+    QPixmap pixmap(":/icons/bst");
+    QPixmap iconPixmap(":/icons/bst_icon");
 
     if(iconColorHueShift != 0 && iconColorSaturationReduction != 0)
     {
@@ -71,8 +71,9 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
         pixmap.convertFromImage(img);
     }
 
+
     appIcon             = QIcon(pixmap);
-    trayAndWindowIcon   = QIcon(pixmap.scaled(QSize(256,256)));
+    trayAndWindowIcon   = QIcon(iconPixmap.scaled(QSize(256,256)));
 }
 
 const NetworkStyle *NetworkStyle::instantiate(const QString &networkId)
