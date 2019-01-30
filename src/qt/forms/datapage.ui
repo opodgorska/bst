@@ -127,7 +127,7 @@
               <property name="minimumSize">
                <size>
                 <width>0</width>
-                <height>250</height>
+                <height>0</height>
                </size>
               </property>
              </widget>
@@ -648,8 +648,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 satos
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>20</width>
-           <height>450</height>
+           <width>0</width>
+           <height>0</height>
           </size>
          </property>
         </spacer>
@@ -790,7 +790,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 satos
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>400</height>
+              <height>0</height>
              </size>
             </property>
            </widget>
@@ -857,8 +857,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 satos
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>20</width>
-           <height>69</height>
+           <width>0</width>
+           <height>0</height>
           </size>
          </property>
         </spacer>
@@ -982,7 +982,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 satos
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>400</height>
+              <height>0</height>
              </size>
             </property>
            </widget>
@@ -1034,8 +1034,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 satos
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>20</width>
-           <height>97</height>
+           <width>0</width>
+           <height>0</height>
           </size>
          </property>
         </spacer>
