@@ -6,6 +6,9 @@
 
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
 #include <qt/bitcoinunits.h>
 #include <qt/clientmodel.h>
 #include <qt/datapage.h>
@@ -594,6 +597,32 @@ void DataPage::store()
 #endif
 }
 
+void OK_MessageBox(const std::string& title, const std::string& iconPath, QWidget *parent = nullptr)
+{
+    QDialog widget(parent, Qt::Window | Qt::FramelessWindowHint);
+    widget.setFixedSize(200, 180);
+
+    QLabel text(title.c_str(), &widget);
+    text.setAlignment(Qt::AlignCenter);
+
+    QImage image(iconPath.c_str());
+    QLabel icon("label", &widget);
+    icon.setPixmap(QPixmap::fromImage(image));
+    icon.setAlignment(Qt::AlignCenter);
+
+    QPushButton btn("Ok", &widget);
+    QObject::connect(&btn, SIGNAL(clicked()), &widget, SLOT(close()));
+
+    QVBoxLayout *layout = new QVBoxLayout(&widget);
+    layout->addWidget(&text);
+    layout->addWidget(&icon);
+    layout->addWidget(&btn);
+    layout->setAlignment(Qt::AlignCenter);
+    layout->setSpacing(10);
+
+    widget.exec();
+}
+
 void DataPage::check()
 {
     try
@@ -640,18 +669,14 @@ void DataPage::check()
             dataHash = computeHash(binaryData);
         }
 
-        QMessageBox msgBox;
         if(dataHash.compare(blockchainHash)==0)
         {
-            msgBox.setWindowTitle("Check PASS");
-            msgBox.setIconPixmap(QPixmap(":/icons/transaction_confirmed"));
+            OK_MessageBox("Check PASS", ":/icons/txn_pass", this);
         }
         else
         {
-            msgBox.setWindowTitle("Check FAIL");
-            msgBox.setIconPixmap(QPixmap(":/icons/transaction_conflicted"));
+            OK_MessageBox("Check FAIL", ":/icons/txn_fail", this);
         }
-        msgBox.exec();
     }
     catch(std::exception const& e)
     {

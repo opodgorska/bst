@@ -57,6 +57,8 @@
         <file alias="hd_disabled">res/icons/hd_disabled.png</file>
         <file alias="network_disabled">res/icons/network_disabled.png</file>
         <file alias="proxy">res/icons/proxy.png</file>
+	<file alias="txn_fail">res/icons/txn_fail.png</file>
+	<file alias="txn_pass">res/icons/txn_pass.png</file>
     </qresource>
     <qresource prefix="/movies">
         <file alias="spinner-000">res/movies/spinner-000.png</file>
