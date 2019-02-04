@@ -137,8 +137,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
-        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bitcoind' + config["environment"]["EXEEXT"])
-        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
+        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bstd' + config["environment"]["EXEEXT"])
+        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bst-cli' + config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
@@ -362,7 +362,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         Join the (previously split) network halves together.
         """
         connect_nodes_bi(self.nodes, 1, 2)
-        self.sync_all()
+
+        # Only sync blocks after re-joining the network, since the mempools
+        # might conflict.
+        sync_blocks(self.nodes)
 
     def sync_all(self, node_groups=None):
         if not node_groups:
@@ -382,7 +385,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         For backward compatibility of the python scripts with previous
         versions of the cache, this helper function sets mocktime to Jan 1,
         2014 + (201 * 10 * 60)"""
-        self.mocktime = 1388534400 + (201 * 10 * 60)
+        self.mocktime = 1534749679 + (2001 * 1 * 60)
 
     def disable_mocktime(self):
         self.mocktime = 0

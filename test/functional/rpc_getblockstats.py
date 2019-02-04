@@ -18,7 +18,6 @@ import time
 TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
 class GetblockstatsTest(BitcoinTestFramework):
-
     start_height = 101
     max_stat_pos = 2
     STATS_NEED_TXINDEX = [
