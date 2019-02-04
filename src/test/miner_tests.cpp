@@ -24,7 +24,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "test_nonce_info.h"
+#include <test/test_nonce_info.h>
 
 struct RegtestingSetup : public TestingSetup {
     RegtestingSetup() : TestingSetup(CBaseChainParams::REGTEST) {}
