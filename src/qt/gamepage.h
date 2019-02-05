@@ -45,6 +45,7 @@ private:
     bool fFeeMinimized;
     CFeeRate feeRate;
     QButtonGroup *groupFee;
+    const PlatformStyle *platformStyle;
 
 private:
     void unlockWallet();
@@ -75,6 +76,18 @@ private Q_SLOTS:
     void updateMinFeeLabel();
     void updateSmartFeeLabel();
     void updateDisplayUnit();
+    void coinControlFeatureChanged(bool);
+    void coinControlButtonClicked();
+    void coinControlChangeChecked(int);
+    void coinControlChangeEdited(const QString &);
+    void coinControlUpdateLabels();
+    void coinControlClipboardQuantity();
+    void coinControlClipboardAmount();
+    void coinControlClipboardFee();
+    void coinControlClipboardAfterFee();
+    void coinControlClipboardBytes();
+    void coinControlClipboardLowOutput();
+    void coinControlClipboardChange();
 };
 
 #endif // BITCOIN_QT_GAMEPAGE_H
