@@ -54,7 +54,8 @@ DataPage::DataPage(const PlatformStyle *_platformStyle, QWidget *parent) :
     blockSizeDisplay(64),
     changeAddress(""),
     fFeeMinimized(true),
-    platformStyle(_platformStyle)
+    platformStyle(_platformStyle),
+    dataSize(0)
 {
     ui->setupUi(this);
 
@@ -340,22 +341,42 @@ void DataPage::setModel(WalletModel *model)
     // Coin Control
     connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &DataPage::coinControlUpdateLabels);
     connect(walletModel->getOptionsModel(), &OptionsModel::coinControlFeaturesChanged, this, &DataPage::coinControlFeatureChanged);
-    //connect(ui->addBetButton, SIGNAL(clicked()), this, SLOT(coinControlUpdateLabels()));
-    connect(ui->fileStoreEdit, SIGNAL(textChanged(const QString&)), this, SLOT(fileStoreEditTextChanged(const QString&)));
+    connect(ui->messageStoreEdit, SIGNAL(textChanged()), this, SLOT(storeMessageEditTextChanged()));
+    connect(ui->fileStoreEdit, SIGNAL(textChanged(const QString&)), this, SLOT(storeFileEditTextChanged(const QString&)));
     ui->frameCoinControl->setVisible(walletModel->getOptionsModel()->getCoinControlFeatures());
     coinControlUpdateLabels();
 }
 
-void DataPage::fileStoreEditTextChanged(const QString&)
+void DataPage::showEvent(QShowEvent * event)
 {
-    std::cout<<"fileStoreEditTextChanged"<<std::endl;
+    updateDataSize();
+}
+
+void DataPage::updateDataSize()
+{
     try
     {
         std::vector<unsigned char> data = getData();
-        std::cout<<"data size: "<<data.size()<<std::endl;
+        dataSize = data.size();
+        ui->dataSizeLabel->setText(QString::number(dataSize));
     }
     catch(...)
-    {}
+    {
+        ui->dataSizeLabel->setText(QString("0"));
+        dataSize = 0;
+    }
+    
+    coinControlUpdateLabels();
+}
+
+void DataPage::storeMessageEditTextChanged()
+{
+    updateDataSize();
+}
+
+void DataPage::storeFileEditTextChanged(const QString&)
+{
+    updateDataSize();
 }
 
 // Coin Control: copy label "Quantity" to clipboard
@@ -502,25 +523,13 @@ void DataPage::coinControlUpdateLabels()
     CoinControlDialog::fSubtractFeeFromAmount = false;
 
     CAmount camount = 0;
-    /*for(int i=0;i<ui->betListWidget->count();++i)
-    {
-        QString betTypePattern=ui->betListWidget->item(i)->text();
-        int idx = betTypePattern.indexOf("@");
-        QString amountStr = betTypePattern.right(betTypePattern.length()-idx-1);
-        bool ok(false);
-        double amount = amountStr.toDouble(&ok);
-        if(ok)
-        {
-            camount += static_cast<CAmount>(amount*COIN);
-        }
-    }*/
     CoinControlDialog::payAmounts.append(camount);
     //CoinControlDialog::fSubtractFeeFromAmount = true;
 
     if (CoinControlDialog::coinControl()->HasSelected())
     {
         // actual coin control calculation
-        CoinControlDialog::updateLabels(walletModel, static_cast<QDialog*>(ui->widgetCoinControl));//<-----
+        CoinControlDialog::updateLabels(walletModel, static_cast<QDialog*>(ui->widgetCoinControl), dataSize);//<-----
 
         // show coin control stats
         ui->labelCoinControlAutomaticallySelected->hide();
@@ -717,6 +726,8 @@ void DataPage::storeMessageRadioClicked()
     ui->fileStoreLabel->setVisible(false);
 
     ui->messageStoreEdit->setVisible(true);
+    
+    updateDataSize();
 }
 
 void DataPage::storeFileRadioClicked()
@@ -726,6 +737,8 @@ void DataPage::storeFileRadioClicked()
     ui->fileStoreLabel->setVisible(true);
 
     ui->messageStoreEdit->setVisible(false);
+    
+    updateDataSize();
 }
 
 void DataPage::storeFileHashRadioClicked()
@@ -735,6 +748,8 @@ void DataPage::storeFileHashRadioClicked()
     ui->fileStoreLabel->setVisible(true);
 
     ui->messageStoreEdit->setVisible(false);
+    
+    updateDataSize();
 }
 
 void DataPage::unlockWallet()

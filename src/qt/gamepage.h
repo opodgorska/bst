@@ -56,6 +56,9 @@ private:
     std::string makeBetPattern();
     void updateBetNumberLimit();
 
+protected:
+    virtual void showEvent(QShowEvent * event);
+
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);
 

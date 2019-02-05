@@ -341,6 +341,11 @@ void GamePage::setModel(WalletModel *model)
     coinControlUpdateLabels();
 }
 
+void GamePage::showEvent(QShowEvent * event)
+{
+    coinControlUpdateLabels();
+}
+
 // Coin Control: copy label "Quantity" to clipboard
 void GamePage::coinControlClipboardQuantity()
 {
