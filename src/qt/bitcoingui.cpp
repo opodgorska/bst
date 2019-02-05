@@ -96,7 +96,7 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     QApplication::setWindowIcon(networkStyle->getTrayAndWindowIcon());
     setWindowIcon(networkStyle->getTrayAndWindowIcon());
 #else
-    MacDockIconHandler::instance()->setIcon(networkStyle->getAppIcon());
+    MacDockIconHandler::instance()->setIcon(networkStyle->getTrayAndWindowIcon());
 #endif
     setWindowTitle(windowTitle);
 
