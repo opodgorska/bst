@@ -10,7 +10,9 @@
 #include <QButtonGroup>
 #include <QIntValidator>
 
+#include <qt/addresstablemodel.h>
 #include <qt/bitcoinunits.h>
+#include <qt/coincontroldialog.h>
 #include <qt/clientmodel.h>
 #include <qt/gamepage.h>
 #include <qt/forms/ui_gamepage.h>
@@ -21,6 +23,7 @@
 #include <qt/storetxdialog.h>
 
 #include <consensus/validation.h>
+#include <key_io.h>
 #include <wallet/coincontrol.h>
 #include <validation.h>
 #include <wallet/wallet.h>
@@ -61,15 +64,46 @@ static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 
 extern int getConfTargetForIndex(int index);
 extern int getIndexForConfTarget(int target);
 
-GamePage::GamePage(const PlatformStyle *platformStyle, QWidget *parent) :
+GamePage::GamePage(const PlatformStyle *_platformStyle, QWidget *parent) :
     QWidget(parent),
     ui(new Ui::GamePage),
     walletModel(0),
     clientModel(0),
     changeAddress(""),
-    fFeeMinimized(true)
+    fFeeMinimized(true),
+    platformStyle(_platformStyle)
 {
     ui->setupUi(this);
+
+    GUIUtil::setupAddressWidget(ui->lineEditCoinControlChange, this);
+
+    // Coin Control
+    connect(ui->pushButtonCoinControl, &QPushButton::clicked, this, &GamePage::coinControlButtonClicked);
+    connect(ui->checkBoxCoinControlChange, &QCheckBox::stateChanged, this, &GamePage::coinControlChangeChecked);
+    connect(ui->lineEditCoinControlChange, &QValidatedLineEdit::textEdited, this, &GamePage::coinControlChangeEdited);
+
+    // Coin Control: clipboard actions
+    QAction *clipboardQuantityAction = new QAction(tr("Copy quantity"), this);
+    QAction *clipboardAmountAction = new QAction(tr("Copy amount"), this);
+    QAction *clipboardFeeAction = new QAction(tr("Copy fee"), this);
+    QAction *clipboardAfterFeeAction = new QAction(tr("Copy after fee"), this);
+    QAction *clipboardBytesAction = new QAction(tr("Copy bytes"), this);
+    QAction *clipboardLowOutputAction = new QAction(tr("Copy dust"), this);
+    QAction *clipboardChangeAction = new QAction(tr("Copy change"), this);
+    connect(clipboardQuantityAction, &QAction::triggered, this, &GamePage::coinControlClipboardQuantity);
+    connect(clipboardAmountAction, &QAction::triggered, this, &GamePage::coinControlClipboardAmount);
+    connect(clipboardFeeAction, &QAction::triggered, this, &GamePage::coinControlClipboardFee);
+    connect(clipboardAfterFeeAction, &QAction::triggered, this, &GamePage::coinControlClipboardAfterFee);
+    connect(clipboardBytesAction, &QAction::triggered, this, &GamePage::coinControlClipboardBytes);
+    connect(clipboardLowOutputAction, &QAction::triggered, this, &GamePage::coinControlClipboardLowOutput);
+    connect(clipboardChangeAction, &QAction::triggered, this, &GamePage::coinControlClipboardChange);
+    ui->labelCoinControlQuantity->addAction(clipboardQuantityAction);
+    ui->labelCoinControlAmount->addAction(clipboardAmountAction);
+    ui->labelCoinControlFee->addAction(clipboardFeeAction);
+    ui->labelCoinControlAfterFee->addAction(clipboardAfterFeeAction);
+    ui->labelCoinControlBytes->addAction(clipboardBytesAction);
+    ui->labelCoinControlLowOutput->addAction(clipboardLowOutputAction);
+    ui->labelCoinControlChange->addAction(clipboardChangeAction);
 
     // init transaction fee section
     QSettings settings;
@@ -297,6 +331,196 @@ void GamePage::setModel(WalletModel *model)
     connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
     updateBetNumberLimit();
+    
+    // Coin Control
+    connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &GamePage::coinControlUpdateLabels);
+    connect(walletModel->getOptionsModel(), &OptionsModel::coinControlFeaturesChanged, this, &GamePage::coinControlFeatureChanged);
+    connect(ui->addBetButton, SIGNAL(clicked()), this, SLOT(coinControlUpdateLabels()));
+    connect(ui->deleteBetButton, SIGNAL(clicked()), this, SLOT(coinControlUpdateLabels()));
+    ui->frameCoinControl->setVisible(walletModel->getOptionsModel()->getCoinControlFeatures());
+    coinControlUpdateLabels();
+}
+
+void GamePage::showEvent(QShowEvent * event)
+{
+    coinControlUpdateLabels();
+}
+
+// Coin Control: copy label "Quantity" to clipboard
+void GamePage::coinControlClipboardQuantity()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlQuantity->text());
+}
+
+// Coin Control: copy label "Amount" to clipboard
+void GamePage::coinControlClipboardAmount()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlAmount->text().left(ui->labelCoinControlAmount->text().indexOf(" ")));
+}
+
+// Coin Control: copy label "Fee" to clipboard
+void GamePage::coinControlClipboardFee()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlFee->text().left(ui->labelCoinControlFee->text().indexOf(" ")).replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: copy label "After fee" to clipboard
+void GamePage::coinControlClipboardAfterFee()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlAfterFee->text().left(ui->labelCoinControlAfterFee->text().indexOf(" ")).replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: copy label "Bytes" to clipboard
+void GamePage::coinControlClipboardBytes()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlBytes->text().replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: copy label "Dust" to clipboard
+void GamePage::coinControlClipboardLowOutput()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlLowOutput->text());
+}
+
+// Coin Control: copy label "Change" to clipboard
+void GamePage::coinControlClipboardChange()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlChange->text().left(ui->labelCoinControlChange->text().indexOf(" ")).replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: settings menu - coin control enabled/disabled by user
+void GamePage::coinControlFeatureChanged(bool checked)
+{
+    ui->frameCoinControl->setVisible(checked);
+
+    if (!checked && walletModel) // coin control features disabled
+        CoinControlDialog::coinControl()->SetNull();
+
+    coinControlUpdateLabels();
+}
+
+// Coin Control: button inputs -> show actual coin control dialog
+void GamePage::coinControlButtonClicked()
+{
+    CoinControlDialog dlg(platformStyle);
+    dlg.setModel(walletModel);
+    dlg.exec();
+    coinControlUpdateLabels();
+}
+
+// Coin Control: checkbox custom change address
+void GamePage::coinControlChangeChecked(int state)
+{
+    if (state == Qt::Unchecked)
+    {
+        CoinControlDialog::coinControl()->destChange = CNoDestination();
+        ui->labelCoinControlChangeLabel->clear();
+    }
+    else
+        // use this to re-validate an already entered address
+        coinControlChangeEdited(ui->lineEditCoinControlChange->text());
+
+    ui->lineEditCoinControlChange->setEnabled((state == Qt::Checked));
+}
+
+// Coin Control: custom change address changed
+void GamePage::coinControlChangeEdited(const QString& text)
+{
+    if (walletModel && walletModel->getAddressTableModel())
+    {
+        // Default to no change address until verified
+        CoinControlDialog::coinControl()->destChange = CNoDestination();
+        ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:red;}");
+
+        const CTxDestination dest = DecodeDestination(text.toStdString());
+
+        if (text.isEmpty()) // Nothing entered
+        {
+            ui->labelCoinControlChangeLabel->setText("");
+        }
+        else if (!IsValidDestination(dest)) // Invalid address
+        {
+            ui->labelCoinControlChangeLabel->setText(tr("Warning: Invalid BST address"));
+        }
+        else // Valid address
+        {
+            if (!walletModel->wallet().isSpendable(dest)) {
+                ui->labelCoinControlChangeLabel->setText(tr("Warning: Unknown change address"));
+
+                // confirmation dialog
+                QMessageBox::StandardButton btnRetVal = QMessageBox::question(this, tr("Confirm custom change address"), tr("The address you selected for change is not part of this wallet. Any or all funds in your wallet may be sent to this address. Are you sure?"),
+                    QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+
+                if(btnRetVal == QMessageBox::Yes)
+                    CoinControlDialog::coinControl()->destChange = dest;
+                else
+                {
+                    ui->lineEditCoinControlChange->setText("");
+                    ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:black;}");
+                    ui->labelCoinControlChangeLabel->setText("");
+                }
+            }
+            else // Known change address
+            {
+                ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:black;}");
+
+                // Query label
+                QString associatedLabel = walletModel->getAddressTableModel()->labelForAddress(text);
+                if (!associatedLabel.isEmpty())
+                    ui->labelCoinControlChangeLabel->setText(associatedLabel);
+                else
+                    ui->labelCoinControlChangeLabel->setText(tr("(no label)"));
+
+                CoinControlDialog::coinControl()->destChange = dest;
+            }
+        }
+    }
+}
+
+// Coin Control: update labels
+void GamePage::coinControlUpdateLabels()
+{
+    if (!walletModel || !walletModel->getOptionsModel())
+        return;
+
+    updateCoinControlState(*CoinControlDialog::coinControl());
+
+    // set pay amounts
+    CoinControlDialog::payAmounts.clear();
+    CoinControlDialog::fSubtractFeeFromAmount = false;
+
+    CAmount camount = 0;
+    for(int i=0;i<ui->betListWidget->count();++i)
+    {
+        QString betTypePattern=ui->betListWidget->item(i)->text();
+        int idx = betTypePattern.indexOf("@");
+        QString amountStr = betTypePattern.right(betTypePattern.length()-idx-1);
+        bool ok(false);
+        double amount = amountStr.toDouble(&ok);
+        if(ok)
+        {
+            camount += static_cast<CAmount>(amount*COIN);
+        }
+    }
+    CoinControlDialog::payAmounts.append(camount);
+    //CoinControlDialog::fSubtractFeeFromAmount = true;
+
+    if (CoinControlDialog::coinControl()->HasSelected())
+    {
+        // actual coin control calculation
+        CoinControlDialog::updateLabels(walletModel, ui->widgetCoinControl, false, 0);
+
+        // show coin control stats
+        ui->labelCoinControlAutomaticallySelected->hide();
+        ui->widgetCoinControl->show();
+    }
+    else
+    {
+        // hide coin control stats
+        ui->labelCoinControlAutomaticallySelected->show();
+        ui->widgetCoinControl->hide();
+        ui->labelCoinControlInsuffFunds->hide();
+    }
 }
 
 void GamePage::clearGameTypeBox()
@@ -552,8 +776,15 @@ void GamePage::makeBet()
                     }
                 }
 
+                // Always use a CCoinControl instance, use the CoinControlDialog instance if CoinControl has been enabled
                 CCoinControl coin_control;
+                if (walletModel->getOptionsModel()->getCoinControlFeatures())
+                {
+                    coin_control = *CoinControlDialog::coinControl();
+                }
                 updateCoinControlState(coin_control);
+                coinControlUpdateLabels();
+
                 const CRecipient recipient = createMakeBetDestination(betSum, msg);
 
                 LOCK2(cs_main, pwallet->cs_wallet);

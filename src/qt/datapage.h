@@ -51,6 +51,8 @@ private:
     QString fileToStoreName;
     QString fileToCheckName;
     QButtonGroup *groupFee;
+    const PlatformStyle *platformStyle;
+    size_t dataSize;
 
     void displayInBlocks(QPlainTextEdit* textEdit, const QString& inStr, int blockSize);
     void unlockWallet();
@@ -60,6 +62,10 @@ private:
     void minimizeFeeSection(bool fMinimize);
     void updateFeeMinimizedLabel();
     void updateCoinControlState(CCoinControl& ctrl);
+    void updateDataSize();
+
+protected:
+    virtual void showEvent(QShowEvent * event);
 
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);
@@ -80,6 +86,8 @@ private Q_SLOTS:
     void checkFileRadioClicked();
     void checkFileHashRadioClicked();
     void fileCheckClicked();
+    void storeFileEditTextChanged(const QString&);
+    void storeMessageEditTextChanged();
     
     void on_buttonChooseFee_clicked();
     void on_buttonMinimizeFee_clicked();
@@ -88,6 +96,18 @@ private Q_SLOTS:
     void updateMinFeeLabel();
     void updateSmartFeeLabel();
     void updateDisplayUnit();
+    void coinControlFeatureChanged(bool);
+    void coinControlButtonClicked();
+    void coinControlChangeChecked(int);
+    void coinControlChangeEdited(const QString &);
+    void coinControlUpdateLabels();
+    void coinControlClipboardQuantity();
+    void coinControlClipboardAmount();
+    void coinControlClipboardFee();
+    void coinControlClipboardAfterFee();
+    void coinControlClipboardBytes();
+    void coinControlClipboardLowOutput();
+    void coinControlClipboardChange();
     
 private:
     class FileWriter

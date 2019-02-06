@@ -9,8 +9,11 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+
+#include <qt/addresstablemodel.h>
 #include <qt/bitcoinunits.h>
 #include <qt/clientmodel.h>
+#include <qt/coincontroldialog.h>
 #include <qt/datapage.h>
 #include <qt/forms/ui_datapage.h>
 #include <qt/guiutil.h>
@@ -21,6 +24,7 @@
 #include <qt/storetxdialog.h>
 
 #include <chainparams.h>
+#include <key_io.h>
 #include <wallet/coincontrol.h>
 #include <validation.h>
 #ifdef ENABLE_WALLET
@@ -43,16 +47,48 @@ static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 
 extern int getConfTargetForIndex(int index);
 extern int getIndexForConfTarget(int target);
 
-DataPage::DataPage(const PlatformStyle *platformStyle, QWidget *parent) :
+DataPage::DataPage(const PlatformStyle *_platformStyle, QWidget *parent) :
     QWidget(parent),
     ui(new Ui::DataPage),
     walletModel(0),
     blockSizeDisplay(64),
     changeAddress(""),
-    fFeeMinimized(true)
+    fFeeMinimized(true),
+    platformStyle(_platformStyle),
+    dataSize(0)
 {
     ui->setupUi(this);
-    
+
+    GUIUtil::setupAddressWidget(ui->lineEditCoinControlChange, this);
+
+    // Coin Control
+    connect(ui->pushButtonCoinControl, &QPushButton::clicked, this, &DataPage::coinControlButtonClicked);
+    connect(ui->checkBoxCoinControlChange, &QCheckBox::stateChanged, this, &DataPage::coinControlChangeChecked);
+    connect(ui->lineEditCoinControlChange, &QValidatedLineEdit::textEdited, this, &DataPage::coinControlChangeEdited);
+
+    // Coin Control: clipboard actions
+    QAction *clipboardQuantityAction = new QAction(tr("Copy quantity"), this);
+    QAction *clipboardAmountAction = new QAction(tr("Copy amount"), this);
+    QAction *clipboardFeeAction = new QAction(tr("Copy fee"), this);
+    QAction *clipboardAfterFeeAction = new QAction(tr("Copy after fee"), this);
+    QAction *clipboardBytesAction = new QAction(tr("Copy bytes"), this);
+    QAction *clipboardLowOutputAction = new QAction(tr("Copy dust"), this);
+    QAction *clipboardChangeAction = new QAction(tr("Copy change"), this);
+    connect(clipboardQuantityAction, &QAction::triggered, this, &DataPage::coinControlClipboardQuantity);
+    connect(clipboardAmountAction, &QAction::triggered, this, &DataPage::coinControlClipboardAmount);
+    connect(clipboardFeeAction, &QAction::triggered, this, &DataPage::coinControlClipboardFee);
+    connect(clipboardAfterFeeAction, &QAction::triggered, this, &DataPage::coinControlClipboardAfterFee);
+    connect(clipboardBytesAction, &QAction::triggered, this, &DataPage::coinControlClipboardBytes);
+    connect(clipboardLowOutputAction, &QAction::triggered, this, &DataPage::coinControlClipboardLowOutput);
+    connect(clipboardChangeAction, &QAction::triggered, this, &DataPage::coinControlClipboardChange);
+    ui->labelCoinControlQuantity->addAction(clipboardQuantityAction);
+    ui->labelCoinControlAmount->addAction(clipboardAmountAction);
+    ui->labelCoinControlFee->addAction(clipboardFeeAction);
+    ui->labelCoinControlAfterFee->addAction(clipboardAfterFeeAction);
+    ui->labelCoinControlBytes->addAction(clipboardBytesAction);
+    ui->labelCoinControlLowOutput->addAction(clipboardLowOutputAction);
+    ui->labelCoinControlChange->addAction(clipboardChangeAction);
+
     // init transaction fee section
     QSettings settings;
     if (!settings.contains("fFeeSectionMinimized"))
@@ -301,6 +337,211 @@ void DataPage::setModel(WalletModel *model)
         ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(model->wallet().getConfirmTarget()));
     else
         ui->confTargetSelector->setCurrentIndex(getIndexForConfTarget(settings.value("nConfTarget").toInt()));
+
+    // Coin Control
+    connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &DataPage::coinControlUpdateLabels);
+    connect(walletModel->getOptionsModel(), &OptionsModel::coinControlFeaturesChanged, this, &DataPage::coinControlFeatureChanged);
+    connect(ui->messageStoreEdit, SIGNAL(textChanged()), this, SLOT(storeMessageEditTextChanged()));
+    connect(ui->fileStoreEdit, SIGNAL(textChanged(const QString&)), this, SLOT(storeFileEditTextChanged(const QString&)));
+    ui->frameCoinControl->setVisible(walletModel->getOptionsModel()->getCoinControlFeatures());
+    coinControlUpdateLabels();
+}
+
+void DataPage::showEvent(QShowEvent * event)
+{
+    updateDataSize();
+}
+
+void DataPage::updateDataSize()
+{
+    try
+    {
+        std::vector<unsigned char> data = getData();
+        dataSize = data.size();
+        ui->dataSizeLabel->setText(QString::number(dataSize));
+    }
+    catch(...)
+    {
+        ui->dataSizeLabel->setText(QString("0"));
+        dataSize = 0;
+    }
+    
+    coinControlUpdateLabels();
+}
+
+void DataPage::storeMessageEditTextChanged()
+{
+    updateDataSize();
+}
+
+void DataPage::storeFileEditTextChanged(const QString&)
+{
+    updateDataSize();
+}
+
+// Coin Control: copy label "Quantity" to clipboard
+void DataPage::coinControlClipboardQuantity()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlQuantity->text());
+}
+
+// Coin Control: copy label "Amount" to clipboard
+void DataPage::coinControlClipboardAmount()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlAmount->text().left(ui->labelCoinControlAmount->text().indexOf(" ")));
+}
+
+// Coin Control: copy label "Fee" to clipboard
+void DataPage::coinControlClipboardFee()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlFee->text().left(ui->labelCoinControlFee->text().indexOf(" ")).replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: copy label "After fee" to clipboard
+void DataPage::coinControlClipboardAfterFee()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlAfterFee->text().left(ui->labelCoinControlAfterFee->text().indexOf(" ")).replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: copy label "Bytes" to clipboard
+void DataPage::coinControlClipboardBytes()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlBytes->text().replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: copy label "Dust" to clipboard
+void DataPage::coinControlClipboardLowOutput()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlLowOutput->text());
+}
+
+// Coin Control: copy label "Change" to clipboard
+void DataPage::coinControlClipboardChange()
+{
+    GUIUtil::setClipboard(ui->labelCoinControlChange->text().left(ui->labelCoinControlChange->text().indexOf(" ")).replace(ASYMP_UTF8, ""));
+}
+
+// Coin Control: settings menu - coin control enabled/disabled by user
+void DataPage::coinControlFeatureChanged(bool checked)
+{
+    ui->frameCoinControl->setVisible(checked);
+
+    if (!checked && walletModel) // coin control features disabled
+        CoinControlDialog::coinControl()->SetNull();
+
+    coinControlUpdateLabels();
+}
+
+// Coin Control: button inputs -> show actual coin control dialog
+void DataPage::coinControlButtonClicked()
+{
+    CoinControlDialog dlg(platformStyle);
+    dlg.setModel(walletModel);
+    dlg.exec();
+    coinControlUpdateLabels();
+}
+
+// Coin Control: checkbox custom change address
+void DataPage::coinControlChangeChecked(int state)
+{
+    if (state == Qt::Unchecked)
+    {
+        CoinControlDialog::coinControl()->destChange = CNoDestination();
+        ui->labelCoinControlChangeLabel->clear();
+    }
+    else
+        // use this to re-validate an already entered address
+        coinControlChangeEdited(ui->lineEditCoinControlChange->text());
+
+    ui->lineEditCoinControlChange->setEnabled((state == Qt::Checked));
+}
+
+// Coin Control: custom change address changed
+void DataPage::coinControlChangeEdited(const QString& text)
+{
+    if (walletModel && walletModel->getAddressTableModel())
+    {
+        // Default to no change address until verified
+        CoinControlDialog::coinControl()->destChange = CNoDestination();
+        ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:red;}");
+
+        const CTxDestination dest = DecodeDestination(text.toStdString());
+
+        if (text.isEmpty()) // Nothing entered
+        {
+            ui->labelCoinControlChangeLabel->setText("");
+        }
+        else if (!IsValidDestination(dest)) // Invalid address
+        {
+            ui->labelCoinControlChangeLabel->setText(tr("Warning: Invalid BST address"));
+        }
+        else // Valid address
+        {
+            if (!walletModel->wallet().isSpendable(dest)) {
+                ui->labelCoinControlChangeLabel->setText(tr("Warning: Unknown change address"));
+
+                // confirmation dialog
+                QMessageBox::StandardButton btnRetVal = QMessageBox::question(this, tr("Confirm custom change address"), tr("The address you selected for change is not part of this wallet. Any or all funds in your wallet may be sent to this address. Are you sure?"),
+                    QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+
+                if(btnRetVal == QMessageBox::Yes)
+                    CoinControlDialog::coinControl()->destChange = dest;
+                else
+                {
+                    ui->lineEditCoinControlChange->setText("");
+                    ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:black;}");
+                    ui->labelCoinControlChangeLabel->setText("");
+                }
+            }
+            else // Known change address
+            {
+                ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:black;}");
+
+                // Query label
+                QString associatedLabel = walletModel->getAddressTableModel()->labelForAddress(text);
+                if (!associatedLabel.isEmpty())
+                    ui->labelCoinControlChangeLabel->setText(associatedLabel);
+                else
+                    ui->labelCoinControlChangeLabel->setText(tr("(no label)"));
+
+                CoinControlDialog::coinControl()->destChange = dest;
+            }
+        }
+    }
+}
+
+// Coin Control: update labels
+void DataPage::coinControlUpdateLabels()
+{
+    if (!walletModel || !walletModel->getOptionsModel())
+        return;
+
+    updateCoinControlState(*CoinControlDialog::coinControl());
+
+    // set pay amounts
+    CoinControlDialog::payAmounts.clear();
+    CoinControlDialog::fSubtractFeeFromAmount = false;
+
+    CAmount camount = 0;
+    CoinControlDialog::payAmounts.append(camount);
+    //CoinControlDialog::fSubtractFeeFromAmount = true;
+
+    if (CoinControlDialog::coinControl()->HasSelected())
+    {
+        // actual coin control calculation
+        CoinControlDialog::updateLabels(walletModel, ui->widgetCoinControl, false, dataSize);
+
+        // show coin control stats
+        ui->labelCoinControlAutomaticallySelected->hide();
+        ui->widgetCoinControl->show();
+    }
+    else
+    {
+        // hide coin control stats
+        ui->labelCoinControlAutomaticallySelected->show();
+        ui->widgetCoinControl->hide();
+        ui->labelCoinControlInsuffFunds->hide();
+    }
 }
 
 void DataPage::fileRetrieveClicked()
@@ -485,6 +726,8 @@ void DataPage::storeMessageRadioClicked()
     ui->fileStoreLabel->setVisible(false);
 
     ui->messageStoreEdit->setVisible(true);
+    
+    updateDataSize();
 }
 
 void DataPage::storeFileRadioClicked()
@@ -494,6 +737,8 @@ void DataPage::storeFileRadioClicked()
     ui->fileStoreLabel->setVisible(true);
 
     ui->messageStoreEdit->setVisible(false);
+    
+    updateDataSize();
 }
 
 void DataPage::storeFileHashRadioClicked()
@@ -503,6 +748,8 @@ void DataPage::storeFileHashRadioClicked()
     ui->fileStoreLabel->setVisible(true);
 
     ui->messageStoreEdit->setVisible(false);
+    
+    updateDataSize();
 }
 
 void DataPage::unlockWallet()
@@ -551,8 +798,14 @@ void DataPage::store()
 
                 unlockWallet();
 
+                // Always use a CCoinControl instance, use the CoinControlDialog instance if CoinControl has been enabled
                 CCoinControl coin_control;
+                if (walletModel->getOptionsModel()->getCoinControlFeatures())
+                {
+                    coin_control = *CoinControlDialog::coinControl();
+                }
                 updateCoinControlState(coin_control);
+                coinControlUpdateLabels();
 
                 if(!pwallet->CreateTransaction(vecSend, nullptr, tx, reservekey, nFeeRequired, nChangePosInOut, strFailReason, coin_control))
                 {
