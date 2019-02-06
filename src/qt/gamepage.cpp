@@ -331,6 +331,7 @@ void GamePage::setModel(WalletModel *model)
     connect(ui->makeBetButton, SIGNAL(clicked()), this, SLOT(makeBet()));
     ui->maxRewardValLabel->setText(BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), 0));
     updateBetNumberLimit();
+    updateBetList();
     
     // Coin Control
     connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &GamePage::coinControlUpdateLabels);
@@ -550,6 +551,7 @@ void GamePage::updateBetType()
         ui->betNumberSpinBox->setEnabled(true);
     }
     updateBetNumberLimit();
+    updateBetList();
 }
 
 void GamePage::updateGameType()
@@ -569,6 +571,56 @@ void GamePage::updateGameType()
     }
     updateRewardView();
     updateBetNumberLimit();
+    updateBetList();
+}
+
+void GamePage::updateBetDefinition(const int* definition, int rowsNum, int colsNum)
+{
+    ui->betListComboBox->clear();
+    for(int i=0;i<rowsNum;++i)
+    {
+        QString rowDef("{");
+        for(int j=0;j<colsNum-1;++j)
+        {
+            rowDef+=QString::number(*(definition+j+(i*colsNum)));
+            rowDef+=QString(", ");
+        }
+        int j=colsNum-1;
+        rowDef+=QString::number(*(definition+j+(i*colsNum)));
+        rowDef+=QString("}");
+        ui->betListComboBox->addItem(rowDef);
+    }
+}
+
+void GamePage::updateBetList()
+{
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        if(ui->betTypeComboBox->currentText()==QString("Split"))
+        {
+            updateBetDefinition(&split[0][0], splitBetsNum, 2);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Street"))
+        {
+            updateBetDefinition(&street[0][0], streetBetsNum, 3);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Corner"))
+        {
+            updateBetDefinition(&corner[0][0], cornerBetsNum, 4);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Line"))
+        {
+            updateBetDefinition(&line[0][0], lineBetsNum, 6);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Column"))
+        {
+            updateBetDefinition(&column[0][0], columnBetsNum, 12);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Dozen"))
+        {
+            updateBetDefinition(&dozen[0][0], dozenBetsNum, 12);
+        }
+    }    
 }
 
 void GamePage::updateBetNumberLimit()
@@ -641,10 +693,15 @@ void GamePage::addBet()
     if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
     {
         betString+=ui->betTypeComboBox->currentText().toLower();
-        if(ui->betTypeComboBox->currentIndex() < 7)
+        if(ui->betTypeComboBox->currentIndex() > 0 && ui->betTypeComboBox->currentIndex() < 7)//split, street, corner, column, line, dozen
         {
             betString+=QString("_");
-            betString+=QString::number(ui->betNumberSpinBox->value());
+            betString+=QString::number(ui->betListComboBox->currentIndex()+1);
+        }
+        else if(ui->betTypeComboBox->currentIndex() == 0)//straight
+        {
+            betString+=QString("_");
+            betString+=QString::number(ui->betNumberSpinBox->value());            
         }
         betString+=QString("@");
         betString+=QString::number(amount, 'f', 8);

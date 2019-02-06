@@ -596,7 +596,7 @@
          <widget class="QComboBox" name="gameTypeComboBox">
           <property name="minimumSize">
            <size>
-            <width>185</width>
+            <width>330</width>
             <height>0</height>
            </size>
           </property>
@@ -630,7 +630,7 @@
          <widget class="QSpinBox" name="rewardRatioSpinBox">
           <property name="minimumSize">
            <size>
-            <width>185</width>
+            <width>330</width>
             <height>0</height>
            </size>
           </property>
@@ -664,7 +664,7 @@
          <widget class="QComboBox" name="betTypeComboBox">
           <property name="minimumSize">
            <size>
-            <width>188</width>
+            <width>330</width>
             <height>0</height>
            </size>
           </property>
@@ -698,7 +698,7 @@
          <widget class="QSpinBox" name="betNumberSpinBox">
           <property name="minimumSize">
            <size>
-            <width>188</width>
+            <width>330</width>
             <height>0</height>
            </size>
           </property>
@@ -720,6 +720,40 @@
        </layout>
       </item>
       <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QLabel" name="betNumbersListLabel">
+          <property name="text">
+           <string>Bet list:             </string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="betListComboBox">
+          <property name="minimumSize">
+           <size>
+            <width>330</width>
+            <height>0</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_4">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QLabel" name="amountLabel">
@@ -732,7 +766,7 @@
          <widget class="QDoubleSpinBox" name="amountSpinBox">
           <property name="minimumSize">
            <size>
-            <width>188</width>
+            <width>330</width>
             <height>0</height>
            </size>
           </property>

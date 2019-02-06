@@ -55,6 +55,8 @@ private:
     void clearGameTypeBox();
     std::string makeBetPattern();
     void updateBetNumberLimit();
+    void updateBetDefinition(const int* definition, int rowsNum, int colsNum);
+    void updateBetList();
 
 protected:
     virtual void showEvent(QShowEvent * event);
