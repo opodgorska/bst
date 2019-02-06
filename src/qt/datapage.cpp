@@ -529,7 +529,7 @@ void DataPage::coinControlUpdateLabels()
     if (CoinControlDialog::coinControl()->HasSelected())
     {
         // actual coin control calculation
-        CoinControlDialog::updateLabels(walletModel, static_cast<QDialog*>(ui->widgetCoinControl), dataSize);//<-----
+        CoinControlDialog::updateLabels(walletModel, ui->widgetCoinControl, false, dataSize);
 
         // show coin control stats
         ui->labelCoinControlAutomaticallySelected->hide();

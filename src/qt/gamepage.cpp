@@ -508,7 +508,7 @@ void GamePage::coinControlUpdateLabels()
     if (CoinControlDialog::coinControl()->HasSelected())
     {
         // actual coin control calculation
-        CoinControlDialog::updateLabels(walletModel, static_cast<QDialog*>(ui->widgetCoinControl));//<-----
+        CoinControlDialog::updateLabels(walletModel, ui->widgetCoinControl, false, 0);
 
         // show coin control stats
         ui->labelCoinControlAutomaticallySelected->hide();

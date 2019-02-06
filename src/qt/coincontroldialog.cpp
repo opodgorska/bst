@@ -404,7 +404,7 @@ void CoinControlDialog::updateLabelLocked()
     else ui->labelLocked->setVisible(false);
 }
 
-void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog, size_t dataSize)
+void CoinControlDialog::updateLabels(WalletModel *model, QWidget* dialog, bool fFinancial, size_t dataSize)
 {
     if (!model)
         return;
@@ -501,27 +501,30 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog, size_t
         // Fee
         nPayFee = model->wallet().getMinimumFee(nBytes+dataSize, *coinControl(), nullptr /* returned_target */, nullptr /* reason */);
 
-        if (nPayAmount > 0)
+        if (nPayAmount >= 0)
         {
-            nChange = nAmount - nPayAmount;
-            if (!CoinControlDialog::fSubtractFeeFromAmount)
-                nChange -= nPayFee;
-
-            // Never create dust outputs; if we would, just add the dust to the fee.
-            if (nChange > 0 && nChange < MIN_CHANGE)
+            if(!fFinancial || nPayAmount) //the two if chacks are equivalent to if(nPayAmount > 0) for financial and if(nPayAmount >= 0) for nonfinancial
             {
-                CTxOut txout(nChange, static_cast<CScript>(std::vector<unsigned char>(24, 0)));
-                if (IsDust(txout, model->node().getDustRelayFee()))
-                {
-                    nPayFee += nChange;
-                    nChange = 0;
-                    if (CoinControlDialog::fSubtractFeeFromAmount)
-                        nBytes -= 34; // we didn't detect lack of change above
-                }
-            }
+                nChange = nAmount - nPayAmount;
+                if (!CoinControlDialog::fSubtractFeeFromAmount)
+                    nChange -= nPayFee;
 
-            if (nChange == 0 && !CoinControlDialog::fSubtractFeeFromAmount)
-                nBytes -= 34;
+                // Never create dust outputs; if we would, just add the dust to the fee.
+                if (nChange > 0 && nChange < MIN_CHANGE)
+                {
+                    CTxOut txout(nChange, static_cast<CScript>(std::vector<unsigned char>(24, 0)));
+                    if (IsDust(txout, model->node().getDustRelayFee()))
+                    {
+                        nPayFee += nChange;
+                        nChange = 0;
+                        if (CoinControlDialog::fSubtractFeeFromAmount)
+                            nBytes -= 34; // we didn't detect lack of change above
+                    }
+                }
+
+                if (nChange == 0 && !CoinControlDialog::fSubtractFeeFromAmount)
+                    nBytes -= 34;
+            }
         }
 
         // after fee
@@ -544,8 +547,22 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog, size_t
     // enable/disable "dust" and "change"
     dialog->findChild<QLabel *>("labelCoinControlLowOutputText")->setEnabled(nPayAmount > 0);
     dialog->findChild<QLabel *>("labelCoinControlLowOutput")    ->setEnabled(nPayAmount > 0);
-    dialog->findChild<QLabel *>("labelCoinControlChangeText")   ->setEnabled(nPayAmount > 0);
-    dialog->findChild<QLabel *>("labelCoinControlChange")       ->setEnabled(nPayAmount > 0);
+    
+    if(fFinancial)
+    {
+        dialog->findChild<QLabel *>("labelCoinControlChangeText")   ->setEnabled(nPayAmount > 0);
+        dialog->findChild<QLabel *>("labelCoinControlChange")       ->setEnabled(nPayAmount > 0);
+        dialog->findChild<QLabel *>("labelCoinControlAfterFeeText") ->setEnabled(true);
+        dialog->findChild<QLabel *>("labelCoinControlAfterFee")     ->setEnabled(true);
+    }
+    else
+    {
+        dialog->findChild<QLabel *>("labelCoinControlChangeText")   ->setEnabled(true);
+        dialog->findChild<QLabel *>("labelCoinControlChange")       ->setEnabled(true);
+        dialog->findChild<QLabel *>("labelCoinControlAfterFeeText") ->setEnabled(false);
+        dialog->findChild<QLabel *>("labelCoinControlAfterFee")     ->setEnabled(false);
+        nAfterFee = 0;
+    }
 
     // stats
     l1->setText(QString::number(nQuantity));                                 // Quantity

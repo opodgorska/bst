@@ -211,6 +211,11 @@ SendCoinsDialog::~SendCoinsDialog()
     delete ui;
 }
 
+void SendCoinsDialog::showEvent(QShowEvent * event)
+{
+    coinControlUpdateLabels();
+}
+
 void SendCoinsDialog::on_sendButton_clicked()
 {
     if(!model || !model->getOptionsModel())
