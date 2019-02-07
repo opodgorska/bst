@@ -324,6 +324,8 @@ void GamePage::setModel(WalletModel *model)
 
     connect(ui->gameTypeComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateGameType()));
     connect(ui->betTypeComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateBetType()));
+    connect(ui->betNumberSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateBetListSlot()));
+    connect(ui->betListComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(updateBetNumberSlot()));    
     connect(ui->rewardRatioSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateRewardView()));
     connect(ui->betListWidget, SIGNAL(itemSelectionChanged()), this, SLOT(updateRewardView()));
     connect(ui->addBetButton, SIGNAL(clicked()), this, SLOT(addBet()));
@@ -533,25 +535,98 @@ void GamePage::clearGameTypeBox()
     }
 }
 
+void GamePage::initBetList(int val)
+{
+    ui->betListComboBox->clear();
+    QString rowDef("{");
+    rowDef+=QString::number(val);
+    rowDef+=QString("}");
+    ui->betListComboBox->addItem(rowDef);
+}
+
+void GamePage::updateBetListSlot()
+{
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        ui->betListComboBox->setCurrentIndex(ui->betNumberSpinBox->value()-1);
+    }
+    else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
+    {
+        initBetList(ui->betNumberSpinBox->value());
+    }
+}
+
+void GamePage::updateBetNumberSlot()
+{
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        ui->betNumberSpinBox->setValue(ui->betListComboBox->currentIndex()+1);
+    }
+}
+
 void GamePage::updateBetType()
 {
     if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
     {
+        if(ui->betTypeComboBox->currentIndex() < 7)
+        {
+            ui->betNumberSpinBox->setEnabled(true);
+            ui->betListComboBox->setEnabled(true);
+        }
         if(ui->betTypeComboBox->currentIndex() >= 7)
         {
             ui->betNumberSpinBox->setEnabled(false);
+            ui->betListComboBox->setEnabled(false);
         }
-        else
-        {
-            ui->betNumberSpinBox->setEnabled(true);
-        }
+        updateBetList();
+        ui->rewardRatioSpinBox->setValue(getRouletteRewardRatio());
     }
     else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
     {
         ui->betNumberSpinBox->setEnabled(true);
+        ui->betListComboBox->setEnabled(false);
     }
     updateBetNumberLimit();
-    updateBetList();
+}
+
+int GamePage::getRouletteRewardRatio()
+{
+    int ratio=0;
+    if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
+    {
+        if(ui->betTypeComboBox->currentText()==QString("Straight"))
+        {
+            ratio=36;
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Split"))
+        {
+            ratio=18;
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Street"))
+        {
+            ratio=12;
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Corner"))
+        {
+            ratio=9;
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Line"))
+        {
+            ratio=6;
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Column") || ui->betTypeComboBox->currentText()==QString("Dozen"))
+        {
+            ratio=3;
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("High") || ui->betTypeComboBox->currentText()==QString("Low") ||
+                ui->betTypeComboBox->currentText()==QString("Even") || ui->betTypeComboBox->currentText()==QString("Odd") ||
+                ui->betTypeComboBox->currentText()==QString("Red") || ui->betTypeComboBox->currentText()==QString("Black"))
+        {
+            ratio=2;
+        }
+    }
+    
+    return ratio;
 }
 
 void GamePage::updateGameType()
@@ -559,18 +634,23 @@ void GamePage::updateGameType()
     clearGameTypeBox();
     if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
     {
-        ui->rewardRatioSpinBox->setValue(36);
+        ui->rewardRatioSpinBox->setValue(getRouletteRewardRatio());
         ui->rewardRatioSpinBox->setEnabled(false);
         ui->betTypeComboBox->setEnabled(true);
+        ui->betListComboBox->setEnabled(true);
     }
     else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
     {
         ui->rewardRatioSpinBox->setEnabled(true);
         ui->betTypeComboBox->setCurrentIndex(0);
         ui->betTypeComboBox->setEnabled(false);
+        ui->betListComboBox->setEnabled(false);
+        
+        ui->betNumberSpinBox->setValue(1);
+        initBetList(ui->betNumberSpinBox->value());
     }
-    updateRewardView();
     updateBetNumberLimit();
+    updateRewardView();
     updateBetList();
 }
 
@@ -592,11 +672,27 @@ void GamePage::updateBetDefinition(const int* definition, int rowsNum, int colsN
     }
 }
 
+void GamePage::updateBetDefinition(int rowsNum)
+{
+    ui->betListComboBox->clear();
+    for(int i=0;i<rowsNum;++i)
+    {
+        QString rowDef("{");
+        rowDef+=QString::number(i+1);
+        rowDef+=QString("}");
+        ui->betListComboBox->addItem(rowDef);
+    }
+}
+
 void GamePage::updateBetList()
 {
     if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
     {
-        if(ui->betTypeComboBox->currentText()==QString("Split"))
+        if(ui->betTypeComboBox->currentText()==QString("Straight"))
+        {
+            updateBetDefinition(36);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Split"))
         {
             updateBetDefinition(&split[0][0], splitBetsNum, 2);
         }
@@ -620,7 +716,35 @@ void GamePage::updateBetList()
         {
             updateBetDefinition(&dozen[0][0], dozenBetsNum, 12);
         }
-    }    
+        else if(ui->betTypeComboBox->currentText()==QString("Even"))
+        {
+            updateBetDefinition(&even[0], 1, 18);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Odd"))
+        {
+            updateBetDefinition(&odd[0], 1, 18);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Low"))
+        {
+            updateBetDefinition(&low[0], 1, 18);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("High"))
+        {
+            updateBetDefinition(&high[0], 1, 18);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Red"))
+        {
+            updateBetDefinition(&red[0], 1, 18);
+        }
+        else if(ui->betTypeComboBox->currentText()==QString("Black"))
+        {
+            updateBetDefinition(&black[0], 1, 18);
+        }
+    }
+    else if(ui->gameTypeComboBox->currentIndex() == 1)//roulette
+    {
+        updateBetDefinition(1);
+    }
 }
 
 void GamePage::updateBetNumberLimit()
@@ -629,7 +753,7 @@ void GamePage::updateBetNumberLimit()
     {
         if(ui->betTypeComboBox->currentText()==QString("Straight"))
         {
-            ui->betNumberSpinBox->setMaximum(ui->rewardRatioSpinBox->value());
+            ui->betNumberSpinBox->setMaximum(36);
         }
         else if(ui->betTypeComboBox->currentText()==QString("Split"))
         {
@@ -655,6 +779,12 @@ void GamePage::updateBetNumberLimit()
         {
             ui->betNumberSpinBox->setMaximum(dozenBetsNum);
         }
+        else if(ui->betTypeComboBox->currentText()==QString("Even") || ui->betTypeComboBox->currentText()==QString("Odd") ||
+                ui->betTypeComboBox->currentText()==QString("Low") || ui->betTypeComboBox->currentText()==QString("High") ||
+                ui->betTypeComboBox->currentText()==QString("Red") || ui->betTypeComboBox->currentText()==QString("Black"))
+        {
+            ui->betNumberSpinBox->setMaximum(1);
+        }
     }
     else if(ui->gameTypeComboBox->currentIndex() == 1)//lottery
     {
@@ -673,7 +803,8 @@ void GamePage::deleteBet()
 
 void GamePage::addBet()
 {
-    if(ui->betNumberSpinBox->value() > ui->rewardRatioSpinBox->value())
+    if((ui->gameTypeComboBox->currentIndex() == 1) && //lottery
+       (ui->betNumberSpinBox->value() > ui->rewardRatioSpinBox->value()))
     {
         QMessageBox msgBox;
         msgBox.setText("Bet number is greater than reward ratio");
@@ -814,6 +945,7 @@ void GamePage::makeBet()
                 if(ui->gameTypeComboBox->currentIndex() == 0)//roulette
                 {
                     isRoulette=true;
+                    range=36;
                 }
                 parseBetType(betTypePattern, range, betAmounts, betTypes, isRoulette);
                 const CAmount betSum = betAmountsSum(betAmounts);

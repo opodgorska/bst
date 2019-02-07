@@ -56,7 +56,10 @@ private:
     std::string makeBetPattern();
     void updateBetNumberLimit();
     void updateBetDefinition(const int* definition, int rowsNum, int colsNum);
+    void updateBetDefinition(int rowsNum);
     void updateBetList();
+    int getRouletteRewardRatio();
+    void initBetList(int val);
 
 protected:
     virtual void showEvent(QShowEvent * event);
@@ -73,6 +76,8 @@ private Q_SLOTS:
     void deleteBet();
     
     void updateRewardView();
+    void updateBetListSlot();
+    void updateBetNumberSlot();
 
     void on_buttonChooseFee_clicked();
     void on_buttonMinimizeFee_clicked();
