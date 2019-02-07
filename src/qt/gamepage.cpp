@@ -20,7 +20,7 @@
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
 #include <qt/askpassphrasedialog.h>
-#include <qt/storetxdialog.h>
+#include <qt/gametxdialog.h>
 
 #include <consensus/validation.h>
 #include <key_io.h>
@@ -1008,8 +1008,16 @@ void GamePage::makeBet()
                 {
                     throw std::runtime_error(std::string("CommitTransaction failed with reason: ")+FormatStateMessage(state));
                 }
-
-                std::string txid=tx->GetHash().GetHex();
+                
+                QString qtxid=QString::fromStdString(tx->GetHash().GetHex());
+                QString qgameType=ui->gameTypeComboBox->currentText();
+                QString qrewardRatio=QString::number(ui->rewardRatioSpinBox->value());
+                QString qbetTypePattern=QString::fromStdString(makeBetPattern());
+                
+                GameTxDialog *dlg = new GameTxDialog(qtxid, qgameType, qrewardRatio, qbetTypePattern, static_cast<double>(nFeeRequired)/COIN, walletModel->getOptionsModel()->getDisplayUnit());
+                dlg->setAttribute(Qt::WA_DeleteOnClose);
+                dlg->show();
+                clearGameTypeBox();
             }
             else
             {
