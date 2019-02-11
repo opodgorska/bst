@@ -630,6 +630,10 @@ void DataPage::retrieve()
         }
         FileWriter fileWriter(ui->fileRetrieveEdit->text());
         fileWriter.write(dataArray);
+        
+        QMessageBox msgBox;
+        msgBox.setText(QString::number(dataArray.size())+" bytes retrieved");
+        msgBox.exec();
     }
     catch(std::exception const& e)
     {
