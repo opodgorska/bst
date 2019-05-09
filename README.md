@@ -7,25 +7,6 @@ BlockStamp (BST) is a new digital currency intended to store user's data in bloc
 
 There are three areas where BlockStamp is going to be applied, which are gambling, document timestamping, domain naming. 
 
-## Gambling
-The whole concept was to enable gambling in a completely new form, where there is no casino side, no house edge, and all the transactions can be verified by the players. 
-There were many attempts in order to create such a platform, however most of them failed during implementation, while some are still suffering from long implementation processes. The majority of those were ICOs, which after the initial fundraising, failed to produce the actual product. We took a completely different approach and decided to build our own currency as part of the project instead of raising funds for building the casino. 
-
-Our goal was to build the whole new platform which would be able to host players and to provide gambling base with 0% edges and minimal fees at the same time providing transparency of all the transactions happening in the casino. Hence, we decided to develop a new currency which blockchain would be used for the fairness purposes. 
-
-BlockStamp blockchain levels all issues with provably fairness, transparency, or any kind of tampering with the game results. It also enables 1mln jackpot and fast and efficient transactions. 
-
-Current cryptocurrency casino market is still in its infancy, while its older brother does not provide any good example. The most common issues are:
--Lack of transparency of transactions
--High probability of tampering with game results (centralised infrastructure with no access from the outside of the casino)
--High fees related with betting and winning
--Extended withdrawal times and high withdrawal fees. 
--Progressive jackpot 
--No possibility to host one’s own game
--Overall casinos’ profit orientation
-
-BlockStamp gamin gets rid of all that. A comprehensive comparison of online gambling solutions can be found on our website.
-
 ## Timestamping of documents
 Sensitivity of banking transactions requires a very solid, hacking-proof, and secure system to store the data. BlockStamp blockchain is designed for this very purpose and can offer tamper-proof tramstamping of banking transactions. This can include but is not limited to:
 -Money transfers
@@ -43,6 +24,24 @@ The concept is based on the fact that more and more domains are being watched an
 Future applications
 Given that BlockStamp can be perceived as a solid timestamping device, its applications can only be limited by its users’ imagination and requirements, but not by its functionality. A set of flexible procedures will be issued which will make purpose oriented timestamping possible. This document will be updated accordingly. 
 
+## Gaming
+The whole concept was to enable gaming in a completely new form, where there is no casino side, no house edge, and all the transactions can be verified by the players. 
+There were many attempts in order to create such a platform, however most of them failed during implementation, while some are still suffering from long implementation processes. The majority of those were ICOs, which after the initial fundraising, failed to produce the actual product. We took a completely different approach and decided to build our own currency as part of the project instead of raising funds for building the casino. 
+
+Our goal was to build the whole new platform which would be able to host players and to provide gaming base with 0% edges and minimal fees at the same time providing transparency of all the transactions happening in the casino. Hence, we decided to develop a new currency which blockchain would be used for the fairness purposes. 
+
+BlockStamp blockchain levels all issues with provably fairness, transparency, or any kind of tampering with the game results. It also enables 1mln jackpot and fast and efficient transactions. 
+
+Current cryptocurrency casino market is still in its infancy, while its older brother does not provide any good example. The most common issues are:
+-Lack of transparency of transactions
+-High probability of tampering with game results (centralised infrastructure with no access from the outside of the casino)
+-High fees related with betting and winning
+-Extended withdrawal times and high withdrawal fees. 
+-Progressive jackpot 
+-No possibility to host one’s own game
+-Overall casinos’ profit orientation
+
+BlockStamp gaming gets rid of all that. A comprehensive comparison of online gaming solutions can be found on our website.
 
 ## Current project's status
 
